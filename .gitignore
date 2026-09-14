@@ -1,0 +1,89 @@
+# Build directories
+build/
+build_*/
+bin/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+Makefile
+
+# Compiled binaries and libraries
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# RP2040 firmware artifacts
+*.uf2
+*.hex
+*.bin
+*.elf
+
+# Specific project build targets (if built outside build/)
+test_key_detector
+test_key_mapper
+test_tff_app
+test_rp2040_platform
+test_config_manager
+test_tff_mappings
+test_upboard_setup
+test_tff_demo
+tff_test
+tff_rp2040
+yaml_to_json_converter
+libtff_core.a
+liblinux_platform.a
+librp2040_platform.a
+
+# Go dependencies and module cache
+go/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+*.~*
+.viminfo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Auto-generated configuration (converted from YAML)
+config/tff-combos.json
+
+# Redundant nested duplicate directory
+/tff2/
+

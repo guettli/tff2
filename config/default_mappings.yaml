@@ -1,0 +1,63 @@
+# Default key mappings for TFF-like keyboard remapping
+
+settings:
+  overlap_threshold_ms: 100
+
+mappings:
+  # Basic navigation combinations
+  - name: "move_right"
+    combo: ["f", "j"]
+    output: "right"
+
+  - name: "move_left"
+    combo: ["j", "f"]
+    output: "left"
+
+  - name: "move_up"
+    combo: ["f", "k"]
+    output: "up"
+
+  - name: "move_down"
+    combo: ["k", "f"]
+    output: "down"
+
+  # Number shortcuts
+  - name: "number_one"
+    combo: ["f", "j"]
+    output: "1"
+
+  - name: "number_two"
+    combo: ["j", "f"]
+    output: "2"
+
+  - name: "number_three"
+    combo: ["f", "space"]
+    output: "3"
+
+layers:
+  - name: "main"
+    active: true
+    mappings:
+      # Save document
+      - combo: ["f", "space"]
+        output: ["ctrl", "s"]
+
+      # Undo action
+      - combo: ["j", "space"]
+        output: ["ctrl", "z"]
+
+      # Redo action
+      - combo: ["space", "f"]
+        output: ["ctrl", "y"]
+
+  - name: "symbols"
+    active: false
+    mappings:
+      - combo: ["f", "j"]
+        output: "!"
+
+      - combo: ["j", "f"]
+        output: "@"
+
+      - combo: ["f", "space"]
+        output: "#"

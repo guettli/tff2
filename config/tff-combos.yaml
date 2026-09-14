@@ -1,0 +1,66 @@
+# Ten Flying Fingers (TFF) is a keyboard layout.
+# It is optimized for keeping your fingers on the home row.
+# https://github.com/guettli/tff
+
+combos:
+  # When I select parts with the trackpoint, the right index moves from J
+  # to the trackpoint. The middle and ring finger loose their home position, too.
+  # The right pinky is the only finger which stays on the home row.
+  # "semicolon" (ö on German keyboards) is below the right pinky finger.
+
+  # Backspace:
+  # I use that key often, because I do typos often. I want a "strong" finger for that.
+  # Not the pinky finger. It should be similar to "Pos1"
+  - keys: j f
+    outKeys: backspace
+
+  # Delete:
+  # Like backspace, but in the other direction.
+  - keys: f j
+    outKeys: delete
+
+
+  # Home (pos1, start of line)
+  # "a" is on the left side, that's where Home should move to.
+  - keys: semicolon a
+    outKeys: home
+
+  # End (end of line)
+  # semicolon is at the right side.
+  - keys: a semicolon
+    outKeys: end
+
+  # Down:
+  # Selecting items from an autocomplete list (e.g. in a browser address bar).
+  - keys: f n
+    outKeys: down
+
+  - keys: f u
+    outKeys: up
+
+  - keys: f m
+    outKeys: down
+
+  - keys: f k
+    outKeys: left
+
+  - keys: f l
+    outKeys: right
+
+  - keys: f i
+    outKeys: pageup
+
+  - keys: f comma
+    outKeys: pagedown
+
+  - keys: g h
+    outKeys: esc
+
+  # todo: tripple combos do not work yet.
+  - keys: d f j
+    outKeys: esc
+
+# TODO: I am not sure yet how to trigger ESC, TAB, ENTER.
+# Later it would be nice to have shortcuts for ctrl-a, ctrl-x, ctrl-c, ctrl-v. So that my fingers
+# can stay on the home row.
+# A numeric "layer" would be nice. I could use a "d f" on the right hand, and type numbers with the left hand....
