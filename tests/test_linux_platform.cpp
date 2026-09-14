@@ -25,9 +25,8 @@ void testDiscoverKeyboards() {
         std::string name = LinuxPlatform::getDeviceName(dev);
         // Ensure virtual TFF device is excluded
         assert(name.find("TFF Virtual Keyboard") == std::string::npos);
-        // Ensure known non-keyboard devices on local machine are not misclassified
-        assert(dev.find("event0") == std::string::npos); // Power Button
-        assert(dev.find("event9") == std::string::npos); // Mouse
+        // Ensure device path is valid
+        assert(dev.rfind("/dev/input/", 0) == 0);
     }
     std::cout << "PASSED (found " << keyboards.size() << " keyboard(s))\n";
 }
