@@ -22,6 +22,14 @@ public:
     LinuxPlatform();
     ~LinuxPlatform();
 
+    LinuxPlatform(const LinuxPlatform&) = delete;
+    LinuxPlatform& operator=(const LinuxPlatform&) = delete;
+
+    /**
+     * @brief Configure whether input keyboard devices should be exclusively grabbed
+     */
+    void setGrab(bool grab) { grabbed_ = grab; }
+
     /**
      * @brief Initialize platform (creates virtual uinput keyboard)
      */
@@ -152,7 +160,6 @@ private:
 
     int uinput_fd_;
     int evdev_fd_;
-    std::vector<int> input_fds_;
     std::vector<DeviceInfo> devices_;
     bool grabbed_;
     bool initialized_;

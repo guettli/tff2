@@ -179,6 +179,7 @@ int main(int argc, char* argv[]) {
     const auto& combos = platform.getEngine().getCombos();
     std::cout << "Loaded " << combos.size() << " combo mapping(s)\n";
 
+    platform.setGrab(grab);
     platform.enableHotplug(hotplug);
 
     if (device_paths.empty()) {

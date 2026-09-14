@@ -170,9 +170,15 @@ void testHotplugConfiguration() {
     // In environments with /dev/input permissions, ok is true; otherwise false
     if (ok) {
         assert(platform.isHotplugEnabled());
-        platform.enableHotplug(false);
+        bool disabled = platform.enableHotplug(false);
+        assert(disabled);
         assert(!platform.isHotplugEnabled());
     }
+
+    platform.setGrab(true);
+    assert(platform.isGrabbed());
+    platform.setGrab(false);
+    assert(!platform.isGrabbed());
 
     platform.cleanup();
     assert(!platform.isHotplugEnabled());

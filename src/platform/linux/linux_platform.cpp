@@ -143,7 +143,7 @@ bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
 }
 
 bool LinuxPlatform::isKeyboardDevice(const std::string& dev_path, std::string* out_name) {
-    int fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK);
+    int fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
         return false;
     }
@@ -220,7 +220,7 @@ std::vector<std::string> LinuxPlatform::discoverKeyboards() {
 }
 
 std::string LinuxPlatform::getDeviceName(const std::string& dev_path) {
-    int fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK);
+    int fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) return "";
     char name[256] = {0};
     ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name);
@@ -289,7 +289,7 @@ bool LinuxPlatform::attachInputDevice(const std::string& device_path, bool grab)
         return true;
     }
 
-    int fd = open(device_path.c_str(), O_RDONLY | O_NONBLOCK);
+    int fd = open(device_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
         if (verbose_) {
             std::cerr << "Failed to open input device " << device_path << ": " << strerror(errno) << "\n";
@@ -308,7 +308,6 @@ bool LinuxPlatform::attachInputDevice(const std::string& device_path, bool grab)
     std::string name_str(name);
 
     devices_.push_back({fd, device_path, name_str});
-    input_fds_.push_back(fd);
     evdev_fd_ = devices_[0].fd;
     grabbed_ = grab;
 
@@ -336,11 +335,6 @@ bool LinuxPlatform::detachInputDevice(int fd) {
     close(fd);
 
     devices_.erase(it);
-
-    auto fd_it = std::find(input_fds_.begin(), input_fds_.end(), fd);
-    if (fd_it != input_fds_.end()) {
-        input_fds_.erase(fd_it);
-    }
     evdev_fd_ = devices_.empty() ? -1 : devices_[0].fd;
 
     std::cout << "[TFF Hotplug] Detached keyboard: " << path;
@@ -362,9 +356,8 @@ bool LinuxPlatform::openInputDevices(const std::vector<std::string>& device_path
         }
     }
     devices_.clear();
-    input_fds_.clear();
     evdev_fd_ = -1;
-    grabbed_ = false;
+    grabbed_ = grab;
 
     for (const auto& path : device_paths) {
         attachInputDevice(path, grab);
@@ -382,7 +375,7 @@ bool LinuxPlatform::enableHotplug(bool enable) {
     } else {
         teardownInotify();
     }
-    return hotplug_enabled_;
+    return hotplug_enabled_ == enable;
 }
 
 void LinuxPlatform::setupInotify() {
@@ -440,16 +433,22 @@ void LinuxPlatform::processHotplugEvents() {
                 if (entry_name.rfind("event", 0) == 0) {
                     std::string dev_path = "/dev/input/" + entry_name;
                     if (!isDeviceAttached(dev_path)) {
-                        std::string kbd_name;
-                        bool is_kbd = false;
-                        for (int attempt = 0; attempt < 3; ++attempt) {
-                            if (isKeyboardDevice(dev_path, &kbd_name)) {
-                                is_kbd = true;
-                                break;
+                        // If device node not yet accessible (e.g. udev setting permissions),
+                        // retry up to 3 times only if open fails with EACCES or ENOENT.
+                        int test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                        if (test_fd < 0 && (errno == EACCES || errno == ENOENT)) {
+                            for (int attempt = 0; attempt < 3; ++attempt) {
+                                usleep(15000);
+                                test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                                if (test_fd >= 0) break;
                             }
-                            usleep(15000);
                         }
-                        if (is_kbd) {
+                        if (test_fd >= 0) {
+                            close(test_fd);
+                        }
+
+                        std::string kbd_name;
+                        if (isKeyboardDevice(dev_path, &kbd_name)) {
                             if (attachInputDevice(dev_path, grabbed_)) {
                                 std::cout << "[TFF Hotplug] Connected keyboard: " << dev_path;
                                 if (!kbd_name.empty()) {
@@ -480,11 +479,11 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop) {
             for (const auto& p : discovered) {
                 std::cout << "  " << p << "\n";
             }
-            openInputDevices(discovered, true);
+            openInputDevices(discovered, grabbed_);
         }
     }
 
-    if (!hotplug_enabled_ && inotify_fd_ < 0) {
+    if (hotplug_enabled_ && inotify_fd_ < 0) {
         setupInotify();
     }
 
@@ -544,66 +543,82 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop) {
             continue;
         }
 
+        // 1. First detach any keyboard devices that encountered disconnect or poll error
         std::vector<int> fds_to_detach;
         for (const auto& pfd : pfds) {
-            if (pfd.revents == 0) {
+            if (pfd.revents == 0 || pfd.fd == inotify_fd_) {
                 continue;
             }
-
-            if (pfd.fd == inotify_fd_) {
-                if (pfd.revents & POLLIN) {
-                    processHotplugEvents();
-                }
-                continue;
-            }
-
             if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 fds_to_detach.push_back(pfd.fd);
-                continue;
             }
+        }
+        for (int fd : fds_to_detach) {
+            detachInputDevice(fd);
+        }
 
-            if (pfd.revents & POLLIN) {
-                struct input_event ie;
-                while (true) {
-                    ssize_t bytes = read(pfd.fd, &ie, sizeof(ie));
-                    if (bytes < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            break;
-                        }
-                        if (errno == ENODEV) {
-                            fds_to_detach.push_back(pfd.fd);
-                            break;
-                        }
-                        std::cerr << "read error on fd " << pfd.fd << ": " << strerror(errno) << "\n";
-                        fds_to_detach.push_back(pfd.fd);
-                        break;
-                    }
-                    if (bytes == 0) {
-                        fds_to_detach.push_back(pfd.fd);
-                        break;
-                    }
-                    if (bytes == sizeof(ie)) {
-                        tff::Event ev;
-                        ev.time = tff::TimeVal{ie.time.tv_sec, ie.time.tv_usec};
-                        ev.type = ie.type;
-                        ev.code = ie.code;
-                        ev.value = ie.value;
-
-                        if (verbose_ && ev.type == EV_KEY) {
-                            std::cout << "[TFF In] " << tff::keyCodeToWord(ev.code)
-                                      << " (" << ev.code << ") "
-                                      << (ev.value == tff::KEY_VAL_DOWN ? "DOWN" :
-                                         (ev.value == tff::KEY_VAL_UP ? "UP" : "REPEAT")) << "\n";
-                        }
-
-                        engine_->processEvent(ev);
-                    }
+        // 2. Process inotify events (new devices attached after old fds detached)
+        for (const auto& pfd : pfds) {
+            if (pfd.fd == inotify_fd_) {
+                if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                    std::cerr << "Warning: inotify error on /dev/input; disabling hotplug.\n";
+                    teardownInotify();
+                } else if (pfd.revents & POLLIN) {
+                    processHotplugEvents();
                 }
+                break;
             }
         }
 
-        for (int fd : fds_to_detach) {
-            detachInputDevice(fd);
+        // 3. Process incoming key events on active devices
+        for (const auto& pfd : pfds) {
+            if (pfd.fd == inotify_fd_ || (pfd.revents & POLLIN) == 0) {
+                continue;
+            }
+            // Skip devices already marked for detachment
+            if (std::find(fds_to_detach.begin(), fds_to_detach.end(), pfd.fd) != fds_to_detach.end()) {
+                continue;
+            }
+
+            struct input_event ie;
+            while (true) {
+                ssize_t bytes = read(pfd.fd, &ie, sizeof(ie));
+                if (bytes < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        break;
+                    }
+                    if (errno == EINTR) {
+                        continue;
+                    }
+                    if (errno == ENODEV) {
+                        detachInputDevice(pfd.fd);
+                        break;
+                    }
+                    std::cerr << "read error on fd " << pfd.fd << ": " << strerror(errno) << "\n";
+                    detachInputDevice(pfd.fd);
+                    break;
+                }
+                if (bytes == 0) {
+                    detachInputDevice(pfd.fd);
+                    break;
+                }
+                if (bytes == sizeof(ie)) {
+                    tff::Event ev;
+                    ev.time = tff::TimeVal{ie.time.tv_sec, ie.time.tv_usec};
+                    ev.type = ie.type;
+                    ev.code = ie.code;
+                    ev.value = ie.value;
+
+                    if (verbose_ && ev.type == EV_KEY) {
+                        std::cout << "[TFF In] " << tff::keyCodeToWord(ev.code)
+                                  << " (" << ev.code << ") "
+                                  << (ev.value == tff::KEY_VAL_DOWN ? "DOWN" :
+                                     (ev.value == tff::KEY_VAL_UP ? "UP" : "REPEAT")) << "\n";
+                    }
+
+                    engine_->processEvent(ev);
+                }
+            }
         }
     }
 
@@ -660,7 +675,6 @@ void LinuxPlatform::cleanup() {
         }
     }
     devices_.clear();
-    input_fds_.clear();
     evdev_fd_ = -1;
     grabbed_ = false;
 
@@ -677,7 +691,7 @@ void LinuxPlatform::cleanup() {
 }
 
 int LinuxPlatform::createVirtualKeyboard(const std::string& device_name) {
-    int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
+    int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
         return -1;
     }
