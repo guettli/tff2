@@ -108,3 +108,56 @@ jobs:
       - name: Run Cppcheck static analysis
         run: cmake --build build-cppcheck --target cppcheck
 
+  rp2040-firmware:
+    name: RP2040 Firmware Cross-Compilation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ARM GCC toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+
+      - name: Checkout Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: 2.1.1
+          submodules: false
+          path: pico-sdk
+
+      - name: Initialize Pico SDK TinyUSB submodule
+        run: |
+          cd pico-sdk
+          git submodule update --init --depth 1 lib/tinyusb
+
+      - name: Configure CMake for RP2040
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          cmake -B build-rp2040 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_BUILD=ON \
+            -DPICO_BOARD=adafruit_feather_rp2040
+
+      - name: Build RP2040 Firmware
+        run: cmake --build build-rp2040 -j$(nproc)
+
+      - name: Verify firmware binaries
+        run: |
+          ls -la build-rp2040/tff_rp2040.uf2
+          ls -la build-rp2040/tff_rp2040.elf
+
+      - name: Upload RP2040 firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tff_rp2040_firmware
+          path: |
+            build-rp2040/tff_rp2040.uf2
+            build-rp2040/tff_rp2040.elf
+          if-no-files-found: error
+

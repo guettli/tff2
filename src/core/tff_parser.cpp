@@ -145,7 +145,12 @@ bool stateStringToEvents(const std::string& state_str, std::vector<Event>& event
                 return false;
             }
             char action = part.back();
-            int32_t val = (action == '_' ? KEY_VAL_DOWN : (action == '/' ? KEY_VAL_UP : -1));
+            int32_t val = -1;
+            if (action == '_') {
+                val = KEY_VAL_DOWN;
+            } else if (action == '/') {
+                val = KEY_VAL_UP;
+            }
             if (val == -1) {
                 err_msg = "invalid action in token: " + part;
                 return false;

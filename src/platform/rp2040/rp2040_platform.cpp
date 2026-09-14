@@ -121,7 +121,7 @@ void RP2040Platform::processHostKeyEvent(uint32_t keycode, bool pressed) {
     if (!output_keys.empty()) {
         printf("Sending mapped keys: ");
         for (auto key : output_keys) {
-            printf("%u ", key);
+            printf("%u ", (unsigned int)key);
         }
         printf("\n");
 

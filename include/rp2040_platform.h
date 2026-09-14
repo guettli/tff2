@@ -10,7 +10,6 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "tusb.h"
-#include <ArduinoJson.h>
 #endif
 
 /**
