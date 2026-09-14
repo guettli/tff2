@@ -71,6 +71,7 @@ bool TFFEngine::handleUpChar(const Event& ev) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
+    fake_active_timer_next_time_ = TimeVal::maxTime();
     eval(time, "timer");
 }
 

@@ -2,86 +2,113 @@
 #define LINUX_PLATFORM_H
 
 #include "key_events.h"
+#include "tff_engine.h"
+#include "tff_parser.h"
 #include <vector>
 #include <string>
 #include <memory>
+#include <atomic>
 
 /**
- * @brief Linux platform handler for testing RP2040 firmware
+ * @brief Full Linux platform implementation for Ten Flying Fingers (TFF)
  *
- * This class simulates the hardware setup where:
- * 1. UpBoard sends fake keyboard events to RP2040 USB-A host port (simulating physical keyboard)
- * 2. RP2040 processes key combinations and sends mapped output to UpBoard USB-C device port
+ * Provides real-time Linux keyboard remapping using:
+ * - evdev (/dev/input/event*) for reading hardware keyboard events
+ * - uinput (/dev/uinput) for emitting remapped virtual keyboard events
+ * - tff::TFFEngine for shared core combo matching and state machine logic
  */
 class LinuxPlatform {
 public:
-    /**
-     * @brief Constructor
-     */
     LinuxPlatform();
-
-    /**
-     * @brief Destructor
-     */
     ~LinuxPlatform();
 
     /**
-     * @brief Initialize the platform for testing
-     * @return true if successful
+     * @brief Initialize platform (creates virtual uinput keyboard)
      */
     bool initialize();
 
     /**
-     * @brief Send a key event to simulate keyboard input
-     * @param key_code The key code to send
-     * @param is_pressed true if key press, false if key release
-     * @return true if successful
+     * @brief Load combo configuration from YAML file
+     */
+    bool loadConfiguration(const std::string& config_file);
+
+    /**
+     * @brief Set combos directly
+     */
+    void setCombos(const std::vector<tff::Combo>& combos);
+
+    /**
+     * @brief Set verbose debug logging
+     */
+    void setVerbose(bool verbose);
+    bool isVerbose() const { return verbose_; }
+
+    /**
+     * @brief Automatically discover keyboard event devices on the system
+     */
+    static std::vector<std::string> discoverKeyboards();
+
+    /**
+     * @brief Open a specific input keyboard device
+     * @param device_path Path like /dev/input/event8
+     * @param grab Whether to exclusively grab the device (ioctl EVIOCGRAB)
+     */
+    bool openInputDevice(const std::string& device_path, bool grab = false);
+
+    /**
+     * @brief Open multiple keyboard devices
+     */
+    bool openInputDevices(const std::vector<std::string>& device_paths, bool grab = false);
+
+    /**
+     * @brief Run the real-time event loop until should_stop is set
+     */
+    void run(std::atomic<bool>& should_stop);
+
+    /**
+     * @brief Process a single event through the platform
+     */
+    bool processEvent(const tff::Event& ev);
+
+    /**
+     * @brief Send a key event (supports both simulated testing and real hardware)
      */
     bool sendKeyEvent(uint32_t key_code, bool is_pressed);
 
     /**
-     * @brief Receive mapped key events from RP2040
-     * @param key_codes Vector to store received key codes
-     * @return true if successful
+     * @brief Receive mapped key events (for test compatibility)
      */
     bool receiveMappedKeys(std::vector<uint32_t>& key_codes);
 
     /**
-     * @brief Cleanup platform resources
+     * @brief Access the shared core TFF engine
+     */
+    tff::TFFEngine& getEngine();
+
+    /**
+     * @brief Cleanup platform resources (closes uinput and evdev, releases grab)
      */
     void cleanup();
 
+    bool isInitialized() const { return initialized_; }
+    bool isGrabbed() const { return grabbed_; }
+    int getInputFd() const { return evdev_fd_; }
+    int getOutputFd() const { return uinput_fd_; }
+
 private:
-    // File descriptors for uinput and evdev simulation
     int uinput_fd_;
     int evdev_fd_;
-
-    // Internal state
+    std::vector<int> input_fds_;
+    bool grabbed_;
     bool initialized_;
+    bool verbose_;
 
-    // Simulated received keys
+    std::unique_ptr<tff::EventWriter> writer_;
+    std::unique_ptr<tff::TFFEngine> engine_;
+
     std::vector<uint32_t> received_keys_;
 
-    /**
-     * @brief Create a virtual input device for sending events
-     * @return file descriptor, or -1 on error
-     */
-    int createVirtualKeyboard();
-
-    /**
-     * @brief Create a virtual output device for receiving events
-     * @return file descriptor, or -1 on error
-     */
-    int createVirtualOutputDevice();
-
-    /**
-     * @brief Emit an input event
-     * @param fd File descriptor
-     * @param type Event type (EV_KEY, etc.)
-     * @param code Event code (key code, etc.)
-     * @param value Event value (1 for press, 0 for release)
-     * @return true if successful
-     */
+    int createVirtualKeyboard(const std::string& device_name = "TFF Virtual Keyboard");
     bool emitEvent(int fd, uint16_t type, uint16_t code, int32_t value);
 };
 

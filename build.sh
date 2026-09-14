@@ -24,6 +24,7 @@ echo "Running unit tests..."
 ./test_key_mapper
 ./test_tff_app
 ./test_tff_go_suite
+./test_linux_platform
 
 # Build test executable
 echo "Running demo application..."

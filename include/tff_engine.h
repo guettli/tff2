@@ -39,6 +39,14 @@ public:
     // Trigger timer event
     void onTimer(TimeVal time);
 
+    // Check if an active timer is pending and get its expiration time
+    bool hasActiveTimer() const {
+        return fake_active_timer_next_time_ < TimeVal::maxTime();
+    }
+    TimeVal getActiveTimerTime() const {
+        return fake_active_timer_next_time_;
+    }
+
     // Get string representation of buffer and state (matching Go state.String())
     std::string toString() const;
 

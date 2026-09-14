@@ -127,6 +127,20 @@ add_executable(test_tff_demo
 
 target_link_libraries(test_tff_demo tff_core linux_platform)
 
+# Create Linux TFF remapper daemon
+add_executable(tff_linux
+    src/platform/linux/main_linux.cpp
+)
+
+target_link_libraries(tff_linux tff_core linux_platform)
+
+# Create Linux platform unit/integration test
+add_executable(test_linux_platform
+    tests/test_linux_platform.cpp
+)
+
+target_link_libraries(test_linux_platform tff_core linux_platform)
+
 # Enable testing
 enable_testing()
 add_test(NAME test_key_detector COMMAND test_key_detector)
@@ -136,3 +150,4 @@ add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
 add_test(NAME test_config_manager COMMAND test_config_manager)
 add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
 add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
+add_test(NAME test_linux_platform COMMAND test_linux_platform)

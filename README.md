@@ -28,9 +28,21 @@ A cross-platform keyboard remapping solution that allows overlapping key combina
 ## Platforms
 
 ### Linux Version
-- **Input**: Uses evdev to read from system keyboards
-- **Output**: Uses uinput to present as virtual keyboard
-- **Development**: Native compilation and testing
+- **Input**: Reads physical keyboard events via evdev (`/dev/input/event*`) with optional exclusive grab (`ioctl(fd, EVIOCGRAB, 1)`)
+- **Output**: Emits remapped virtual keyboard events via uinput (`/dev/uinput`)
+- **Core**: 100% shared `tff::TFFEngine` matching the Go `tff` state machine and CircuitPython RP2040 firmware
+- **CLI Daemon**: `tff_linux` supports auto-discovery, custom YAML configs, multi-keyboard polling, and graceful signal handling
+
+```bash
+# List discovered keyboards
+./build/tff_linux --list
+
+# Run with custom combo configuration
+./build/tff_linux config/tff-combos.yaml
+
+# Run for specific device with verbose logs
+./build/tff_linux -c config/tff-combos.yaml -d /dev/input/event8 -v
+```
 
 ### RP2040 Version  
 - **Input**: USB host port reads from connected keyboard

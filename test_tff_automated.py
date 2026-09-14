@@ -217,7 +217,7 @@ def read_input_events(in_fd, timeout=0.6):
                 chunk = os.read(in_fd, 24)
                 if len(chunk) == 24:
                     sec, usec, ev_type, code, val = struct.unpack('qqHHi', chunk)
-                    if ev_type == EV_KEY:
+                    if ev_type == EV_KEY and val != 2:
                         events.append((code, val))
             except OSError:
                 break
@@ -282,7 +282,7 @@ def run_tests():
             report2 = bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0])
             os.write(out_fd, report2)
 
-            time.sleep(0.06)
+            time.sleep(0.08)
 
             # Send Release
             report_empty = bytearray(8)
@@ -316,7 +316,7 @@ def run_tests():
             time.sleep(test['delay_ms'] / 1000.0)
             # Send Key 1 + Key 2 + Key 3
             os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
-            time.sleep(0.06)
+            time.sleep(0.08)
             # Send Release
             os.write(out_fd, bytearray(8))
 
