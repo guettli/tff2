@@ -111,14 +111,12 @@ bool KeyMapper::processComboEntry(const std::string& keys_str, const std::string
     }
 
     // Add mapping for the first two keys (we don't support triple combos yet)
-    if (keys.size() >= 2) {
-        uint32_t first_key = parseKeyName(keys[0]);
-        uint32_t second_key = parseKeyName(keys[1]);
+    uint32_t first_key = parseKeyName(keys[0]);
+    uint32_t second_key = parseKeyName(keys[1]);
 
-        if (first_key != 0 && second_key != 0) {
-            addMapping(first_key, second_key, output_keys);
-            return true;
-        }
+    if (first_key != 0 && second_key != 0) {
+        addMapping(first_key, second_key, output_keys);
+        return true;
     }
 
     return false;

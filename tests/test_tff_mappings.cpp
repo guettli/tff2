@@ -38,41 +38,53 @@ int main() {
     // Test j f -> backspace
     uint32_t timestamp = 0;
     auto result1 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
+    assert(result1.empty());
     timestamp += 50; // Within 100ms threshold
     auto result2 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
 
     assert(result2.size() == 1);
     assert(result2[0] == KeyCodes::BACKSPACE);
+    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 10, false);
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 10, false);
     std::cout << "✓ j f combination -> backspace\n";
 
     // Test f j -> delete
-    timestamp = 0;
+    timestamp = 1000;
     auto result3 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
+    assert(result3.empty());
     timestamp += 50; // Within 100ms threshold
     auto result4 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
 
     assert(result4.size() == 1);
     assert(result4[0] == KeyCodes::DELETE);
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 10, false);
+    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 10, false);
     std::cout << "✓ f j combination -> delete\n";
 
     // Test semicolon a -> home
-    timestamp = 0;
+    timestamp = 2000;
     auto result5 = app.processKeyEvent(KeyCodes::SEMICOLON, timestamp, true);
+    assert(result5.empty());
     timestamp += 50; // Within 100ms threshold
     auto result6 = app.processKeyEvent(KeyCodes::A, timestamp, true);
 
     assert(result6.size() == 1);
     assert(result6[0] == KeyCodes::HOME);
+    app.processKeyEvent(KeyCodes::SEMICOLON, timestamp + 10, false);
+    app.processKeyEvent(KeyCodes::A, timestamp + 10, false);
     std::cout << "✓ semicolon a combination -> home\n";
 
     // Test a semicolon -> end
-    timestamp = 0;
+    timestamp = 3000;
     auto result7 = app.processKeyEvent(KeyCodes::A, timestamp, true);
+    assert(result7.empty());
     timestamp += 50; // Within 100ms threshold
     auto result8 = app.processKeyEvent(KeyCodes::SEMICOLON, timestamp, true);
 
     assert(result8.size() == 1);
     assert(result8[0] == KeyCodes::END);
+    app.processKeyEvent(KeyCodes::A, timestamp + 10, false);
+    app.processKeyEvent(KeyCodes::SEMICOLON, timestamp + 10, false);
     std::cout << "✓ a semicolon combination -> end\n";
 
     std::cout << "\nAll TFF mapping tests passed!\n";

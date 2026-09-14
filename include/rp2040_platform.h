@@ -76,6 +76,20 @@ private:
     bool keys_pressed_[256]; // Track currently pressed keys
 
     /**
+     * @brief Convert USB key code to internal key code
+     * @param usb_keycode USB key code
+     * @return internal key code
+     */
+    static uint32_t convertKeyCode(uint8_t usb_keycode);
+
+    /**
+     * @brief Convert internal key code to USB key code
+     * @param internal_keycode internal key code
+     * @return USB key code
+     */
+    static uint8_t convertToUsbKeyCode(uint32_t internal_keycode);
+
+    /**
      * @brief Initialize USB host functionality
      * @return true if successful
      */
@@ -102,20 +116,6 @@ private:
      * @return timestamp in milliseconds
      */
     uint32_t getCurrentTimestamp();
-
-    /**
-     * @brief Convert USB key code to internal key code
-     * @param usb_keycode USB key code
-     * @return internal key code
-     */
-    uint32_t convertKeyCode(uint8_t usb_keycode);
-
-    /**
-     * @brief Convert internal key code to USB key code
-     * @param internal_keycode internal key code
-     * @return USB key code
-     */
-    uint8_t convertToUsbKeyCode(uint32_t internal_keycode);
 
 #ifdef PICO_BUILD
     /**

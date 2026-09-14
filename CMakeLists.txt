@@ -182,3 +182,27 @@ foreach(target ${TEST_TARGETS})
         target_compile_options(${target} PRIVATE -UNDEBUG)
     endif()
 endforeach()
+
+# Static analysis with Cppcheck
+find_program(CPPCHECK_EXECUTABLE NAMES cppcheck PATHS "$ENV{HOME}/.local/bin" /usr/bin /usr/local/bin)
+if(CPPCHECK_EXECUTABLE)
+    add_custom_target(cppcheck
+        COMMAND ${CPPCHECK_EXECUTABLE}
+            --enable=warning,style,performance,portability
+            --inline-suppr
+            --suppress=missingIncludeSystem
+            --suppress=checkersReport
+            --suppress=unusedFunction
+            --suppress=useStlAlgorithm
+            --suppress=normalCheckLevelMaxBranches
+            --suppress=unusedPrivateFunction:*rp2040_platform.h
+            --error-exitcode=1
+            --std=c++17
+            -I ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Running Cppcheck static code analysis..."
+    )
+endif()

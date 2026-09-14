@@ -548,10 +548,8 @@ struct KeyTable {
         for (const auto& item : KEY_ITEMS) {
             name_to_code[item.name] = item.code;
             word_to_code[item.word] = item.code;
-            if (code_to_word.find(item.code) == code_to_word.end()) {
-                code_to_word[item.code] = item.word;
-                code_to_short[item.code] = item.short_name;
-            }
+            code_to_word.try_emplace(item.code, item.word);
+            code_to_short.try_emplace(item.code, item.short_name);
         }
     }
 };

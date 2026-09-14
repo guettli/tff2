@@ -94,6 +94,7 @@ bool convertTffYamlToJson(const std::string& yamlFile, const std::string& jsonFi
     return true;
 }
 
+// cppcheck-suppress constParameter
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         std::cerr << "Usage: " << argv[0] << " <input.yaml> <output.json>" << std::endl;

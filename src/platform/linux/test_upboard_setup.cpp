@@ -49,7 +49,7 @@ int main() {
 
     // Process the events through our application logic
     uint32_t timestamp = 0;
-    auto output1 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
     timestamp += 50;
     auto output2 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
 
@@ -85,7 +85,7 @@ int main() {
 
     // Process the events
     timestamp = 0;
-    auto output3 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
+    app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
     timestamp += 50;
     auto output4 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
 
@@ -121,7 +121,7 @@ int main() {
 
     // Process the events
     timestamp = 0;
-    auto output5 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
     timestamp += 150;
     auto output6 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
 
