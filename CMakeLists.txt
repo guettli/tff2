@@ -30,6 +30,15 @@ if(ENABLE_SANITIZERS)
     endif()
 endif()
 
+# Static runtime linking options (portable Linux binaries)
+option(TFF_STATIC_LIBSTDCXX "Link libgcc and libstdc++ statically for portable Linux binaries" OFF)
+if(TFF_STATIC_LIBSTDCXX AND NOT PICO_BUILD)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Enabling static linking for libgcc and libstdc++")
+        add_link_options(-static-libgcc -static-libstdc++)
+    endif()
+endif()
+
 # Include directories
 include_directories(include)
 
@@ -174,6 +183,18 @@ if(NOT PICO_BUILD)
         src/platform/linux/main_linux.cpp
     )
     target_link_libraries(tff_linux tff_core linux_platform)
+
+    # Symlink tff and tff2 to tff_linux in build directory for convenience
+    add_custom_command(TARGET tff_linux POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink tff_linux tff
+        COMMAND ${CMAKE_COMMAND} -E create_symlink tff_linux tff2
+        COMMENT "Creating tff and tff2 symlinks for tff_linux"
+    )
+
+    # Installation rules
+    install(TARGETS tff_linux RUNTIME DESTINATION bin)
+    install(FILES config/tff-combos.yaml DESTINATION share/tff)
+    install(FILES ten-flying-fingers.service.example DESTINATION share/tff)
 
     # Create Linux platform unit/integration test
     add_executable(test_linux_platform

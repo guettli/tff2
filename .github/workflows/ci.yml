@@ -58,6 +58,15 @@ jobs:
           tff validate /etc/tff/tff-combos.yaml
           systemd-analyze verify /etc/systemd/system/ten-flying-fingers.service || true
 
+      - name: Test release packaging & static linking
+        run: |
+          bash scripts/package_release.sh "ci-test" "build-static-test" "dist-test"
+          tar -tzvf dist-test/tff2_Linux_x86_64.tar.gz
+          ./dist-test/stage_linux_x86_64/tff --help
+          ./dist-test/stage_linux_x86_64/tff --list
+          ./dist-test/stage_linux_x86_64/tff2 --help
+          ./dist-test/stage_linux_x86_64/tff_linux --help
+
   sanitizers:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest

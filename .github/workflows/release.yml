@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.2.0)'
+        required: true
+        default: 'v0.2.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux Portable Binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "val=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "val=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build & package portable release assets
+        run: |
+          bash scripts/package_release.sh "${{ steps.tag.outputs.val }}" "build-release" "dist"
+
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-assets
+          path: |
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  build-rp2040:
+    name: Build RP2040 Firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Pico SDK
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: 2.1.1
+          path: pico-sdk
+          submodules: false
+
+      - name: Initialize TinyUSB submodule
+        run: |
+          cd pico-sdk
+          git submodule update --init --depth 1 lib/tinyusb
+
+      - name: Install ARM Cross-Compiler Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib
+
+      - name: Configure CMake for RP2040
+        run: |
+          cmake -B build-rp2040 \
+            -DPICO_BUILD=ON \
+            -DPICO_SDK_PATH=${{ github.workspace }}/pico-sdk \
+            -DPICO_BOARD=adafruit_feather_rp2040 \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build RP2040 Firmware
+        run: |
+          cmake --build build-rp2040 --target tff_rp2040 -j$(nproc)
+
+      - name: Upload RP2040 firmware asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: rp2040-assets
+          path: |
+            build-rp2040/tff_rp2040.uf2
+            build-rp2040/tff_rp2040.elf
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-linux, build-rp2040]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "val=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "val=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create release assets directory
+        run: mkdir -p release-assets
+
+      - name: Download Linux release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-assets
+          path: release-assets
+
+      - name: Download RP2040 firmware asset
+        uses: actions/download-artifact@v4
+        with:
+          name: rp2040-assets
+          path: release-assets
+
+      - name: Generate SHA256 Checksums
+        run: |
+          cd release-assets
+          rm -f SHA256SUMS.txt
+          sha256sum *.tar.gz *.uf2 *.elf > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create or Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.val }}
+        run: |
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists. Uploading assets..."
+            gh release upload "${TAG}" release-assets/* --clobber
+          else
+            echo "Creating new release ${TAG}..."
+            gh release create "${TAG}" release-assets/* \
+              --title "Release ${TAG}" \
+              --generate-notes
+          fi
