@@ -1,6 +1,8 @@
 #include "linux_platform.h"
 #include "tff_key_codes.h"
 #include <iostream>
+#include <fstream>
+#include <cstdio>
 #include <cassert>
 #include <chrono>
 #include <thread>
@@ -227,6 +229,115 @@ void testDeviceManagement() {
     std::cout << "PASSED\n";
 }
 
+void testConfigHotReloadValid() {
+    std::cout << "Test 8: Configuration hot-reloading with valid YAML... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    const std::string temp_yaml = "/tmp/tff_test_config_reload.yaml";
+    {
+        std::ofstream out(temp_yaml);
+        out << "combos:\n"
+            << "  - keys: f j\n"
+            << "    outKeys: 1\n";
+    }
+
+    bool loaded = platform.loadConfiguration(temp_yaml);
+    assert(loaded);
+    assert(platform.getConfigFilePath() == temp_yaml);
+    assert(platform.getComboCount() == 1);
+
+    // Update configuration with a second combo
+    {
+        std::ofstream out(temp_yaml);
+        out << "combos:\n"
+            << "  - keys: f j\n"
+            << "    outKeys: 1\n"
+            << "  - keys: j f\n"
+            << "    outKeys: 2\n";
+    }
+
+    // Hot-reload without restarting or dropping grabs
+    bool reloaded = platform.reloadConfiguration();
+    assert(reloaded);
+    assert(platform.getComboCount() == 2);
+
+    std::remove(temp_yaml.c_str());
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
+void testConfigHotReloadInvalidSyntaxPreservesCurrent() {
+    std::cout << "Test 9: Invalid syntax on reload retains existing configuration... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    const std::string temp_yaml = "/tmp/tff_test_config_invalid.yaml";
+    {
+        std::ofstream out(temp_yaml);
+        out << "combos:\n"
+            << "  - keys: f j\n"
+            << "    outKeys: 1\n"
+            << "  - keys: j f\n"
+            << "    outKeys: 2\n";
+    }
+
+    bool loaded = platform.loadConfiguration(temp_yaml);
+    assert(loaded);
+    assert(platform.getComboCount() == 2);
+
+    // Corrupt the YAML file with invalid syntax (unknown key word)
+    {
+        std::ofstream out(temp_yaml);
+        out << "combos:\n"
+            << "  - keys: unknown_invalid_key_xyz\n"
+            << "    outKeys: 1\n";
+    }
+
+    // Reload should fail gracefully and NOT crash or clear existing combos
+    bool reloaded = platform.reloadConfiguration();
+    assert(!reloaded);
+    assert(platform.getComboCount() == 2);
+
+    // Non-existent file reload also fails gracefully and keeps combos
+    bool non_existent = platform.reloadConfiguration("/tmp/this_file_does_not_exist_987654.yaml");
+    assert(!non_existent);
+    assert(platform.getComboCount() == 2);
+
+    std::remove(temp_yaml.c_str());
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
+void testConfigWatchInotify() {
+    std::cout << "Test 10: Configuration inotify watch toggle... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    const std::string temp_yaml = "/tmp/tff_test_config_watch.yaml";
+    {
+        std::ofstream out(temp_yaml);
+        out << "combos:\n"
+            << "  - keys: f j\n"
+            << "    outKeys: 1\n";
+    }
+
+    platform.loadConfiguration(temp_yaml);
+    assert(!platform.isConfigWatchEnabled());
+
+    bool watch_enabled = platform.enableConfigWatch(true, temp_yaml);
+    if (watch_enabled) {
+        assert(platform.isConfigWatchEnabled());
+        bool watch_disabled = platform.enableConfigWatch(false);
+        assert(watch_disabled);
+        assert(!platform.isConfigWatchEnabled());
+    }
+
+    std::remove(temp_yaml.c_str());
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -236,6 +347,9 @@ int main() {
     testSequentialTypingNoRemap();
     testHotplugConfiguration();
     testDeviceManagement();
+    testConfigHotReloadValid();
+    testConfigHotReloadInvalidSyntaxPreservesCurrent();
+    testConfigWatchInotify();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

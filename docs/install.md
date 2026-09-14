@@ -37,6 +37,7 @@ Installs the `tff` binary to `~/.local/bin/tff`, configuration to `~/.config/tff
 | **Start Service** | `sudo systemctl start ten-flying-fingers` | `systemctl --user start ten-flying-fingers` |
 | **Stop Service** | `sudo systemctl stop ten-flying-fingers` | `systemctl --user stop ten-flying-fingers` |
 | **Restart Service** | `sudo systemctl restart ten-flying-fingers` | `systemctl --user restart ten-flying-fingers` |
+| **Reload Config (SIGHUP)** | `sudo systemctl reload ten-flying-fingers` | `systemctl --user reload ten-flying-fingers` |
 | **Check Status** | `sudo systemctl status ten-flying-fingers` | `systemctl --user status ten-flying-fingers` |
 | **Enable Auto-Start** | `sudo systemctl enable ten-flying-fingers` | `systemctl --user enable ten-flying-fingers` |
 | **Disable Auto-Start**| `sudo systemctl disable ten-flying-fingers` | `systemctl --user disable ten-flying-fingers` |

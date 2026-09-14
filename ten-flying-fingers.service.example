@@ -41,5 +41,8 @@ ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml
 # Option B: Specify persistent device paths explicitly
 # ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml /dev/input/by-id/usb-SOME_KEYBOARD-event-kbd
 
+# Hot-reload combo configuration without restarting daemon or dropping grabs
+ExecReload=/bin/kill -HUP $MAINPID
+
 [Install]
 WantedBy=default.target

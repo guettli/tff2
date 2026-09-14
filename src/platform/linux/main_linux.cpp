@@ -5,15 +5,20 @@
 #include <fstream>
 #include <sstream>
 #include <csignal>
+#include <cstring>
 #include <atomic>
 #include <unistd.h>
 
 namespace {
 std::atomic<bool> g_should_stop{false};
+std::atomic<bool> g_should_reload{false};
 
 void signalHandler(int sig) {
-    (void)sig;
-    g_should_stop.store(true);
+    if (sig == SIGHUP) {
+        g_should_reload.store(true);
+    } else {
+        g_should_stop.store(true);
+    }
 }
 
 void printHelp(const char* prog) {
@@ -32,6 +37,7 @@ void printHelp(const char* prog) {
               << "Options:\n"
               << "  -c, --config <file>     Path to combos YAML configuration file\n"
               << "                          (default: config/tff-combos.yaml)\n"
+              << "  -w, --watch-config      Watch configuration file for live changes via inotify\n"
               << "  -d, --device <path>     Path to input evdev device (e.g. /dev/input/event8)\n"
               << "                          (default: auto-discover all connected keyboards)\n"
               << "  -g, --grab              Exclusively grab input device (default: true)\n"
@@ -40,8 +46,12 @@ void printHelp(const char* prog) {
               << "  -l, --list              List all discovered keyboards and exit\n"
               << "  -v, --verbose           Print detailed key down/up event logs\n"
               << "  -h, --help              Show this help message\n\n"
+              << "Signals:\n"
+              << "  SIGHUP                  Hot-reload configuration file without dropping keyboard grabs\n"
+              << "  SIGINT, SIGTERM         Graceful shutdown and restore keyboards\n\n"
               << "Examples:\n"
               << "  " << prog << " config/tff-combos.yaml\n"
+              << "  " << prog << " --watch-config config/tff-combos.yaml\n"
               << "  " << prog << " --list\n"
               << "  " << prog << " combos my-combos.yaml /dev/input/by-id/usb-*-event-kbd\n"
               << "  " << prog << " validate config/tff-combos.yaml\n";
@@ -53,6 +63,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> device_paths;
     bool grab = true;
     bool hotplug = true;
+    bool watch_config = false;
     bool list_only = false;
     bool validate_only = false;
     bool verbose = false;
@@ -71,6 +82,8 @@ int main(int argc, char* argv[]) {
             continue;
         } else if (arg == "-v" || arg == "--verbose") {
             verbose = true;
+        } else if (arg == "-w" || arg == "--watch-config") {
+            watch_config = true;
         } else if (arg == "-g" || arg == "--grab") {
             grab = true;
         } else if (arg == "--no-grab") {
@@ -152,8 +165,14 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::signal(SIGINT, signalHandler);
-    std::signal(SIGTERM, signalHandler);
+    struct sigaction sa;
+    std::memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = signalHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, nullptr);
+    sigaction(SIGTERM, &sa, nullptr);
+    sigaction(SIGHUP, &sa, nullptr);
 
     LinuxPlatform platform;
     platform.setVerbose(verbose);
@@ -181,6 +200,7 @@ int main(int argc, char* argv[]) {
 
     platform.setGrab(grab);
     platform.enableHotplug(hotplug);
+    platform.enableConfigWatch(watch_config);
 
     if (device_paths.empty()) {
         std::cout << "Auto-discovering keyboards...\n";
@@ -222,7 +242,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Virtual keyboard created via /dev/uinput\n";
     std::cout << "Running event loop. Press Ctrl+C to stop.\n\n";
 
-    platform.run(g_should_stop);
+    platform.run(g_should_stop, &g_should_reload);
 
     std::cout << "\nStopping TFF Linux Remapper...\n";
     platform.cleanup();

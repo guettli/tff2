@@ -41,6 +41,35 @@ public:
     bool loadConfiguration(const std::string& config_file);
 
     /**
+     * @brief Reload configuration from the currently loaded config file
+     * @return true if successfully reloaded, false if parse error (existing config retained)
+     */
+    bool reloadConfiguration();
+
+    /**
+     * @brief Reload configuration from a specified YAML file
+     * @return true if successfully reloaded, false if parse error (existing config retained)
+     */
+    bool reloadConfiguration(const std::string& config_file);
+
+    /**
+     * @brief Get the path to the currently active configuration file
+     */
+    const std::string& getConfigFilePath() const { return config_file_; }
+
+    /**
+     * @brief Enable or disable configuration file change watching via inotify
+     * @param enable Whether to watch the configuration file
+     * @param config_path Optional path to configuration file (uses loaded path if empty)
+     */
+    bool enableConfigWatch(bool enable = true, const std::string& config_path = "");
+
+    /**
+     * @brief Check whether configuration file watching is enabled
+     */
+    bool isConfigWatchEnabled() const { return config_watch_enabled_; }
+
+    /**
      * @brief Set combos directly
      */
     void setCombos(const std::vector<tff::Combo>& combos);
@@ -118,8 +147,10 @@ public:
 
     /**
      * @brief Run the real-time event loop until should_stop is set
+     * @param should_stop Atomic flag to stop the event loop
+     * @param should_reload Optional atomic flag (e.g. from SIGHUP) to trigger config reload
      */
-    void run(std::atomic<bool>& should_stop);
+    void run(std::atomic<bool>& should_stop, std::atomic<bool>* should_reload = nullptr);
 
     /**
      * @brief Process a single event through the platform
@@ -140,6 +171,11 @@ public:
      * @brief Access the shared core TFF engine
      */
     tff::TFFEngine& getEngine();
+
+    /**
+     * @brief Get count of currently active combo mappings
+     */
+    size_t getComboCount() const { return engine_ ? engine_->getCombos().size() : 0; }
 
     /**
      * @brief Cleanup platform resources (closes uinput, inotify, and evdev, releases grab)
@@ -165,8 +201,13 @@ private:
     bool initialized_;
     bool verbose_;
     bool hotplug_enabled_;
+    bool config_watch_enabled_;
     int inotify_fd_;
-    int inotify_wd_;
+    int hotplug_wd_;
+    int config_wd_;
+    std::string config_file_;
+    std::string config_dir_;
+    std::string config_basename_;
 
     std::unique_ptr<tff::EventWriter> writer_;
     std::unique_ptr<tff::TFFEngine> engine_;
@@ -176,7 +217,9 @@ private:
     int createVirtualKeyboard(const std::string& device_name = "TFF Virtual Keyboard");
     void setupInotify();
     void teardownInotify();
-    void processHotplugEvents();
+    void setupConfigWatch();
+    void teardownConfigWatch();
+    void processInotifyEvents();
 };
 
 #endif // LINUX_PLATFORM_H
