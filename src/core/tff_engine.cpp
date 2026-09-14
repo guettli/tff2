@@ -83,7 +83,7 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         std::vector<KeyCode> new_swallow;
         bool do_swallow = false;
         for (KeyCode key : swallow_keys_) {
-            if (buf_[0].code == key && buf_[1].code == key) {
+            if (buf_[0].code == key) {
                 do_swallow = true;
                 continue;
             }

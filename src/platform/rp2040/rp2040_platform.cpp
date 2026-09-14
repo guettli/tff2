@@ -34,11 +34,13 @@ bool RP2040Platform::initialize() {
     }
 
     // Initialize USB host and device
+    // cppcheck-suppress knownConditionTrueFalse
     if (!initUsbHost()) {
         printf("Failed to initialize USB host\n");
         return false;
     }
 
+    // cppcheck-suppress knownConditionTrueFalse
     if (!initUsbDevice()) {
         printf("Failed to initialize USB device\n");
         return false;
@@ -90,6 +92,7 @@ void RP2040Platform::run() {
 #else
     // For testing, just run a simple loop
     printf("Running in test mode - press Ctrl+C to exit\n");
+    // cppcheck-suppress knownConditionTrueFalse
     while (running_) {
         // In a real implementation, we would process actual events
         // For now, we'll just sleep

@@ -189,11 +189,11 @@ if(CPPCHECK_EXECUTABLE)
     add_custom_target(cppcheck
         COMMAND ${CPPCHECK_EXECUTABLE}
             --enable=warning,style,performance,portability
+            --inline-suppr
             --suppress=missingIncludeSystem
             --suppress=checkersReport
             --suppress=unusedFunction
             --suppress=useStlAlgorithm
-            --suppress=knownConditionTrueFalse
             --suppress=normalCheckLevelMaxBranches
             --suppress=unusedPrivateFunction:*rp2040_platform.h
             --error-exitcode=1
@@ -201,6 +201,7 @@ if(CPPCHECK_EXECUTABLE)
             -I ${CMAKE_CURRENT_SOURCE_DIR}/include
             ${CMAKE_CURRENT_SOURCE_DIR}/src
             ${CMAKE_CURRENT_SOURCE_DIR}/tests
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "Running Cppcheck static code analysis..."
     )

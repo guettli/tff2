@@ -64,6 +64,17 @@ public:
      */
     void cleanup();
 
+private:
+    // Core TFF application
+    std::unique_ptr<TFFApp> tff_app_;
+
+    // Platform state
+    bool initialized_;
+    bool running_;
+
+    // USB state tracking
+    bool keys_pressed_[256]; // Track currently pressed keys
+
     /**
      * @brief Convert USB key code to internal key code
      * @param usb_keycode USB key code
@@ -77,17 +88,6 @@ public:
      * @return USB key code
      */
     static uint8_t convertToUsbKeyCode(uint32_t internal_keycode);
-
-private:
-    // Core TFF application
-    std::unique_ptr<TFFApp> tff_app_;
-
-    // Platform state
-    bool initialized_;
-    bool running_;
-
-    // USB state tracking
-    bool keys_pressed_[256]; // Track currently pressed keys
 
     /**
      * @brief Initialize USB host functionality
