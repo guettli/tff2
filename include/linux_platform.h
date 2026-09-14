@@ -119,7 +119,6 @@ private:
     std::vector<uint32_t> received_keys_;
 
     int createVirtualKeyboard(const std::string& device_name = "TFF Virtual Keyboard");
-    bool emitEvent(int fd, uint16_t type, uint16_t code, int32_t value);
 };
 
 #endif // LINUX_PLATFORM_H

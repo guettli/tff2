@@ -217,10 +217,12 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
         }
     }
 
-    std::string too_young_msg = tooYoung(*last_down_event, curr_time);
-    if (!too_young_msg.empty()) {
-        msg = too_young_msg;
-        return EvalResult::ComboNotFinished;
+    if (last_down_event) {
+        std::string too_young_msg = tooYoung(*last_down_event, curr_time);
+        if (!too_young_msg.empty()) {
+            msg = too_young_msg;
+            return EvalResult::ComboNotFinished;
+        }
     }
 
     if (!seen_up.empty()) {

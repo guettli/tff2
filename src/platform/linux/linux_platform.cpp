@@ -146,7 +146,7 @@ std::vector<std::string> LinuxPlatform::discoverKeyboards() {
     }
 
     std::vector<std::pair<int, std::string>> candidates;
-    struct dirent* ent;
+    const struct dirent* ent;
     while ((ent = readdir(dir)) != nullptr) {
         std::string name(ent->d_name);
         if (name.rfind("event", 0) == 0) {
@@ -227,7 +227,7 @@ std::string LinuxPlatform::getDeviceAlias(const std::string& dev_path) {
     for (const auto& base_dir : base_dirs) {
         DIR* dir = opendir(base_dir.c_str());
         if (!dir) continue;
-        struct dirent* ent;
+        const struct dirent* ent;
         while ((ent = readdir(dir)) != nullptr) {
             if (ent->d_name[0] == '.') continue;
             std::string full_path = base_dir + "/" + ent->d_name;
@@ -508,18 +508,4 @@ int LinuxPlatform::createVirtualKeyboard(const std::string& device_name) {
     }
 
     return fd;
-}
-
-bool LinuxPlatform::emitEvent(int fd, uint16_t type, uint16_t code, int32_t value) {
-    if (fd < 0) return false;
-    struct input_event ie;
-    std::memset(&ie, 0, sizeof(ie));
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
-    ie.time = tv;
-    ie.type = type;
-    ie.code = code;
-    ie.value = value;
-    ssize_t bytes = write(fd, &ie, sizeof(ie));
-    return bytes == sizeof(ie);
 }
