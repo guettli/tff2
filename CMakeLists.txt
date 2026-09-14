@@ -47,8 +47,6 @@ set(CORE_SOURCES
     src/core/key_detector.cpp
     src/core/key_mapper.cpp
     src/core/tff_app.cpp
-    src/core/config_manager.cpp
-    src/core/tff_yaml_parser.cpp
     src/core/tff_key_codes.cpp
     src/core/tff_engine.cpp
     src/core/tff_parser.cpp
@@ -118,17 +116,6 @@ if(NOT PICO_BUILD)
     add_library(linux_platform ${LINUX_PLATFORM_SOURCES})
     target_link_libraries(linux_platform tff_core)
 
-    # Create a simple test executable
-    add_executable(tff_test
-        src/main.cpp
-    )
-    target_link_libraries(tff_test tff_core)
-
-    # Create YAML to JSON converter
-    add_executable(yaml_to_json_converter
-        tools/yaml_to_json_converter.cpp
-    )
-
     # Create separate unit test executables
     add_executable(test_key_detector
         tests/test_key_detector.cpp
@@ -150,10 +137,10 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_rp2040_platform tff_core rp2040_platform)
 
-    add_executable(test_config_manager
-        tests/test_config_manager.cpp
+    add_executable(test_yaml_parser
+        tests/test_yaml_parser.cpp
     )
-    target_link_libraries(test_config_manager tff_core)
+    target_link_libraries(test_yaml_parser tff_core)
 
     add_executable(test_tff_mappings
         tests/test_tff_mappings.cpp
@@ -165,18 +152,6 @@ if(NOT PICO_BUILD)
         tests/test_tff_go_suite.cpp
     )
     target_link_libraries(test_tff_go_suite tff_core)
-
-    # Create UpBoard test application
-    add_executable(test_upboard_setup
-        src/platform/linux/test_upboard_setup.cpp
-    )
-    target_link_libraries(test_upboard_setup tff_core linux_platform)
-
-    # Create TFF demo application
-    add_executable(test_tff_demo
-        src/platform/linux/test_tff_demo.cpp
-    )
-    target_link_libraries(test_tff_demo tff_core linux_platform)
 
     # Create Linux TFF remapper daemon
     add_executable(tff_linux
@@ -208,7 +183,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_key_mapper COMMAND test_key_mapper)
     add_test(NAME test_tff_app COMMAND test_tff_app)
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
-    add_test(NAME test_config_manager COMMAND test_config_manager)
+    add_test(NAME test_yaml_parser COMMAND test_yaml_parser)
     add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
@@ -219,7 +194,7 @@ if(NOT PICO_BUILD)
         test_key_mapper
         test_tff_app
         test_rp2040_platform
-        test_config_manager
+        test_yaml_parser
         test_tff_mappings
         test_tff_go_suite
         test_linux_platform
@@ -248,7 +223,6 @@ if(NOT PICO_BUILD)
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests
-                ${CMAKE_CURRENT_SOURCE_DIR}/tools
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMENT "Running Cppcheck static code analysis..."
         )

@@ -88,8 +88,8 @@ This setup allows:
 ## Documentation
 
 Detailed documentation is available:
-- [RP2040 Implementation Guide](docs/rp2040_implementation.md)
-- [Configuration System](docs/configuration.md)
+- [RP2040 Implementation Guide](rp2040_implementation.md)
+- [Configuration System](configuration.md)
 
 ## Debugging
 

@@ -64,42 +64,43 @@ See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, system
 
 ## Configuration
 
-Define custom key mappings in YAML format. See [configuration documentation](docs/configuration.md) for detailed information.
+Define custom key mappings in YAML format matching standard TFF combos. See [configuration documentation](docs/configuration.md) for detailed information.
 
 ```yaml
-settings:
-  overlap_threshold_ms: 100
-  
-mappings:
-  - name: "navigation"
-    combo: ["f", "j"] 
-    output: "right"
-    
-  - name: "numbers"
-    combo: ["j", "f"]
-    output: "1"
-    
-layers:
-  - name: "main"
-    active: true
-    mappings:
-      - combo: ["f", "space"]
-        output: ["ctrl", "s"]
+combos:
+  # Home row index finger combos
+  - keys: j f
+    outKeys: backspace
+
+  - keys: f j
+    outKeys: delete
+
+  # Navigation combos with F
+  - keys: f n
+    outKeys: down
+
+  - keys: f u
+    outKeys: up
+
+  - keys: f k
+    outKeys: left
+
+  - keys: f l
+    outKeys: right
 ```
 
-The configuration system uses a ConfigManager class to:
-- Load key mappings from YAML files
-- Save current mappings to YAML files
-- Support multiple layers for different contexts
-- Allow runtime modification of key mappings
+Configurations are loaded natively by `tff::loadYamlCombos` and can be validated using the CLI tool:
+```bash
+tff validate config/tff-combos.yaml
+```
 
-Example configuration files can be found in the [config](config/) directory.
+The default configuration file is located at [config/tff-combos.yaml](config/tff-combos.yaml).
 
 ## Building
 
 ### Prerequisites
 
-See [local-dev.md](local-dev.md) for detailed setup instructions.
+See [docs/local_dev.md](docs/local_dev.md) for detailed setup instructions.
 
 ### Linux Build
 
@@ -154,7 +155,7 @@ End-to-end hardware testing can be run using the UpBoard's micro-USB OTG port co
 ./test_tff_automated.sh
 ```
 
-See [AUTOMATED_TESTING_SOLUTION.md](AUTOMATED_TESTING_SOLUTION.md) for full architectural details and test cases.
+See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural details and test cases.
 
 ## Hardware Setup
 

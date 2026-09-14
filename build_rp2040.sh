@@ -14,8 +14,8 @@ fi
 BOARD="${PICO_BOARD:-adafruit_feather_rp2040}"
 
 # Create build directory
-mkdir -p build_rp2040
-cd build_rp2040
+mkdir -p build-rp2040
+cd build-rp2040
 
 # Configure with PICO_BUILD flag
 cmake -DPICO_BUILD=ON -DPICO_BOARD="${BOARD}" ..
@@ -23,4 +23,4 @@ cmake -DPICO_BUILD=ON -DPICO_BOARD="${BOARD}" ..
 # Build
 cmake --build . -j"$(nproc)"
 
-echo "Build complete. Firmware can be found in build_rp2040/tff_rp2040.uf2"
+echo "Build complete. Firmware can be found in build-rp2040/tff_rp2040.uf2"

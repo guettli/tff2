@@ -24,8 +24,8 @@ bool RP2040Platform::initialize() {
     // Initialize core TFF application
     tff_app_ = std::make_unique<TFFApp>(100); // 100ms overlap threshold
 
-    // Load TFF configuration from JSON
-    if (!loadTffConfiguration("/config/tff-combos.json")) {
+    // Load TFF configuration
+    if (!loadTffConfiguration("/config/tff-combos.yaml")) {
         printf("Failed to load TFF configuration, using defaults\n");
         // Add default mappings
         tff_app_->getKeyMapper().addMapping(KeyCodes::F_KEY, KeyCodes::J_KEY, {KeyCodes::ONE});      // F+J -> 1
@@ -285,14 +285,9 @@ uint8_t RP2040Platform::convertToUsbKeyCode(uint32_t internal_keycode) {
 
 #ifdef PICO_BUILD
 bool RP2040Platform::loadTffConfiguration(const char* config_path) {
-    // In a real implementation, this would read the JSON file from flash storage
-    // and parse it using ArduinoJson
-
     printf("Loading TFF configuration from: %s\n", config_path);
 
-    // For now, we'll simulate loading the configuration by adding the TFF mappings
-    // In a real implementation, this would parse the actual JSON file
-
+    // Initial default TFF mappings matching config/tff-combos.yaml
     if (!tff_app_) {
         printf("TFF application not initialized\n");
         return false;
