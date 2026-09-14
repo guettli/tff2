@@ -46,7 +46,7 @@ set(RP2040_PLATFORM_SOURCES
 # Compiler warning options
 option(TFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -UNDEBUG)
+    add_compile_options(-Wall -Wextra -Wpedantic)
     if(TFF_WARNINGS_AS_ERRORS)
         add_compile_options(-Werror)
     endif()
@@ -165,3 +165,20 @@ add_test(NAME test_config_manager COMMAND test_config_manager)
 add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
 add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
 add_test(NAME test_linux_platform COMMAND test_linux_platform)
+
+# Ensure assertions are always active in test executables regardless of build type
+set(TEST_TARGETS
+    test_key_detector
+    test_key_mapper
+    test_tff_app
+    test_rp2040_platform
+    test_config_manager
+    test_tff_mappings
+    test_tff_go_suite
+    test_linux_platform
+)
+foreach(target ${TEST_TARGETS})
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE -UNDEBUG)
+    endif()
+endforeach()
