@@ -13,6 +13,7 @@ int main() {
     // Test initialization
     bool init_result = platform.initialize();
     assert(init_result);
+    (void)init_result;
     std::cout << "✓ RP2040Platform initialization successful\n";
 
     // Test with TFFApp directly
@@ -26,30 +27,39 @@ int main() {
     // Test F+J combination (F pressed first)
     uint32_t timestamp = 0;
     auto result1 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
+    assert(result1.empty());
     timestamp += 50; // Within 100ms threshold
     auto result2 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
 
     assert(result2.size() == 1);
     assert(result2[0] == KeyCodes::ONE);
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 10, false);
+    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 10, false);
     std::cout << "✓ F+J combination detection successful\n";
 
     // Test J+F combination (J pressed first)
-    timestamp = 0;
+    timestamp = 1000;
     auto result3 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
+    assert(result3.empty());
     timestamp += 50; // Within 100ms threshold
     auto result4 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
 
     assert(result4.size() == 1);
     assert(result4[0] == KeyCodes::TWO);
+    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 10, false);
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 10, false);
     std::cout << "✓ J+F combination detection successful\n";
 
     // Test sequential keys (outside threshold)
-    timestamp = 0;
+    timestamp = 2000;
     auto result5 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
+    assert(result5.empty());
+    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 50, false);
     timestamp += 150; // Outside 100ms threshold
     auto result6 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
 
     assert(result6.empty());
+    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 50, false);
     std::cout << "✓ Sequential keys (outside threshold) handled correctly\n";
 
     std::cout << "\nAll RP2040 platform tests passed!\n";

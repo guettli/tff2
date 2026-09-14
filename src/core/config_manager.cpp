@@ -55,7 +55,7 @@ bool ConfigManager::parseYamlContent(const std::string& content, KeyMapper& key_
     return true;
 }
 
-std::string ConfigManager::serializeToYaml(const KeyMapper& key_mapper) {
+std::string ConfigManager::serializeToYaml(const KeyMapper& /*key_mapper*/) {
     // This is a stub implementation - in a real implementation,
     // we would serialize the key mappings to YAML format
 

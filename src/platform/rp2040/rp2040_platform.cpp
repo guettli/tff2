@@ -342,7 +342,7 @@ bool RP2040Platform::loadTffConfiguration(const char* config_path) {
 // USB host callback implementations
 #ifdef PICO_BUILD
 extern "C" {
-    void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_report, uint16_t desc_len) {
+    void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*desc_report*/, uint16_t /*desc_len*/) {
         // Called when a HID device is mounted
         printf("HID device mounted: addr=%u, instance=%u\n", dev_addr, instance);
     }
@@ -352,7 +352,7 @@ extern "C" {
         printf("HID device unmounted: addr=%u, instance=%u\n", dev_addr, instance);
     }
 
-    void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len) {
+    void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*report*/, uint16_t len) {
         // Called when a HID report is received
         // This would parse keyboard reports and call processHostKeyEvent
         printf("HID report received: addr=%u, instance=%u, len=%u\n", dev_addr, instance, len);
