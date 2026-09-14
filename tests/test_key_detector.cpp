@@ -39,6 +39,7 @@ void test_overlapping_detection() {
     assert(combo.first_key == KeyCodes::F_KEY);
     assert(combo.second_key == KeyCodes::J_KEY);
     assert(combo.time_diff == 50);
+    (void)combo;
 
     // Clear the combination
     detector.clearLastCombination();
@@ -62,6 +63,7 @@ void test_non_overlapping() {
     // Should NOT detect combination
     KeyCombination combo = detector.getLastCombination();
     assert(combo.isEmpty());
+    (void)combo;
 
     std::cout << "Non-overlapping detection test passed.\n\n";
 }

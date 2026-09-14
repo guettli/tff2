@@ -43,14 +43,17 @@ set(RP2040_PLATFORM_SOURCES
     src/platform/rp2040/rp2040_platform.cpp
 )
 
+# Compiler warning options
+option(TFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic -UNDEBUG)
+    if(TFF_WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
+endif()
+
 # Create the core library
 add_library(tff_core ${CORE_SOURCES})
-
-# Compiler flags
-target_compile_options(tff_core PRIVATE
-    -Wall
-    -Wextra
-)
 
 # Create Linux platform library
 add_library(linux_platform ${LINUX_PLATFORM_SOURCES})

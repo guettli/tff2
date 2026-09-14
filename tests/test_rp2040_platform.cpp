@@ -13,6 +13,7 @@ int main() {
     // Test initialization
     bool init_result = platform.initialize();
     assert(init_result);
+    (void)init_result;
     std::cout << "✓ RP2040Platform initialization successful\n";
 
     // Test with TFFApp directly

@@ -30,11 +30,13 @@ mappings:
     // Test loading from file
     bool load_result = config_manager.loadFromFile("test_config.yaml", key_mapper);
     assert(load_result);
+    (void)load_result;
     std::cout << "✓ ConfigManager load from file successful\n";
 
     // Test saving to file
     bool save_result = config_manager.saveToFile("test_output.yaml", key_mapper);
     assert(save_result);
+    (void)save_result;
     std::cout << "✓ ConfigManager save to file successful\n";
 
     // Clean up temporary files

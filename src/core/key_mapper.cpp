@@ -28,7 +28,7 @@ bool KeyMapper::loadConfiguration(const std::string& config_file) {
     return true;
 }
 
-bool KeyMapper::loadTffConfiguration(const std::string& config_file) {
+bool KeyMapper::loadTffConfiguration(const std::string& /*config_file*/) {
     // For now, we'll implement the TFF mappings directly
     // In a full implementation, this would parse the actual YAML
 
