@@ -1,7 +1,6 @@
 #ifdef PICO_BUILD
 
 #include "tusb.h"
-#include "pico/unique_id.h"
 #include <string.h>
 
 #define USB_PID   0x4004
@@ -57,13 +56,11 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index) {
 }
 
 // String Descriptors
-static char serial_str[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1] = {0};
-
 static char const *string_desc_arr[] = {
     (const char[]) { 0x09, 0x04 }, // 0: English (0x0409)
     "Ten Flying Fingers",          // 1: Manufacturer
     "TFF RP2040 Keyboard",         // 2: Product
-    serial_str,                    // 3: Serial number
+    "123456",                      // 3: Serial number
 };
 
 static uint16_t _desc_str[33];
@@ -71,10 +68,6 @@ static uint16_t _desc_str[33];
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
     (void) langid;
     size_t chr_count = 0;
-
-    if (serial_str[0] == 0) {
-        pico_get_unique_board_id_string(serial_str, sizeof(serial_str));
-    }
 
     if (index == 0) {
         memcpy(&_desc_str[1], string_desc_arr[0], 2);
