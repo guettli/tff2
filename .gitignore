@@ -3,6 +3,8 @@ build/
 build-*/
 build_*/
 bin/
+dist/
+release/
 
 # CMake generated files
 CMakeCache.txt

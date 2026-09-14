@@ -4,9 +4,50 @@ This guide explains how to install and run **Ten Flying Fingers (TFF)** as a bac
 
 ---
 
-## 1. Quick Installation (Automated)
+## 1. Binary Installation via mise (Recommended)
 
-The easiest way to install TFF is using the provided [`install.sh`](file:///home/tff2/tff2/install.sh) script.
+If you use [mise-en-place (mise)](https://mise.jdx.dev/), you can install and manage Ten Flying Fingers without compiling from source:
+
+```bash
+# Install globally via GitHub backend:
+mise use -g github:guettli/tff2
+
+# Or install globally via ubi backend:
+mise use -g ubi:guettli/tff2
+```
+
+`mise` automatically downloads the pre-built, statically-linked Linux release binary for your architecture and places `tff`, `tff2`, and `tff_linux` on your `PATH`.
+
+To update to the latest release at any time:
+```bash
+mise upgrade github:guettli/tff2
+```
+
+---
+
+## 2. Pre-Built Binary Download (Manual)
+
+Pre-built binaries with statically linked C++ runtimes (`-static-libgcc -static-libstdc++`) are published on [GitHub Releases](https://github.com/guettli/tff2/releases):
+
+```bash
+# Download and extract the latest Linux x86_64 archive
+curl -LO https://github.com/guettli/tff2/releases/latest/download/tff2_Linux_x86_64.tar.gz
+tar -xzf tff2_Linux_x86_64.tar.gz
+
+# Install binary to ~/.local/bin or /usr/local/bin
+install -m 0755 tff ~/.local/bin/tff
+install -m 0755 tff_linux ~/.local/bin/tff_linux
+
+# Install default configuration
+mkdir -p ~/.config/tff
+cp tff-combos.yaml ~/.config/tff/tff-combos.yaml
+```
+
+---
+
+## 3. Quick Installation from Source (install.sh)
+
+If building from source in a cloned repository, use the provided [`install.sh`](file:///home/tff2/tff2/install.sh) script.
 
 ### System-Wide Installation (Recommended for multi-user / root)
 
@@ -111,6 +152,7 @@ Nice=-20
 
 # Run with auto-discovery or explicit device list
 ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml
+ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=default.target
@@ -118,6 +160,7 @@ WantedBy=default.target
 
 ### User Service (`~/.config/systemd/user/ten-flying-fingers.service`)
 
+If installed via `./install.sh --user` or manual binary download:
 ```ini
 [Unit]
 Description=Ten Flying Fingers (TFF) Keyboard Remapper
@@ -130,6 +173,29 @@ Restart=always
 RestartSec=3
 Nice=-20
 ExecStart=%h/.local/bin/tff --config %h/.config/tff/tff-combos.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=default.target
+```
+
+If installed via **`mise`**, use the mise shim or `mise exec`:
+```ini
+[Unit]
+Description=Ten Flying Fingers (TFF) Keyboard Remapper
+Documentation=https://github.com/guettli/tff2
+After=default.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+Nice=-20
+# Option A: using mise shim path
+ExecStart=%h/.local/share/mise/shims/tff --config %h/.config/tff/tff-combos.yaml
+# Option B (alternative): using mise exec
+# ExecStart=%h/.local/bin/mise exec -- tff --config %h/.config/tff/tff-combos.yaml
+ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
 WantedBy=default.target

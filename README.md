@@ -35,11 +35,14 @@ A cross-platform keyboard remapping solution that allows overlapping key combina
 - **Systemd Service**: Runs in the background with auto-restart and highest CPU priority (`Nice=-20`)
 
 ```bash
-# Automated install (system-wide):
-sudo ./install.sh
+# Install via mise (recommended for developers / user-level management):
+mise use -g github:guettli/tff2
+# or using ubi backend:
+mise use -g ubi:guettli/tff2
 
-# Or user-level install (no root needed):
-./install.sh --user
+# Or install from source repository:
+sudo ./install.sh          # System-wide (/usr/local/bin)
+./install.sh --user        # User-level (~/.local/bin)
 
 # List discovered keyboards and persistent symlinks:
 tff --list
@@ -52,7 +55,7 @@ sudo systemctl status ten-flying-fingers
 sudo journalctl -u ten-flying-fingers -f
 ```
 
-See [Linux Installation & Systemd Guide](docs/install.md) and [Systemd Service Example](ten-flying-fingers.service.example) for details.
+See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, systemd user services, and [Systemd Service Example](ten-flying-fingers.service.example).
 
 ### RP2040 Version  
 - **Input**: USB host port reads from connected keyboard
