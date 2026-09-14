@@ -107,12 +107,18 @@ The firmware will be generated as a UF2 file that can be flashed to the RP2040 b
 
 ## Testing
 
-### Unit Tests (Linux)
+### Unit Tests (Hardware-Independent C++)
 
-Run unit tests on Linux:
+Run all native unit tests (including the full Go-parity test suite running in ~0.02s without requiring RP2040 or special privileges):
 
 ```bash
-./build-linux/tests/unit_tests
+./build.sh
+```
+
+Or run the ported Go unit test suite directly:
+
+```bash
+./build/test_tff_go_suite
 ```
 
 ### Automated Hardware Testing (USB-OTG Loop)

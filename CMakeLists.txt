@@ -16,6 +16,9 @@ set(CORE_SOURCES
     src/core/tff_app.cpp
     src/core/config_manager.cpp
     src/core/tff_yaml_parser.cpp
+    src/core/tff_key_codes.cpp
+    src/core/tff_engine.cpp
+    src/core/tff_parser.cpp
 )
 
 # Linux platform source files
@@ -103,6 +106,13 @@ add_executable(test_tff_mappings
 
 target_link_libraries(test_tff_mappings tff_core)
 
+# Create Go-parity TFF test suite executable
+add_executable(test_tff_go_suite
+    tests/test_tff_go_suite.cpp
+)
+
+target_link_libraries(test_tff_go_suite tff_core)
+
 # Create UpBoard test application
 add_executable(test_upboard_setup
     src/platform/linux/test_upboard_setup.cpp
@@ -125,3 +135,4 @@ add_test(NAME test_tff_app COMMAND test_tff_app)
 add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
 add_test(NAME test_config_manager COMMAND test_config_manager)
 add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
+add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
