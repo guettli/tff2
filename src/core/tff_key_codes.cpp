@@ -7,6 +7,532 @@ namespace tff {
 
 namespace {
 
+struct KeyItem {
+    const char* name;
+    const char* word;
+    KeyCode code;
+    const char* short_name;
+};
+
+static const KeyItem KEY_ITEMS[] = {
+    {"KEY_RESERVED", "reserved", 0, "RESERVED"},
+    {"KEY_ESC", "esc", 1, "ESC"},
+    {"KEY_1", "1", 2, "1"},
+    {"KEY_2", "2", 3, "2"},
+    {"KEY_3", "3", 4, "3"},
+    {"KEY_4", "4", 5, "4"},
+    {"KEY_5", "5", 6, "5"},
+    {"KEY_6", "6", 7, "6"},
+    {"KEY_7", "7", 8, "7"},
+    {"KEY_8", "8", 9, "8"},
+    {"KEY_9", "9", 10, "9"},
+    {"KEY_0", "0", 11, "0"},
+    {"KEY_MINUS", "minus", 12, "MINUS"},
+    {"KEY_EQUAL", "equal", 13, "EQUAL"},
+    {"KEY_BACKSPACE", "backspace", 14, "BACKSPACE"},
+    {"KEY_TAB", "tab", 15, "TAB"},
+    {"KEY_Q", "q", 16, "Q"},
+    {"KEY_W", "w", 17, "W"},
+    {"KEY_E", "e", 18, "E"},
+    {"KEY_R", "r", 19, "R"},
+    {"KEY_T", "t", 20, "T"},
+    {"KEY_Y", "y", 21, "Y"},
+    {"KEY_U", "u", 22, "U"},
+    {"KEY_I", "i", 23, "I"},
+    {"KEY_O", "o", 24, "O"},
+    {"KEY_P", "p", 25, "P"},
+    {"KEY_LEFTBRACE", "leftbrace", 26, "LEFTBRACE"},
+    {"KEY_RIGHTBRACE", "rightbrace", 27, "RIGHTBRACE"},
+    {"KEY_ENTER", "enter", 28, "ENTER"},
+    {"KEY_LEFTCTRL", "leftctrl", 29, "LEFTCTRL"},
+    {"KEY_A", "a", 30, "A"},
+    {"KEY_S", "s", 31, "S"},
+    {"KEY_D", "d", 32, "D"},
+    {"KEY_F", "f", 33, "F"},
+    {"KEY_G", "g", 34, "G"},
+    {"KEY_H", "h", 35, "H"},
+    {"KEY_J", "j", 36, "J"},
+    {"KEY_K", "k", 37, "K"},
+    {"KEY_L", "l", 38, "L"},
+    {"KEY_SEMICOLON", "semicolon", 39, "SEMICOLON"},
+    {"KEY_APOSTROPHE", "apostrophe", 40, "APOSTROPHE"},
+    {"KEY_GRAVE", "grave", 41, "GRAVE"},
+    {"KEY_LEFTSHIFT", "leftshift", 42, "LEFTSHIFT"},
+    {"KEY_BACKSLASH", "backslash", 43, "BACKSLASH"},
+    {"KEY_Z", "z", 44, "Z"},
+    {"KEY_X", "x", 45, "X"},
+    {"KEY_C", "c", 46, "C"},
+    {"KEY_V", "v", 47, "V"},
+    {"KEY_B", "b", 48, "B"},
+    {"KEY_N", "n", 49, "N"},
+    {"KEY_M", "m", 50, "M"},
+    {"KEY_COMMA", "comma", 51, "COMMA"},
+    {"KEY_DOT", "dot", 52, "DOT"},
+    {"KEY_SLASH", "slash", 53, "SLASH"},
+    {"KEY_RIGHTSHIFT", "rightshift", 54, "RIGHTSHIFT"},
+    {"KEY_KPASTERISK", "kpasterisk", 55, "KPASTERISK"},
+    {"KEY_LEFTALT", "leftalt", 56, "LEFTALT"},
+    {"KEY_SPACE", "space", 57, "SPACE"},
+    {"KEY_CAPSLOCK", "capslock", 58, "CAPSLOCK"},
+    {"KEY_F1", "f1", 59, "F1"},
+    {"KEY_F2", "f2", 60, "F2"},
+    {"KEY_F3", "f3", 61, "F3"},
+    {"KEY_F4", "f4", 62, "F4"},
+    {"KEY_F5", "f5", 63, "F5"},
+    {"KEY_F6", "f6", 64, "F6"},
+    {"KEY_F7", "f7", 65, "F7"},
+    {"KEY_F8", "f8", 66, "F8"},
+    {"KEY_F9", "f9", 67, "F9"},
+    {"KEY_F10", "f10", 68, "F10"},
+    {"KEY_NUMLOCK", "numlock", 69, "NUMLOCK"},
+    {"KEY_SCROLLLOCK", "scrolllock", 70, "SCROLLLOCK"},
+    {"KEY_KP7", "kp7", 71, "KP7"},
+    {"KEY_KP8", "kp8", 72, "KP8"},
+    {"KEY_KP9", "kp9", 73, "KP9"},
+    {"KEY_KPMINUS", "kpminus", 74, "KPMINUS"},
+    {"KEY_KP4", "kp4", 75, "KP4"},
+    {"KEY_KP5", "kp5", 76, "KP5"},
+    {"KEY_KP6", "kp6", 77, "KP6"},
+    {"KEY_KPPLUS", "kpplus", 78, "KPPLUS"},
+    {"KEY_KP1", "kp1", 79, "KP1"},
+    {"KEY_KP2", "kp2", 80, "KP2"},
+    {"KEY_KP3", "kp3", 81, "KP3"},
+    {"KEY_KP0", "kp0", 82, "KP0"},
+    {"KEY_KPDOT", "kpdot", 83, "KPDOT"},
+    {"KEY_ZENKAKUHANKAKU", "zenkakuhankaku", 85, "ZENKAKUHANKAKU"},
+    {"KEY_102ND", "102nd", 86, "102ND"},
+    {"KEY_F11", "f11", 87, "F11"},
+    {"KEY_F12", "f12", 88, "F12"},
+    {"KEY_RO", "ro", 89, "RO"},
+    {"KEY_KATAKANA", "katakana", 90, "KATAKANA"},
+    {"KEY_HIRAGANA", "hiragana", 91, "HIRAGANA"},
+    {"KEY_HENKAN", "henkan", 92, "HENKAN"},
+    {"KEY_KATAKANAHIRAGANA", "katakanahiragana", 93, "KATAKANAHIRAGANA"},
+    {"KEY_MUHENKAN", "muhenkan", 94, "MUHENKAN"},
+    {"KEY_KPJPCOMMA", "kpjpcomma", 95, "KPJPCOMMA"},
+    {"KEY_KPENTER", "kpenter", 96, "KPENTER"},
+    {"KEY_RIGHTCTRL", "rightctrl", 97, "RIGHTCTRL"},
+    {"KEY_KPSLASH", "kpslash", 98, "KPSLASH"},
+    {"KEY_SYSRQ", "sysrq", 99, "SYSRQ"},
+    {"KEY_RIGHTALT", "rightalt", 100, "RIGHTALT"},
+    {"KEY_LINEFEED", "linefeed", 101, "LINEFEED"},
+    {"KEY_HOME", "home", 102, "HOME"},
+    {"KEY_UP", "up", 103, "UP"},
+    {"KEY_PAGEUP", "pageup", 104, "PAGEUP"},
+    {"KEY_LEFT", "left", 105, "LEFT"},
+    {"KEY_RIGHT", "right", 106, "RIGHT"},
+    {"KEY_END", "end", 107, "END"},
+    {"KEY_DOWN", "down", 108, "DOWN"},
+    {"KEY_PAGEDOWN", "pagedown", 109, "PAGEDOWN"},
+    {"KEY_INSERT", "insert", 110, "INSERT"},
+    {"KEY_DELETE", "delete", 111, "DELETE"},
+    {"KEY_MACRO", "macro", 112, "MACRO"},
+    {"KEY_MUTE", "mute", 113, "MUTE"},
+    {"KEY_VOLUMEDOWN", "volumedown", 114, "VOLUMEDOWN"},
+    {"KEY_VOLUMEUP", "volumeup", 115, "VOLUMEUP"},
+    {"KEY_POWER", "power", 116, "POWER"},
+    {"KEY_KPEQUAL", "kpequal", 117, "KPEQUAL"},
+    {"KEY_KPPLUSMINUS", "kpplusminus", 118, "KPPLUSMINUS"},
+    {"KEY_PAUSE", "pause", 119, "PAUSE"},
+    {"KEY_SCALE", "scale", 120, "SCALE"},
+    {"KEY_KPCOMMA", "kpcomma", 121, "KPCOMMA"},
+    {"KEY_HANGEUL", "hangeul", 122, "HANGEUL"},
+    {"KEY_HANJA", "hanja", 123, "HANJA"},
+    {"KEY_YEN", "yen", 124, "YEN"},
+    {"KEY_LEFTMETA", "leftmeta", 125, "LEFTMETA"},
+    {"KEY_RIGHTMETA", "rightmeta", 126, "RIGHTMETA"},
+    {"KEY_COMPOSE", "compose", 127, "COMPOSE"},
+    {"KEY_STOP", "stop", 128, "STOP"},
+    {"KEY_AGAIN", "again", 129, "AGAIN"},
+    {"KEY_PROPS", "props", 130, "PROPS"},
+    {"KEY_UNDO", "undo", 131, "UNDO"},
+    {"KEY_FRONT", "front", 132, "FRONT"},
+    {"KEY_COPY", "copy", 133, "COPY"},
+    {"KEY_OPEN", "open", 134, "OPEN"},
+    {"KEY_PASTE", "paste", 135, "PASTE"},
+    {"KEY_FIND", "find", 136, "FIND"},
+    {"KEY_CUT", "cut", 137, "CUT"},
+    {"KEY_HELP", "help", 138, "HELP"},
+    {"KEY_MENU", "menu", 139, "MENU"},
+    {"KEY_CALC", "calc", 140, "CALC"},
+    {"KEY_SETUP", "setup", 141, "SETUP"},
+    {"KEY_SLEEP", "sleep", 142, "SLEEP"},
+    {"KEY_WAKEUP", "wakeup", 143, "WAKEUP"},
+    {"KEY_FILE", "file", 144, "FILE"},
+    {"KEY_SENDFILE", "sendfile", 145, "SENDFILE"},
+    {"KEY_DELETEFILE", "deletefile", 146, "DELETEFILE"},
+    {"KEY_XFER", "xfer", 147, "XFER"},
+    {"KEY_PROG1", "prog1", 148, "PROG1"},
+    {"KEY_PROG2", "prog2", 149, "PROG2"},
+    {"KEY_WWW", "www", 150, "WWW"},
+    {"KEY_MSDOS", "msdos", 151, "MSDOS"},
+    {"KEY_COFFEE", "coffee", 152, "COFFEE"},
+    {"KEY_ROTATE_DISPLAY", "rotate_display", 153, "ROTATE_DISPLAY"},
+    {"KEY_CYCLEWINDOWS", "cyclewindows", 154, "CYCLEWINDOWS"},
+    {"KEY_MAIL", "mail", 155, "MAIL"},
+    {"KEY_BOOKMARKS", "bookmarks", 156, "BOOKMARKS"},
+    {"KEY_COMPUTER", "computer", 157, "COMPUTER"},
+    {"KEY_BACK", "back", 158, "BACK"},
+    {"KEY_FORWARD", "forward", 159, "FORWARD"},
+    {"KEY_CLOSECD", "closecd", 160, "CLOSECD"},
+    {"KEY_EJECTCD", "ejectcd", 161, "EJECTCD"},
+    {"KEY_EJECTCLOSECD", "ejectclosecd", 162, "EJECTCLOSECD"},
+    {"KEY_NEXTSONG", "nextsong", 163, "NEXTSONG"},
+    {"KEY_PLAYPAUSE", "playpause", 164, "PLAYPAUSE"},
+    {"KEY_PREVIOUSSONG", "previoussong", 165, "PREVIOUSSONG"},
+    {"KEY_STOPCD", "stopcd", 166, "STOPCD"},
+    {"KEY_RECORD", "record", 167, "RECORD"},
+    {"KEY_REWIND", "rewind", 168, "REWIND"},
+    {"KEY_PHONE", "phone", 169, "PHONE"},
+    {"KEY_ISO", "iso", 170, "ISO"},
+    {"KEY_CONFIG", "config", 171, "CONFIG"},
+    {"KEY_HOMEPAGE", "homepage", 172, "HOMEPAGE"},
+    {"KEY_REFRESH", "refresh", 173, "REFRESH"},
+    {"KEY_EXIT", "exit", 174, "EXIT"},
+    {"KEY_MOVE", "move", 175, "MOVE"},
+    {"KEY_EDIT", "edit", 176, "EDIT"},
+    {"KEY_SCROLLUP", "scrollup", 177, "SCROLLUP"},
+    {"KEY_SCROLLDOWN", "scrolldown", 178, "SCROLLDOWN"},
+    {"KEY_KPLEFTPAREN", "kpleftparen", 179, "KPLEFTPAREN"},
+    {"KEY_KPRIGHTPAREN", "kprightparen", 180, "KPRIGHTPAREN"},
+    {"KEY_NEW", "new", 181, "NEW"},
+    {"KEY_REDO", "redo", 182, "REDO"},
+    {"KEY_F13", "f13", 183, "F13"},
+    {"KEY_F14", "f14", 184, "F14"},
+    {"KEY_F15", "f15", 185, "F15"},
+    {"KEY_F16", "f16", 186, "F16"},
+    {"KEY_F17", "f17", 187, "F17"},
+    {"KEY_F18", "f18", 188, "F18"},
+    {"KEY_F19", "f19", 189, "F19"},
+    {"KEY_F20", "f20", 190, "F20"},
+    {"KEY_F21", "f21", 191, "F21"},
+    {"KEY_F22", "f22", 192, "F22"},
+    {"KEY_F23", "f23", 193, "F23"},
+    {"KEY_F24", "f24", 194, "F24"},
+    {"KEY_PLAYCD", "playcd", 200, "PLAYCD"},
+    {"KEY_PAUSECD", "pausecd", 201, "PAUSECD"},
+    {"KEY_PROG3", "prog3", 202, "PROG3"},
+    {"KEY_PROG4", "prog4", 203, "PROG4"},
+    {"KEY_ALL_APPLICATIONS", "all_applications", 204, "ALL_APPLICATIONS"},
+    {"KEY_SUSPEND", "suspend", 205, "SUSPEND"},
+    {"KEY_CLOSE", "close", 206, "CLOSE"},
+    {"KEY_PLAY", "play", 207, "PLAY"},
+    {"KEY_FASTFORWARD", "fastforward", 208, "FASTFORWARD"},
+    {"KEY_BASSBOOST", "bassboost", 209, "BASSBOOST"},
+    {"KEY_PRINT", "print", 210, "PRINT"},
+    {"KEY_HP", "hp", 211, "HP"},
+    {"KEY_CAMERA", "camera", 212, "CAMERA"},
+    {"KEY_SOUND", "sound", 213, "SOUND"},
+    {"KEY_QUESTION", "question", 214, "QUESTION"},
+    {"KEY_EMAIL", "email", 215, "EMAIL"},
+    {"KEY_CHAT", "chat", 216, "CHAT"},
+    {"KEY_SEARCH", "search", 217, "SEARCH"},
+    {"KEY_CONNECT", "connect", 218, "CONNECT"},
+    {"KEY_FINANCE", "finance", 219, "FINANCE"},
+    {"KEY_SPORT", "sport", 220, "SPORT"},
+    {"KEY_SHOP", "shop", 221, "SHOP"},
+    {"KEY_ALTERASE", "alterase", 222, "ALTERASE"},
+    {"KEY_CANCEL", "cancel", 223, "CANCEL"},
+    {"KEY_BRIGHTNESSDOWN", "brightnessdown", 224, "BRIGHTNESSDOWN"},
+    {"KEY_BRIGHTNESSUP", "brightnessup", 225, "BRIGHTNESSUP"},
+    {"KEY_MEDIA", "media", 226, "MEDIA"},
+    {"KEY_SWITCHVIDEOMODE", "switchvideomode", 227, "SWITCHVIDEOMODE"},
+    {"KEY_KBDILLUMTOGGLE", "kbdillumtoggle", 228, "KBDILLUMTOGGLE"},
+    {"KEY_KBDILLUMDOWN", "kbdillumdown", 229, "KBDILLUMDOWN"},
+    {"KEY_KBDILLUMUP", "kbdillumup", 230, "KBDILLUMUP"},
+    {"KEY_SEND", "send", 231, "SEND"},
+    {"KEY_REPLY", "reply", 232, "REPLY"},
+    {"KEY_FORWARDMAIL", "forwardmail", 233, "FORWARDMAIL"},
+    {"KEY_SAVE", "save", 234, "SAVE"},
+    {"KEY_DOCUMENTS", "documents", 235, "DOCUMENTS"},
+    {"KEY_BATTERY", "battery", 236, "BATTERY"},
+    {"KEY_BLUETOOTH", "bluetooth", 237, "BLUETOOTH"},
+    {"KEY_WLAN", "wlan", 238, "WLAN"},
+    {"KEY_UWB", "uwb", 239, "UWB"},
+    {"KEY_UNKNOWN", "unknown", 240, "UNKNOWN"},
+    {"KEY_VIDEO_NEXT", "video_next", 241, "VIDEO_NEXT"},
+    {"KEY_VIDEO_PREV", "video_prev", 242, "VIDEO_PREV"},
+    {"KEY_BRIGHTNESS_CYCLE", "brightness_cycle", 243, "BRIGHTNESS_CYCLE"},
+    {"KEY_BRIGHTNESS_AUTO", "brightness_auto", 244, "BRIGHTNESS_AUTO"},
+    {"KEY_DISPLAY_OFF", "display_off", 245, "DISPLAY_OFF"},
+    {"KEY_WWAN", "wwan", 246, "WWAN"},
+    {"KEY_RFKILL", "rfkill", 247, "RFKILL"},
+    {"KEY_MICMUTE", "micmute", 248, "MICMUTE"},
+    {"KEY_OK", "ok", 0, "OK"},
+    {"KEY_SELECT", "select", 0, "SELECT"},
+    {"KEY_GOTO", "goto", 0, "GOTO"},
+    {"KEY_CLEAR", "clear", 0, "CLEAR"},
+    {"KEY_POWER2", "power2", 0, "POWER2"},
+    {"KEY_OPTION", "option", 0, "OPTION"},
+    {"KEY_INFO", "info", 0, "INFO"},
+    {"KEY_TIME", "time", 0, "TIME"},
+    {"KEY_VENDOR", "vendor", 0, "VENDOR"},
+    {"KEY_ARCHIVE", "archive", 0, "ARCHIVE"},
+    {"KEY_PROGRAM", "program", 0, "PROGRAM"},
+    {"KEY_CHANNEL", "channel", 0, "CHANNEL"},
+    {"KEY_FAVORITES", "favorites", 0, "FAVORITES"},
+    {"KEY_EPG", "epg", 0, "EPG"},
+    {"KEY_PVR", "pvr", 0, "PVR"},
+    {"KEY_MHP", "mhp", 0, "MHP"},
+    {"KEY_LANGUAGE", "language", 0, "LANGUAGE"},
+    {"KEY_TITLE", "title", 0, "TITLE"},
+    {"KEY_SUBTITLE", "subtitle", 0, "SUBTITLE"},
+    {"KEY_ANGLE", "angle", 0, "ANGLE"},
+    {"KEY_FULL_SCREEN", "full_screen", 0, "FULL_SCREEN"},
+    {"KEY_MODE", "mode", 0, "MODE"},
+    {"KEY_KEYBOARD", "keyboard", 0, "KEYBOARD"},
+    {"KEY_ASPECT_RATIO", "aspect_ratio", 0, "ASPECT_RATIO"},
+    {"KEY_PC", "pc", 0, "PC"},
+    {"KEY_TV", "tv", 0, "TV"},
+    {"KEY_TV2", "tv2", 0, "TV2"},
+    {"KEY_VCR", "vcr", 0, "VCR"},
+    {"KEY_VCR2", "vcr2", 0, "VCR2"},
+    {"KEY_SAT", "sat", 0, "SAT"},
+    {"KEY_SAT2", "sat2", 0, "SAT2"},
+    {"KEY_CD", "cd", 0, "CD"},
+    {"KEY_TAPE", "tape", 0, "TAPE"},
+    {"KEY_RADIO", "radio", 0, "RADIO"},
+    {"KEY_TUNER", "tuner", 0, "TUNER"},
+    {"KEY_PLAYER", "player", 0, "PLAYER"},
+    {"KEY_TEXT", "text", 0, "TEXT"},
+    {"KEY_DVD", "dvd", 0, "DVD"},
+    {"KEY_AUX", "aux", 0, "AUX"},
+    {"KEY_MP3", "mp3", 0, "MP3"},
+    {"KEY_AUDIO", "audio", 0, "AUDIO"},
+    {"KEY_VIDEO", "video", 0, "VIDEO"},
+    {"KEY_DIRECTORY", "directory", 0, "DIRECTORY"},
+    {"KEY_LIST", "list", 0, "LIST"},
+    {"KEY_MEMO", "memo", 0, "MEMO"},
+    {"KEY_CALENDAR", "calendar", 0, "CALENDAR"},
+    {"KEY_RED", "red", 0, "RED"},
+    {"KEY_GREEN", "green", 0, "GREEN"},
+    {"KEY_YELLOW", "yellow", 0, "YELLOW"},
+    {"KEY_BLUE", "blue", 0, "BLUE"},
+    {"KEY_CHANNELUP", "channelup", 0, "CHANNELUP"},
+    {"KEY_CHANNELDOWN", "channeldown", 0, "CHANNELDOWN"},
+    {"KEY_FIRST", "first", 0, "FIRST"},
+    {"KEY_LAST", "last", 0, "LAST"},
+    {"KEY_AB", "ab", 0, "AB"},
+    {"KEY_NEXT", "next", 0, "NEXT"},
+    {"KEY_RESTART", "restart", 0, "RESTART"},
+    {"KEY_SLOW", "slow", 0, "SLOW"},
+    {"KEY_SHUFFLE", "shuffle", 0, "SHUFFLE"},
+    {"KEY_BREAK", "break", 0, "BREAK"},
+    {"KEY_PREVIOUS", "previous", 0, "PREVIOUS"},
+    {"KEY_DIGITS", "digits", 0, "DIGITS"},
+    {"KEY_TEEN", "teen", 0, "TEEN"},
+    {"KEY_TWEN", "twen", 0, "TWEN"},
+    {"KEY_VIDEOPHONE", "videophone", 0, "VIDEOPHONE"},
+    {"KEY_GAMES", "games", 0, "GAMES"},
+    {"KEY_ZOOMIN", "zoomin", 0, "ZOOMIN"},
+    {"KEY_ZOOMOUT", "zoomout", 0, "ZOOMOUT"},
+    {"KEY_ZOOMRESET", "zoomreset", 0, "ZOOMRESET"},
+    {"KEY_WORDPROCESSOR", "wordprocessor", 0, "WORDPROCESSOR"},
+    {"KEY_EDITOR", "editor", 0, "EDITOR"},
+    {"KEY_SPREADSHEET", "spreadsheet", 0, "SPREADSHEET"},
+    {"KEY_GRAPHICSEDITOR", "graphicseditor", 0, "GRAPHICSEDITOR"},
+    {"KEY_PRESENTATION", "presentation", 0, "PRESENTATION"},
+    {"KEY_DATABASE", "database", 0, "DATABASE"},
+    {"KEY_NEWS", "news", 0, "NEWS"},
+    {"KEY_VOICEMAIL", "voicemail", 0, "VOICEMAIL"},
+    {"KEY_ADDRESSBOOK", "addressbook", 0, "ADDRESSBOOK"},
+    {"KEY_MESSENGER", "messenger", 0, "MESSENGER"},
+    {"KEY_DISPLAYTOGGLE", "displaytoggle", 0, "DISPLAYTOGGLE"},
+    {"KEY_SPELLCHECK", "spellcheck", 0, "SPELLCHECK"},
+    {"KEY_LOGOFF", "logoff", 0, "LOGOFF"},
+    {"KEY_DOLLAR", "dollar", 0, "DOLLAR"},
+    {"KEY_EURO", "euro", 0, "EURO"},
+    {"KEY_FRAMEBACK", "frameback", 0, "FRAMEBACK"},
+    {"KEY_FRAMEFORWARD", "frameforward", 0, "FRAMEFORWARD"},
+    {"KEY_CONTEXT_MENU", "context_menu", 0, "CONTEXT_MENU"},
+    {"KEY_MEDIA_REPEAT", "media_repeat", 0, "MEDIA_REPEAT"},
+    {"KEY_10CHANNELSUP", "10channelsup", 0, "10CHANNELSUP"},
+    {"KEY_10CHANNELSDOWN", "10channelsdown", 0, "10CHANNELSDOWN"},
+    {"KEY_IMAGES", "images", 0, "IMAGES"},
+    {"KEY_NOTIFICATION_CENTER", "notification_center", 0, "NOTIFICATION_CENTER"},
+    {"KEY_PICKUP_PHONE", "pickup_phone", 0, "PICKUP_PHONE"},
+    {"KEY_HANGUP_PHONE", "hangup_phone", 0, "HANGUP_PHONE"},
+    {"KEY_LINK_PHONE", "link_phone", 0, "LINK_PHONE"},
+    {"KEY_DEL_EOL", "del_eol", 0, "DEL_EOL"},
+    {"KEY_DEL_EOS", "del_eos", 0, "DEL_EOS"},
+    {"KEY_INS_LINE", "ins_line", 0, "INS_LINE"},
+    {"KEY_DEL_LINE", "del_line", 0, "DEL_LINE"},
+    {"KEY_FN", "fn", 0, "FN"},
+    {"KEY_FN_ESC", "fn_esc", 0, "FN_ESC"},
+    {"KEY_FN_F1", "fn_f1", 0, "FN_F1"},
+    {"KEY_FN_F2", "fn_f2", 0, "FN_F2"},
+    {"KEY_FN_F3", "fn_f3", 0, "FN_F3"},
+    {"KEY_FN_F4", "fn_f4", 0, "FN_F4"},
+    {"KEY_FN_F5", "fn_f5", 0, "FN_F5"},
+    {"KEY_FN_F6", "fn_f6", 0, "FN_F6"},
+    {"KEY_FN_F7", "fn_f7", 0, "FN_F7"},
+    {"KEY_FN_F8", "fn_f8", 0, "FN_F8"},
+    {"KEY_FN_F9", "fn_f9", 0, "FN_F9"},
+    {"KEY_FN_F10", "fn_f10", 0, "FN_F10"},
+    {"KEY_FN_F11", "fn_f11", 0, "FN_F11"},
+    {"KEY_FN_F12", "fn_f12", 0, "FN_F12"},
+    {"KEY_FN_1", "fn_1", 0, "FN_1"},
+    {"KEY_FN_2", "fn_2", 0, "FN_2"},
+    {"KEY_FN_D", "fn_d", 0, "FN_D"},
+    {"KEY_FN_E", "fn_e", 0, "FN_E"},
+    {"KEY_FN_F", "fn_f", 0, "FN_F"},
+    {"KEY_FN_S", "fn_s", 0, "FN_S"},
+    {"KEY_FN_B", "fn_b", 0, "FN_B"},
+    {"KEY_FN_RIGHT_SHIFT", "fn_right_shift", 0, "FN_RIGHT_SHIFT"},
+    {"KEY_BRL_DOT1", "brl_dot1", 0, "BRL_DOT1"},
+    {"KEY_BRL_DOT2", "brl_dot2", 0, "BRL_DOT2"},
+    {"KEY_BRL_DOT3", "brl_dot3", 0, "BRL_DOT3"},
+    {"KEY_BRL_DOT4", "brl_dot4", 0, "BRL_DOT4"},
+    {"KEY_BRL_DOT5", "brl_dot5", 0, "BRL_DOT5"},
+    {"KEY_BRL_DOT6", "brl_dot6", 0, "BRL_DOT6"},
+    {"KEY_BRL_DOT7", "brl_dot7", 0, "BRL_DOT7"},
+    {"KEY_BRL_DOT8", "brl_dot8", 0, "BRL_DOT8"},
+    {"KEY_BRL_DOT9", "brl_dot9", 0, "BRL_DOT9"},
+    {"KEY_BRL_DOT10", "brl_dot10", 0, "BRL_DOT10"},
+    {"KEY_NUMERIC_0", "numeric_0", 0, "NUMERIC_0"},
+    {"KEY_NUMERIC_1", "numeric_1", 0, "NUMERIC_1"},
+    {"KEY_NUMERIC_2", "numeric_2", 0, "NUMERIC_2"},
+    {"KEY_NUMERIC_3", "numeric_3", 0, "NUMERIC_3"},
+    {"KEY_NUMERIC_4", "numeric_4", 0, "NUMERIC_4"},
+    {"KEY_NUMERIC_5", "numeric_5", 0, "NUMERIC_5"},
+    {"KEY_NUMERIC_6", "numeric_6", 0, "NUMERIC_6"},
+    {"KEY_NUMERIC_7", "numeric_7", 0, "NUMERIC_7"},
+    {"KEY_NUMERIC_8", "numeric_8", 0, "NUMERIC_8"},
+    {"KEY_NUMERIC_9", "numeric_9", 0, "NUMERIC_9"},
+    {"KEY_NUMERIC_STAR", "numeric_star", 0, "NUMERIC_STAR"},
+    {"KEY_NUMERIC_POUND", "numeric_pound", 0, "NUMERIC_POUND"},
+    {"KEY_NUMERIC_A", "numeric_a", 0, "NUMERIC_A"},
+    {"KEY_NUMERIC_B", "numeric_b", 0, "NUMERIC_B"},
+    {"KEY_NUMERIC_C", "numeric_c", 0, "NUMERIC_C"},
+    {"KEY_NUMERIC_D", "numeric_d", 0, "NUMERIC_D"},
+    {"KEY_CAMERA_FOCUS", "camera_focus", 0, "CAMERA_FOCUS"},
+    {"KEY_WPS_BUTTON", "wps_button", 0, "WPS_BUTTON"},
+    {"KEY_TOUCHPAD_TOGGLE", "touchpad_toggle", 0, "TOUCHPAD_TOGGLE"},
+    {"KEY_TOUCHPAD_ON", "touchpad_on", 0, "TOUCHPAD_ON"},
+    {"KEY_TOUCHPAD_OFF", "touchpad_off", 0, "TOUCHPAD_OFF"},
+    {"KEY_CAMERA_ZOOMIN", "camera_zoomin", 0, "CAMERA_ZOOMIN"},
+    {"KEY_CAMERA_ZOOMOUT", "camera_zoomout", 0, "CAMERA_ZOOMOUT"},
+    {"KEY_CAMERA_UP", "camera_up", 0, "CAMERA_UP"},
+    {"KEY_CAMERA_DOWN", "camera_down", 0, "CAMERA_DOWN"},
+    {"KEY_CAMERA_LEFT", "camera_left", 0, "CAMERA_LEFT"},
+    {"KEY_CAMERA_RIGHT", "camera_right", 0, "CAMERA_RIGHT"},
+    {"KEY_ATTENDANT_ON", "attendant_on", 0, "ATTENDANT_ON"},
+    {"KEY_ATTENDANT_OFF", "attendant_off", 0, "ATTENDANT_OFF"},
+    {"KEY_ATTENDANT_TOGGLE", "attendant_toggle", 0, "ATTENDANT_TOGGLE"},
+    {"KEY_LIGHTS_TOGGLE", "lights_toggle", 0, "LIGHTS_TOGGLE"},
+    {"KEY_ALS_TOGGLE", "als_toggle", 0, "ALS_TOGGLE"},
+    {"KEY_ROTATE_LOCK_TOGGLE", "rotate_lock_toggle", 0, "ROTATE_LOCK_TOGGLE"},
+    {"KEY_REFRESH_RATE_TOGGLE", "refresh_rate_toggle", 0, "REFRESH_RATE_TOGGLE"},
+    {"KEY_BUTTONCONFIG", "buttonconfig", 0, "BUTTONCONFIG"},
+    {"KEY_TASKMANAGER", "taskmanager", 0, "TASKMANAGER"},
+    {"KEY_JOURNAL", "journal", 0, "JOURNAL"},
+    {"KEY_CONTROLPANEL", "controlpanel", 0, "CONTROLPANEL"},
+    {"KEY_APPSELECT", "appselect", 0, "APPSELECT"},
+    {"KEY_SCREENSAVER", "screensaver", 0, "SCREENSAVER"},
+    {"KEY_VOICECOMMAND", "voicecommand", 0, "VOICECOMMAND"},
+    {"KEY_ASSISTANT", "assistant", 0, "ASSISTANT"},
+    {"KEY_KBD_LAYOUT_NEXT", "kbd_layout_next", 0, "KBD_LAYOUT_NEXT"},
+    {"KEY_EMOJI_PICKER", "emoji_picker", 0, "EMOJI_PICKER"},
+    {"KEY_DICTATE", "dictate", 0, "DICTATE"},
+    {"KEY_CAMERA_ACCESS_ENABLE", "camera_access_enable", 0, "CAMERA_ACCESS_ENABLE"},
+    {"KEY_CAMERA_ACCESS_DISABLE", "camera_access_disable", 0, "CAMERA_ACCESS_DISABLE"},
+    {"KEY_CAMERA_ACCESS_TOGGLE", "camera_access_toggle", 0, "CAMERA_ACCESS_TOGGLE"},
+    {"KEY_ACCESSIBILITY", "accessibility", 0, "ACCESSIBILITY"},
+    {"KEY_DO_NOT_DISTURB", "do_not_disturb", 0, "DO_NOT_DISTURB"},
+    {"KEY_BRIGHTNESS_MIN", "brightness_min", 0, "BRIGHTNESS_MIN"},
+    {"KEY_BRIGHTNESS_MAX", "brightness_max", 0, "BRIGHTNESS_MAX"},
+    {"KEY_EPRIVACY_SCREEN_ON", "eprivacy_screen_on", 0, "EPRIVACY_SCREEN_ON"},
+    {"KEY_EPRIVACY_SCREEN_OFF", "eprivacy_screen_off", 0, "EPRIVACY_SCREEN_OFF"},
+    {"KEY_ACTION_ON_SELECTION", "action_on_selection", 0, "ACTION_ON_SELECTION"},
+    {"KEY_CONTEXTUAL_INSERT", "contextual_insert", 0, "CONTEXTUAL_INSERT"},
+    {"KEY_CONTEXTUAL_QUERY", "contextual_query", 0, "CONTEXTUAL_QUERY"},
+    {"KEY_KBDINPUTASSIST_PREV", "kbdinputassist_prev", 0, "KBDINPUTASSIST_PREV"},
+    {"KEY_KBDINPUTASSIST_NEXT", "kbdinputassist_next", 0, "KBDINPUTASSIST_NEXT"},
+    {"KEY_KBDINPUTASSIST_PREVGROUP", "kbdinputassist_prevgroup", 0, "KBDINPUTASSIST_PREVGROUP"},
+    {"KEY_KBDINPUTASSIST_NEXTGROUP", "kbdinputassist_nextgroup", 0, "KBDINPUTASSIST_NEXTGROUP"},
+    {"KEY_KBDINPUTASSIST_ACCEPT", "kbdinputassist_accept", 0, "KBDINPUTASSIST_ACCEPT"},
+    {"KEY_KBDINPUTASSIST_CANCEL", "kbdinputassist_cancel", 0, "KBDINPUTASSIST_CANCEL"},
+    {"KEY_RIGHT_UP", "right_up", 0, "RIGHT_UP"},
+    {"KEY_RIGHT_DOWN", "right_down", 0, "RIGHT_DOWN"},
+    {"KEY_LEFT_UP", "left_up", 0, "LEFT_UP"},
+    {"KEY_LEFT_DOWN", "left_down", 0, "LEFT_DOWN"},
+    {"KEY_ROOT_MENU", "root_menu", 0, "ROOT_MENU"},
+    {"KEY_MEDIA_TOP_MENU", "media_top_menu", 0, "MEDIA_TOP_MENU"},
+    {"KEY_NUMERIC_11", "numeric_11", 0, "NUMERIC_11"},
+    {"KEY_NUMERIC_12", "numeric_12", 0, "NUMERIC_12"},
+    {"KEY_AUDIO_DESC", "audio_desc", 0, "AUDIO_DESC"},
+    {"KEY_3D_MODE", "3d_mode", 0, "3D_MODE"},
+    {"KEY_NEXT_FAVORITE", "next_favorite", 0, "NEXT_FAVORITE"},
+    {"KEY_STOP_RECORD", "stop_record", 0, "STOP_RECORD"},
+    {"KEY_PAUSE_RECORD", "pause_record", 0, "PAUSE_RECORD"},
+    {"KEY_VOD", "vod", 0, "VOD"},
+    {"KEY_UNMUTE", "unmute", 0, "UNMUTE"},
+    {"KEY_FASTREVERSE", "fastreverse", 0, "FASTREVERSE"},
+    {"KEY_SLOWREVERSE", "slowreverse", 0, "SLOWREVERSE"},
+    {"KEY_DATA", "data", 0, "DATA"},
+    {"KEY_ONSCREEN_KEYBOARD", "onscreen_keyboard", 0, "ONSCREEN_KEYBOARD"},
+    {"KEY_PRIVACY_SCREEN_TOGGLE", "privacy_screen_toggle", 0, "PRIVACY_SCREEN_TOGGLE"},
+    {"KEY_SELECTIVE_SCREENSHOT", "selective_screenshot", 0, "SELECTIVE_SCREENSHOT"},
+    {"KEY_NEXT_ELEMENT", "next_element", 0, "NEXT_ELEMENT"},
+    {"KEY_PREVIOUS_ELEMENT", "previous_element", 0, "PREVIOUS_ELEMENT"},
+    {"KEY_AUTOPILOT_ENGAGE_TOGGLE", "autopilot_engage_toggle", 0, "AUTOPILOT_ENGAGE_TOGGLE"},
+    {"KEY_MARK_WAYPOINT", "mark_waypoint", 0, "MARK_WAYPOINT"},
+    {"KEY_SOS", "sos", 0, "SOS"},
+    {"KEY_NAV_CHART", "nav_chart", 0, "NAV_CHART"},
+    {"KEY_FISHING_CHART", "fishing_chart", 0, "FISHING_CHART"},
+    {"KEY_SINGLE_RANGE_RADAR", "single_range_radar", 0, "SINGLE_RANGE_RADAR"},
+    {"KEY_DUAL_RANGE_RADAR", "dual_range_radar", 0, "DUAL_RANGE_RADAR"},
+    {"KEY_RADAR_OVERLAY", "radar_overlay", 0, "RADAR_OVERLAY"},
+    {"KEY_TRADITIONAL_SONAR", "traditional_sonar", 0, "TRADITIONAL_SONAR"},
+    {"KEY_CLEARVU_SONAR", "clearvu_sonar", 0, "CLEARVU_SONAR"},
+    {"KEY_SIDEVU_SONAR", "sidevu_sonar", 0, "SIDEVU_SONAR"},
+    {"KEY_NAV_INFO", "nav_info", 0, "NAV_INFO"},
+    {"KEY_BRIGHTNESS_MENU", "brightness_menu", 0, "BRIGHTNESS_MENU"},
+    {"KEY_MACRO1", "macro1", 0, "MACRO1"},
+    {"KEY_MACRO2", "macro2", 0, "MACRO2"},
+    {"KEY_MACRO3", "macro3", 0, "MACRO3"},
+    {"KEY_MACRO4", "macro4", 0, "MACRO4"},
+    {"KEY_MACRO5", "macro5", 0, "MACRO5"},
+    {"KEY_MACRO6", "macro6", 0, "MACRO6"},
+    {"KEY_MACRO7", "macro7", 0, "MACRO7"},
+    {"KEY_MACRO8", "macro8", 0, "MACRO8"},
+    {"KEY_MACRO9", "macro9", 0, "MACRO9"},
+    {"KEY_MACRO10", "macro10", 0, "MACRO10"},
+    {"KEY_MACRO11", "macro11", 0, "MACRO11"},
+    {"KEY_MACRO12", "macro12", 0, "MACRO12"},
+    {"KEY_MACRO13", "macro13", 0, "MACRO13"},
+    {"KEY_MACRO14", "macro14", 0, "MACRO14"},
+    {"KEY_MACRO15", "macro15", 0, "MACRO15"},
+    {"KEY_MACRO16", "macro16", 0, "MACRO16"},
+    {"KEY_MACRO17", "macro17", 0, "MACRO17"},
+    {"KEY_MACRO18", "macro18", 0, "MACRO18"},
+    {"KEY_MACRO19", "macro19", 0, "MACRO19"},
+    {"KEY_MACRO20", "macro20", 0, "MACRO20"},
+    {"KEY_MACRO21", "macro21", 0, "MACRO21"},
+    {"KEY_MACRO22", "macro22", 0, "MACRO22"},
+    {"KEY_MACRO23", "macro23", 0, "MACRO23"},
+    {"KEY_MACRO24", "macro24", 0, "MACRO24"},
+    {"KEY_MACRO25", "macro25", 0, "MACRO25"},
+    {"KEY_MACRO26", "macro26", 0, "MACRO26"},
+    {"KEY_MACRO27", "macro27", 0, "MACRO27"},
+    {"KEY_MACRO28", "macro28", 0, "MACRO28"},
+    {"KEY_MACRO29", "macro29", 0, "MACRO29"},
+    {"KEY_MACRO30", "macro30", 0, "MACRO30"},
+    {"KEY_MACRO_RECORD_START", "macro_record_start", 0, "MACRO_RECORD_START"},
+    {"KEY_MACRO_RECORD_STOP", "macro_record_stop", 0, "MACRO_RECORD_STOP"},
+    {"KEY_MACRO_PRESET_CYCLE", "macro_preset_cycle", 0, "MACRO_PRESET_CYCLE"},
+    {"KEY_MACRO_PRESET1", "macro_preset1", 0, "MACRO_PRESET1"},
+    {"KEY_MACRO_PRESET2", "macro_preset2", 0, "MACRO_PRESET2"},
+    {"KEY_MACRO_PRESET3", "macro_preset3", 0, "MACRO_PRESET3"},
+    {"KEY_KBD_LCD_MENU1", "kbd_lcd_menu1", 0, "KBD_LCD_MENU1"},
+    {"KEY_KBD_LCD_MENU2", "kbd_lcd_menu2", 0, "KBD_LCD_MENU2"},
+    {"KEY_KBD_LCD_MENU3", "kbd_lcd_menu3", 0, "KBD_LCD_MENU3"},
+    {"KEY_KBD_LCD_MENU4", "kbd_lcd_menu4", 0, "KBD_LCD_MENU4"},
+    {"KEY_KBD_LCD_MENU5", "kbd_lcd_menu5", 0, "KBD_LCD_MENU5"},
+    {"KEY_PERFORMANCE", "performance", 0, "PERFORMANCE"},
+    {"KEY_MAX", "max", 0, "MAX"},
+};
+
 struct KeyTable {
     std::unordered_map<std::string, KeyCode> word_to_code;
     std::unordered_map<KeyCode, std::string> code_to_word;
@@ -14,3105 +540,16 @@ struct KeyTable {
     std::unordered_map<std::string, KeyCode> name_to_code;
 
     KeyTable() {
-        name_to_code["KEY_RESERVED"] = 0;
-        word_to_code["reserved"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "reserved";
-            code_to_short[0] = "RESERVED";
-        }
-        name_to_code["KEY_ESC"] = 1;
-        word_to_code["esc"] = 1;
-        if (code_to_word.find(1) == code_to_word.end()) {
-            code_to_word[1] = "esc";
-            code_to_short[1] = "ESC";
-        }
-        name_to_code["KEY_1"] = 2;
-        word_to_code["1"] = 2;
-        if (code_to_word.find(2) == code_to_word.end()) {
-            code_to_word[2] = "1";
-            code_to_short[2] = "1";
-        }
-        name_to_code["KEY_2"] = 3;
-        word_to_code["2"] = 3;
-        if (code_to_word.find(3) == code_to_word.end()) {
-            code_to_word[3] = "2";
-            code_to_short[3] = "2";
-        }
-        name_to_code["KEY_3"] = 4;
-        word_to_code["3"] = 4;
-        if (code_to_word.find(4) == code_to_word.end()) {
-            code_to_word[4] = "3";
-            code_to_short[4] = "3";
-        }
-        name_to_code["KEY_4"] = 5;
-        word_to_code["4"] = 5;
-        if (code_to_word.find(5) == code_to_word.end()) {
-            code_to_word[5] = "4";
-            code_to_short[5] = "4";
-        }
-        name_to_code["KEY_5"] = 6;
-        word_to_code["5"] = 6;
-        if (code_to_word.find(6) == code_to_word.end()) {
-            code_to_word[6] = "5";
-            code_to_short[6] = "5";
-        }
-        name_to_code["KEY_6"] = 7;
-        word_to_code["6"] = 7;
-        if (code_to_word.find(7) == code_to_word.end()) {
-            code_to_word[7] = "6";
-            code_to_short[7] = "6";
-        }
-        name_to_code["KEY_7"] = 8;
-        word_to_code["7"] = 8;
-        if (code_to_word.find(8) == code_to_word.end()) {
-            code_to_word[8] = "7";
-            code_to_short[8] = "7";
-        }
-        name_to_code["KEY_8"] = 9;
-        word_to_code["8"] = 9;
-        if (code_to_word.find(9) == code_to_word.end()) {
-            code_to_word[9] = "8";
-            code_to_short[9] = "8";
-        }
-        name_to_code["KEY_9"] = 10;
-        word_to_code["9"] = 10;
-        if (code_to_word.find(10) == code_to_word.end()) {
-            code_to_word[10] = "9";
-            code_to_short[10] = "9";
-        }
-        name_to_code["KEY_0"] = 11;
-        word_to_code["0"] = 11;
-        if (code_to_word.find(11) == code_to_word.end()) {
-            code_to_word[11] = "0";
-            code_to_short[11] = "0";
-        }
-        name_to_code["KEY_MINUS"] = 12;
-        word_to_code["minus"] = 12;
-        if (code_to_word.find(12) == code_to_word.end()) {
-            code_to_word[12] = "minus";
-            code_to_short[12] = "MINUS";
-        }
-        name_to_code["KEY_EQUAL"] = 13;
-        word_to_code["equal"] = 13;
-        if (code_to_word.find(13) == code_to_word.end()) {
-            code_to_word[13] = "equal";
-            code_to_short[13] = "EQUAL";
-        }
-        name_to_code["KEY_BACKSPACE"] = 14;
-        word_to_code["backspace"] = 14;
-        if (code_to_word.find(14) == code_to_word.end()) {
-            code_to_word[14] = "backspace";
-            code_to_short[14] = "BACKSPACE";
-        }
-        name_to_code["KEY_TAB"] = 15;
-        word_to_code["tab"] = 15;
-        if (code_to_word.find(15) == code_to_word.end()) {
-            code_to_word[15] = "tab";
-            code_to_short[15] = "TAB";
-        }
-        name_to_code["KEY_Q"] = 16;
-        word_to_code["q"] = 16;
-        if (code_to_word.find(16) == code_to_word.end()) {
-            code_to_word[16] = "q";
-            code_to_short[16] = "Q";
-        }
-        name_to_code["KEY_W"] = 17;
-        word_to_code["w"] = 17;
-        if (code_to_word.find(17) == code_to_word.end()) {
-            code_to_word[17] = "w";
-            code_to_short[17] = "W";
-        }
-        name_to_code["KEY_E"] = 18;
-        word_to_code["e"] = 18;
-        if (code_to_word.find(18) == code_to_word.end()) {
-            code_to_word[18] = "e";
-            code_to_short[18] = "E";
-        }
-        name_to_code["KEY_R"] = 19;
-        word_to_code["r"] = 19;
-        if (code_to_word.find(19) == code_to_word.end()) {
-            code_to_word[19] = "r";
-            code_to_short[19] = "R";
-        }
-        name_to_code["KEY_T"] = 20;
-        word_to_code["t"] = 20;
-        if (code_to_word.find(20) == code_to_word.end()) {
-            code_to_word[20] = "t";
-            code_to_short[20] = "T";
-        }
-        name_to_code["KEY_Y"] = 21;
-        word_to_code["y"] = 21;
-        if (code_to_word.find(21) == code_to_word.end()) {
-            code_to_word[21] = "y";
-            code_to_short[21] = "Y";
-        }
-        name_to_code["KEY_U"] = 22;
-        word_to_code["u"] = 22;
-        if (code_to_word.find(22) == code_to_word.end()) {
-            code_to_word[22] = "u";
-            code_to_short[22] = "U";
-        }
-        name_to_code["KEY_I"] = 23;
-        word_to_code["i"] = 23;
-        if (code_to_word.find(23) == code_to_word.end()) {
-            code_to_word[23] = "i";
-            code_to_short[23] = "I";
-        }
-        name_to_code["KEY_O"] = 24;
-        word_to_code["o"] = 24;
-        if (code_to_word.find(24) == code_to_word.end()) {
-            code_to_word[24] = "o";
-            code_to_short[24] = "O";
-        }
-        name_to_code["KEY_P"] = 25;
-        word_to_code["p"] = 25;
-        if (code_to_word.find(25) == code_to_word.end()) {
-            code_to_word[25] = "p";
-            code_to_short[25] = "P";
-        }
-        name_to_code["KEY_LEFTBRACE"] = 26;
-        word_to_code["leftbrace"] = 26;
-        if (code_to_word.find(26) == code_to_word.end()) {
-            code_to_word[26] = "leftbrace";
-            code_to_short[26] = "LEFTBRACE";
-        }
-        name_to_code["KEY_RIGHTBRACE"] = 27;
-        word_to_code["rightbrace"] = 27;
-        if (code_to_word.find(27) == code_to_word.end()) {
-            code_to_word[27] = "rightbrace";
-            code_to_short[27] = "RIGHTBRACE";
-        }
-        name_to_code["KEY_ENTER"] = 28;
-        word_to_code["enter"] = 28;
-        if (code_to_word.find(28) == code_to_word.end()) {
-            code_to_word[28] = "enter";
-            code_to_short[28] = "ENTER";
-        }
-        name_to_code["KEY_LEFTCTRL"] = 29;
-        word_to_code["leftctrl"] = 29;
-        if (code_to_word.find(29) == code_to_word.end()) {
-            code_to_word[29] = "leftctrl";
-            code_to_short[29] = "LEFTCTRL";
-        }
-        name_to_code["KEY_A"] = 30;
-        word_to_code["a"] = 30;
-        if (code_to_word.find(30) == code_to_word.end()) {
-            code_to_word[30] = "a";
-            code_to_short[30] = "A";
-        }
-        name_to_code["KEY_S"] = 31;
-        word_to_code["s"] = 31;
-        if (code_to_word.find(31) == code_to_word.end()) {
-            code_to_word[31] = "s";
-            code_to_short[31] = "S";
-        }
-        name_to_code["KEY_D"] = 32;
-        word_to_code["d"] = 32;
-        if (code_to_word.find(32) == code_to_word.end()) {
-            code_to_word[32] = "d";
-            code_to_short[32] = "D";
-        }
-        name_to_code["KEY_F"] = 33;
-        word_to_code["f"] = 33;
-        if (code_to_word.find(33) == code_to_word.end()) {
-            code_to_word[33] = "f";
-            code_to_short[33] = "F";
-        }
-        name_to_code["KEY_G"] = 34;
-        word_to_code["g"] = 34;
-        if (code_to_word.find(34) == code_to_word.end()) {
-            code_to_word[34] = "g";
-            code_to_short[34] = "G";
-        }
-        name_to_code["KEY_H"] = 35;
-        word_to_code["h"] = 35;
-        if (code_to_word.find(35) == code_to_word.end()) {
-            code_to_word[35] = "h";
-            code_to_short[35] = "H";
-        }
-        name_to_code["KEY_J"] = 36;
-        word_to_code["j"] = 36;
-        if (code_to_word.find(36) == code_to_word.end()) {
-            code_to_word[36] = "j";
-            code_to_short[36] = "J";
-        }
-        name_to_code["KEY_K"] = 37;
-        word_to_code["k"] = 37;
-        if (code_to_word.find(37) == code_to_word.end()) {
-            code_to_word[37] = "k";
-            code_to_short[37] = "K";
-        }
-        name_to_code["KEY_L"] = 38;
-        word_to_code["l"] = 38;
-        if (code_to_word.find(38) == code_to_word.end()) {
-            code_to_word[38] = "l";
-            code_to_short[38] = "L";
-        }
-        name_to_code["KEY_SEMICOLON"] = 39;
-        word_to_code["semicolon"] = 39;
-        if (code_to_word.find(39) == code_to_word.end()) {
-            code_to_word[39] = "semicolon";
-            code_to_short[39] = "SEMICOLON";
-        }
-        name_to_code["KEY_APOSTROPHE"] = 40;
-        word_to_code["apostrophe"] = 40;
-        if (code_to_word.find(40) == code_to_word.end()) {
-            code_to_word[40] = "apostrophe";
-            code_to_short[40] = "APOSTROPHE";
-        }
-        name_to_code["KEY_GRAVE"] = 41;
-        word_to_code["grave"] = 41;
-        if (code_to_word.find(41) == code_to_word.end()) {
-            code_to_word[41] = "grave";
-            code_to_short[41] = "GRAVE";
-        }
-        name_to_code["KEY_LEFTSHIFT"] = 42;
-        word_to_code["leftshift"] = 42;
-        if (code_to_word.find(42) == code_to_word.end()) {
-            code_to_word[42] = "leftshift";
-            code_to_short[42] = "LEFTSHIFT";
-        }
-        name_to_code["KEY_BACKSLASH"] = 43;
-        word_to_code["backslash"] = 43;
-        if (code_to_word.find(43) == code_to_word.end()) {
-            code_to_word[43] = "backslash";
-            code_to_short[43] = "BACKSLASH";
-        }
-        name_to_code["KEY_Z"] = 44;
-        word_to_code["z"] = 44;
-        if (code_to_word.find(44) == code_to_word.end()) {
-            code_to_word[44] = "z";
-            code_to_short[44] = "Z";
-        }
-        name_to_code["KEY_X"] = 45;
-        word_to_code["x"] = 45;
-        if (code_to_word.find(45) == code_to_word.end()) {
-            code_to_word[45] = "x";
-            code_to_short[45] = "X";
-        }
-        name_to_code["KEY_C"] = 46;
-        word_to_code["c"] = 46;
-        if (code_to_word.find(46) == code_to_word.end()) {
-            code_to_word[46] = "c";
-            code_to_short[46] = "C";
-        }
-        name_to_code["KEY_V"] = 47;
-        word_to_code["v"] = 47;
-        if (code_to_word.find(47) == code_to_word.end()) {
-            code_to_word[47] = "v";
-            code_to_short[47] = "V";
-        }
-        name_to_code["KEY_B"] = 48;
-        word_to_code["b"] = 48;
-        if (code_to_word.find(48) == code_to_word.end()) {
-            code_to_word[48] = "b";
-            code_to_short[48] = "B";
-        }
-        name_to_code["KEY_N"] = 49;
-        word_to_code["n"] = 49;
-        if (code_to_word.find(49) == code_to_word.end()) {
-            code_to_word[49] = "n";
-            code_to_short[49] = "N";
-        }
-        name_to_code["KEY_M"] = 50;
-        word_to_code["m"] = 50;
-        if (code_to_word.find(50) == code_to_word.end()) {
-            code_to_word[50] = "m";
-            code_to_short[50] = "M";
-        }
-        name_to_code["KEY_COMMA"] = 51;
-        word_to_code["comma"] = 51;
-        if (code_to_word.find(51) == code_to_word.end()) {
-            code_to_word[51] = "comma";
-            code_to_short[51] = "COMMA";
-        }
-        name_to_code["KEY_DOT"] = 52;
-        word_to_code["dot"] = 52;
-        if (code_to_word.find(52) == code_to_word.end()) {
-            code_to_word[52] = "dot";
-            code_to_short[52] = "DOT";
-        }
-        name_to_code["KEY_SLASH"] = 53;
-        word_to_code["slash"] = 53;
-        if (code_to_word.find(53) == code_to_word.end()) {
-            code_to_word[53] = "slash";
-            code_to_short[53] = "SLASH";
-        }
-        name_to_code["KEY_RIGHTSHIFT"] = 54;
-        word_to_code["rightshift"] = 54;
-        if (code_to_word.find(54) == code_to_word.end()) {
-            code_to_word[54] = "rightshift";
-            code_to_short[54] = "RIGHTSHIFT";
-        }
-        name_to_code["KEY_KPASTERISK"] = 55;
-        word_to_code["kpasterisk"] = 55;
-        if (code_to_word.find(55) == code_to_word.end()) {
-            code_to_word[55] = "kpasterisk";
-            code_to_short[55] = "KPASTERISK";
-        }
-        name_to_code["KEY_LEFTALT"] = 56;
-        word_to_code["leftalt"] = 56;
-        if (code_to_word.find(56) == code_to_word.end()) {
-            code_to_word[56] = "leftalt";
-            code_to_short[56] = "LEFTALT";
-        }
-        name_to_code["KEY_SPACE"] = 57;
-        word_to_code["space"] = 57;
-        if (code_to_word.find(57) == code_to_word.end()) {
-            code_to_word[57] = "space";
-            code_to_short[57] = "SPACE";
-        }
-        name_to_code["KEY_CAPSLOCK"] = 58;
-        word_to_code["capslock"] = 58;
-        if (code_to_word.find(58) == code_to_word.end()) {
-            code_to_word[58] = "capslock";
-            code_to_short[58] = "CAPSLOCK";
-        }
-        name_to_code["KEY_F1"] = 59;
-        word_to_code["f1"] = 59;
-        if (code_to_word.find(59) == code_to_word.end()) {
-            code_to_word[59] = "f1";
-            code_to_short[59] = "F1";
-        }
-        name_to_code["KEY_F2"] = 60;
-        word_to_code["f2"] = 60;
-        if (code_to_word.find(60) == code_to_word.end()) {
-            code_to_word[60] = "f2";
-            code_to_short[60] = "F2";
-        }
-        name_to_code["KEY_F3"] = 61;
-        word_to_code["f3"] = 61;
-        if (code_to_word.find(61) == code_to_word.end()) {
-            code_to_word[61] = "f3";
-            code_to_short[61] = "F3";
-        }
-        name_to_code["KEY_F4"] = 62;
-        word_to_code["f4"] = 62;
-        if (code_to_word.find(62) == code_to_word.end()) {
-            code_to_word[62] = "f4";
-            code_to_short[62] = "F4";
-        }
-        name_to_code["KEY_F5"] = 63;
-        word_to_code["f5"] = 63;
-        if (code_to_word.find(63) == code_to_word.end()) {
-            code_to_word[63] = "f5";
-            code_to_short[63] = "F5";
-        }
-        name_to_code["KEY_F6"] = 64;
-        word_to_code["f6"] = 64;
-        if (code_to_word.find(64) == code_to_word.end()) {
-            code_to_word[64] = "f6";
-            code_to_short[64] = "F6";
-        }
-        name_to_code["KEY_F7"] = 65;
-        word_to_code["f7"] = 65;
-        if (code_to_word.find(65) == code_to_word.end()) {
-            code_to_word[65] = "f7";
-            code_to_short[65] = "F7";
-        }
-        name_to_code["KEY_F8"] = 66;
-        word_to_code["f8"] = 66;
-        if (code_to_word.find(66) == code_to_word.end()) {
-            code_to_word[66] = "f8";
-            code_to_short[66] = "F8";
-        }
-        name_to_code["KEY_F9"] = 67;
-        word_to_code["f9"] = 67;
-        if (code_to_word.find(67) == code_to_word.end()) {
-            code_to_word[67] = "f9";
-            code_to_short[67] = "F9";
-        }
-        name_to_code["KEY_F10"] = 68;
-        word_to_code["f10"] = 68;
-        if (code_to_word.find(68) == code_to_word.end()) {
-            code_to_word[68] = "f10";
-            code_to_short[68] = "F10";
-        }
-        name_to_code["KEY_NUMLOCK"] = 69;
-        word_to_code["numlock"] = 69;
-        if (code_to_word.find(69) == code_to_word.end()) {
-            code_to_word[69] = "numlock";
-            code_to_short[69] = "NUMLOCK";
-        }
-        name_to_code["KEY_SCROLLLOCK"] = 70;
-        word_to_code["scrolllock"] = 70;
-        if (code_to_word.find(70) == code_to_word.end()) {
-            code_to_word[70] = "scrolllock";
-            code_to_short[70] = "SCROLLLOCK";
-        }
-        name_to_code["KEY_KP7"] = 71;
-        word_to_code["kp7"] = 71;
-        if (code_to_word.find(71) == code_to_word.end()) {
-            code_to_word[71] = "kp7";
-            code_to_short[71] = "KP7";
-        }
-        name_to_code["KEY_KP8"] = 72;
-        word_to_code["kp8"] = 72;
-        if (code_to_word.find(72) == code_to_word.end()) {
-            code_to_word[72] = "kp8";
-            code_to_short[72] = "KP8";
-        }
-        name_to_code["KEY_KP9"] = 73;
-        word_to_code["kp9"] = 73;
-        if (code_to_word.find(73) == code_to_word.end()) {
-            code_to_word[73] = "kp9";
-            code_to_short[73] = "KP9";
-        }
-        name_to_code["KEY_KPMINUS"] = 74;
-        word_to_code["kpminus"] = 74;
-        if (code_to_word.find(74) == code_to_word.end()) {
-            code_to_word[74] = "kpminus";
-            code_to_short[74] = "KPMINUS";
-        }
-        name_to_code["KEY_KP4"] = 75;
-        word_to_code["kp4"] = 75;
-        if (code_to_word.find(75) == code_to_word.end()) {
-            code_to_word[75] = "kp4";
-            code_to_short[75] = "KP4";
-        }
-        name_to_code["KEY_KP5"] = 76;
-        word_to_code["kp5"] = 76;
-        if (code_to_word.find(76) == code_to_word.end()) {
-            code_to_word[76] = "kp5";
-            code_to_short[76] = "KP5";
-        }
-        name_to_code["KEY_KP6"] = 77;
-        word_to_code["kp6"] = 77;
-        if (code_to_word.find(77) == code_to_word.end()) {
-            code_to_word[77] = "kp6";
-            code_to_short[77] = "KP6";
-        }
-        name_to_code["KEY_KPPLUS"] = 78;
-        word_to_code["kpplus"] = 78;
-        if (code_to_word.find(78) == code_to_word.end()) {
-            code_to_word[78] = "kpplus";
-            code_to_short[78] = "KPPLUS";
-        }
-        name_to_code["KEY_KP1"] = 79;
-        word_to_code["kp1"] = 79;
-        if (code_to_word.find(79) == code_to_word.end()) {
-            code_to_word[79] = "kp1";
-            code_to_short[79] = "KP1";
-        }
-        name_to_code["KEY_KP2"] = 80;
-        word_to_code["kp2"] = 80;
-        if (code_to_word.find(80) == code_to_word.end()) {
-            code_to_word[80] = "kp2";
-            code_to_short[80] = "KP2";
-        }
-        name_to_code["KEY_KP3"] = 81;
-        word_to_code["kp3"] = 81;
-        if (code_to_word.find(81) == code_to_word.end()) {
-            code_to_word[81] = "kp3";
-            code_to_short[81] = "KP3";
-        }
-        name_to_code["KEY_KP0"] = 82;
-        word_to_code["kp0"] = 82;
-        if (code_to_word.find(82) == code_to_word.end()) {
-            code_to_word[82] = "kp0";
-            code_to_short[82] = "KP0";
-        }
-        name_to_code["KEY_KPDOT"] = 83;
-        word_to_code["kpdot"] = 83;
-        if (code_to_word.find(83) == code_to_word.end()) {
-            code_to_word[83] = "kpdot";
-            code_to_short[83] = "KPDOT";
-        }
-        name_to_code["KEY_ZENKAKUHANKAKU"] = 85;
-        word_to_code["zenkakuhankaku"] = 85;
-        if (code_to_word.find(85) == code_to_word.end()) {
-            code_to_word[85] = "zenkakuhankaku";
-            code_to_short[85] = "ZENKAKUHANKAKU";
-        }
-        name_to_code["KEY_102ND"] = 86;
-        word_to_code["102nd"] = 86;
-        if (code_to_word.find(86) == code_to_word.end()) {
-            code_to_word[86] = "102nd";
-            code_to_short[86] = "102ND";
-        }
-        name_to_code["KEY_F11"] = 87;
-        word_to_code["f11"] = 87;
-        if (code_to_word.find(87) == code_to_word.end()) {
-            code_to_word[87] = "f11";
-            code_to_short[87] = "F11";
-        }
-        name_to_code["KEY_F12"] = 88;
-        word_to_code["f12"] = 88;
-        if (code_to_word.find(88) == code_to_word.end()) {
-            code_to_word[88] = "f12";
-            code_to_short[88] = "F12";
-        }
-        name_to_code["KEY_RO"] = 89;
-        word_to_code["ro"] = 89;
-        if (code_to_word.find(89) == code_to_word.end()) {
-            code_to_word[89] = "ro";
-            code_to_short[89] = "RO";
-        }
-        name_to_code["KEY_KATAKANA"] = 90;
-        word_to_code["katakana"] = 90;
-        if (code_to_word.find(90) == code_to_word.end()) {
-            code_to_word[90] = "katakana";
-            code_to_short[90] = "KATAKANA";
-        }
-        name_to_code["KEY_HIRAGANA"] = 91;
-        word_to_code["hiragana"] = 91;
-        if (code_to_word.find(91) == code_to_word.end()) {
-            code_to_word[91] = "hiragana";
-            code_to_short[91] = "HIRAGANA";
-        }
-        name_to_code["KEY_HENKAN"] = 92;
-        word_to_code["henkan"] = 92;
-        if (code_to_word.find(92) == code_to_word.end()) {
-            code_to_word[92] = "henkan";
-            code_to_short[92] = "HENKAN";
-        }
-        name_to_code["KEY_KATAKANAHIRAGANA"] = 93;
-        word_to_code["katakanahiragana"] = 93;
-        if (code_to_word.find(93) == code_to_word.end()) {
-            code_to_word[93] = "katakanahiragana";
-            code_to_short[93] = "KATAKANAHIRAGANA";
-        }
-        name_to_code["KEY_MUHENKAN"] = 94;
-        word_to_code["muhenkan"] = 94;
-        if (code_to_word.find(94) == code_to_word.end()) {
-            code_to_word[94] = "muhenkan";
-            code_to_short[94] = "MUHENKAN";
-        }
-        name_to_code["KEY_KPJPCOMMA"] = 95;
-        word_to_code["kpjpcomma"] = 95;
-        if (code_to_word.find(95) == code_to_word.end()) {
-            code_to_word[95] = "kpjpcomma";
-            code_to_short[95] = "KPJPCOMMA";
-        }
-        name_to_code["KEY_KPENTER"] = 96;
-        word_to_code["kpenter"] = 96;
-        if (code_to_word.find(96) == code_to_word.end()) {
-            code_to_word[96] = "kpenter";
-            code_to_short[96] = "KPENTER";
-        }
-        name_to_code["KEY_RIGHTCTRL"] = 97;
-        word_to_code["rightctrl"] = 97;
-        if (code_to_word.find(97) == code_to_word.end()) {
-            code_to_word[97] = "rightctrl";
-            code_to_short[97] = "RIGHTCTRL";
-        }
-        name_to_code["KEY_KPSLASH"] = 98;
-        word_to_code["kpslash"] = 98;
-        if (code_to_word.find(98) == code_to_word.end()) {
-            code_to_word[98] = "kpslash";
-            code_to_short[98] = "KPSLASH";
-        }
-        name_to_code["KEY_SYSRQ"] = 99;
-        word_to_code["sysrq"] = 99;
-        if (code_to_word.find(99) == code_to_word.end()) {
-            code_to_word[99] = "sysrq";
-            code_to_short[99] = "SYSRQ";
-        }
-        name_to_code["KEY_RIGHTALT"] = 100;
-        word_to_code["rightalt"] = 100;
-        if (code_to_word.find(100) == code_to_word.end()) {
-            code_to_word[100] = "rightalt";
-            code_to_short[100] = "RIGHTALT";
-        }
-        name_to_code["KEY_LINEFEED"] = 101;
-        word_to_code["linefeed"] = 101;
-        if (code_to_word.find(101) == code_to_word.end()) {
-            code_to_word[101] = "linefeed";
-            code_to_short[101] = "LINEFEED";
-        }
-        name_to_code["KEY_HOME"] = 102;
-        word_to_code["home"] = 102;
-        if (code_to_word.find(102) == code_to_word.end()) {
-            code_to_word[102] = "home";
-            code_to_short[102] = "HOME";
-        }
-        name_to_code["KEY_UP"] = 103;
-        word_to_code["up"] = 103;
-        if (code_to_word.find(103) == code_to_word.end()) {
-            code_to_word[103] = "up";
-            code_to_short[103] = "UP";
-        }
-        name_to_code["KEY_PAGEUP"] = 104;
-        word_to_code["pageup"] = 104;
-        if (code_to_word.find(104) == code_to_word.end()) {
-            code_to_word[104] = "pageup";
-            code_to_short[104] = "PAGEUP";
-        }
-        name_to_code["KEY_LEFT"] = 105;
-        word_to_code["left"] = 105;
-        if (code_to_word.find(105) == code_to_word.end()) {
-            code_to_word[105] = "left";
-            code_to_short[105] = "LEFT";
-        }
-        name_to_code["KEY_RIGHT"] = 106;
-        word_to_code["right"] = 106;
-        if (code_to_word.find(106) == code_to_word.end()) {
-            code_to_word[106] = "right";
-            code_to_short[106] = "RIGHT";
-        }
-        name_to_code["KEY_END"] = 107;
-        word_to_code["end"] = 107;
-        if (code_to_word.find(107) == code_to_word.end()) {
-            code_to_word[107] = "end";
-            code_to_short[107] = "END";
-        }
-        name_to_code["KEY_DOWN"] = 108;
-        word_to_code["down"] = 108;
-        if (code_to_word.find(108) == code_to_word.end()) {
-            code_to_word[108] = "down";
-            code_to_short[108] = "DOWN";
-        }
-        name_to_code["KEY_PAGEDOWN"] = 109;
-        word_to_code["pagedown"] = 109;
-        if (code_to_word.find(109) == code_to_word.end()) {
-            code_to_word[109] = "pagedown";
-            code_to_short[109] = "PAGEDOWN";
-        }
-        name_to_code["KEY_INSERT"] = 110;
-        word_to_code["insert"] = 110;
-        if (code_to_word.find(110) == code_to_word.end()) {
-            code_to_word[110] = "insert";
-            code_to_short[110] = "INSERT";
-        }
-        name_to_code["KEY_DELETE"] = 111;
-        word_to_code["delete"] = 111;
-        if (code_to_word.find(111) == code_to_word.end()) {
-            code_to_word[111] = "delete";
-            code_to_short[111] = "DELETE";
-        }
-        name_to_code["KEY_MACRO"] = 112;
-        word_to_code["macro"] = 112;
-        if (code_to_word.find(112) == code_to_word.end()) {
-            code_to_word[112] = "macro";
-            code_to_short[112] = "MACRO";
-        }
-        name_to_code["KEY_MUTE"] = 113;
-        word_to_code["mute"] = 113;
-        if (code_to_word.find(113) == code_to_word.end()) {
-            code_to_word[113] = "mute";
-            code_to_short[113] = "MUTE";
-        }
-        name_to_code["KEY_VOLUMEDOWN"] = 114;
-        word_to_code["volumedown"] = 114;
-        if (code_to_word.find(114) == code_to_word.end()) {
-            code_to_word[114] = "volumedown";
-            code_to_short[114] = "VOLUMEDOWN";
-        }
-        name_to_code["KEY_VOLUMEUP"] = 115;
-        word_to_code["volumeup"] = 115;
-        if (code_to_word.find(115) == code_to_word.end()) {
-            code_to_word[115] = "volumeup";
-            code_to_short[115] = "VOLUMEUP";
-        }
-        name_to_code["KEY_POWER"] = 116;
-        word_to_code["power"] = 116;
-        if (code_to_word.find(116) == code_to_word.end()) {
-            code_to_word[116] = "power";
-            code_to_short[116] = "POWER";
-        }
-        name_to_code["KEY_KPEQUAL"] = 117;
-        word_to_code["kpequal"] = 117;
-        if (code_to_word.find(117) == code_to_word.end()) {
-            code_to_word[117] = "kpequal";
-            code_to_short[117] = "KPEQUAL";
-        }
-        name_to_code["KEY_KPPLUSMINUS"] = 118;
-        word_to_code["kpplusminus"] = 118;
-        if (code_to_word.find(118) == code_to_word.end()) {
-            code_to_word[118] = "kpplusminus";
-            code_to_short[118] = "KPPLUSMINUS";
-        }
-        name_to_code["KEY_PAUSE"] = 119;
-        word_to_code["pause"] = 119;
-        if (code_to_word.find(119) == code_to_word.end()) {
-            code_to_word[119] = "pause";
-            code_to_short[119] = "PAUSE";
-        }
-        name_to_code["KEY_SCALE"] = 120;
-        word_to_code["scale"] = 120;
-        if (code_to_word.find(120) == code_to_word.end()) {
-            code_to_word[120] = "scale";
-            code_to_short[120] = "SCALE";
-        }
-        name_to_code["KEY_KPCOMMA"] = 121;
-        word_to_code["kpcomma"] = 121;
-        if (code_to_word.find(121) == code_to_word.end()) {
-            code_to_word[121] = "kpcomma";
-            code_to_short[121] = "KPCOMMA";
-        }
-        name_to_code["KEY_HANGEUL"] = 122;
-        word_to_code["hangeul"] = 122;
-        if (code_to_word.find(122) == code_to_word.end()) {
-            code_to_word[122] = "hangeul";
-            code_to_short[122] = "HANGEUL";
-        }
-        name_to_code["KEY_HANJA"] = 123;
-        word_to_code["hanja"] = 123;
-        if (code_to_word.find(123) == code_to_word.end()) {
-            code_to_word[123] = "hanja";
-            code_to_short[123] = "HANJA";
-        }
-        name_to_code["KEY_YEN"] = 124;
-        word_to_code["yen"] = 124;
-        if (code_to_word.find(124) == code_to_word.end()) {
-            code_to_word[124] = "yen";
-            code_to_short[124] = "YEN";
-        }
-        name_to_code["KEY_LEFTMETA"] = 125;
-        word_to_code["leftmeta"] = 125;
-        if (code_to_word.find(125) == code_to_word.end()) {
-            code_to_word[125] = "leftmeta";
-            code_to_short[125] = "LEFTMETA";
-        }
-        name_to_code["KEY_RIGHTMETA"] = 126;
-        word_to_code["rightmeta"] = 126;
-        if (code_to_word.find(126) == code_to_word.end()) {
-            code_to_word[126] = "rightmeta";
-            code_to_short[126] = "RIGHTMETA";
-        }
-        name_to_code["KEY_COMPOSE"] = 127;
-        word_to_code["compose"] = 127;
-        if (code_to_word.find(127) == code_to_word.end()) {
-            code_to_word[127] = "compose";
-            code_to_short[127] = "COMPOSE";
-        }
-        name_to_code["KEY_STOP"] = 128;
-        word_to_code["stop"] = 128;
-        if (code_to_word.find(128) == code_to_word.end()) {
-            code_to_word[128] = "stop";
-            code_to_short[128] = "STOP";
-        }
-        name_to_code["KEY_AGAIN"] = 129;
-        word_to_code["again"] = 129;
-        if (code_to_word.find(129) == code_to_word.end()) {
-            code_to_word[129] = "again";
-            code_to_short[129] = "AGAIN";
-        }
-        name_to_code["KEY_PROPS"] = 130;
-        word_to_code["props"] = 130;
-        if (code_to_word.find(130) == code_to_word.end()) {
-            code_to_word[130] = "props";
-            code_to_short[130] = "PROPS";
-        }
-        name_to_code["KEY_UNDO"] = 131;
-        word_to_code["undo"] = 131;
-        if (code_to_word.find(131) == code_to_word.end()) {
-            code_to_word[131] = "undo";
-            code_to_short[131] = "UNDO";
-        }
-        name_to_code["KEY_FRONT"] = 132;
-        word_to_code["front"] = 132;
-        if (code_to_word.find(132) == code_to_word.end()) {
-            code_to_word[132] = "front";
-            code_to_short[132] = "FRONT";
-        }
-        name_to_code["KEY_COPY"] = 133;
-        word_to_code["copy"] = 133;
-        if (code_to_word.find(133) == code_to_word.end()) {
-            code_to_word[133] = "copy";
-            code_to_short[133] = "COPY";
-        }
-        name_to_code["KEY_OPEN"] = 134;
-        word_to_code["open"] = 134;
-        if (code_to_word.find(134) == code_to_word.end()) {
-            code_to_word[134] = "open";
-            code_to_short[134] = "OPEN";
-        }
-        name_to_code["KEY_PASTE"] = 135;
-        word_to_code["paste"] = 135;
-        if (code_to_word.find(135) == code_to_word.end()) {
-            code_to_word[135] = "paste";
-            code_to_short[135] = "PASTE";
-        }
-        name_to_code["KEY_FIND"] = 136;
-        word_to_code["find"] = 136;
-        if (code_to_word.find(136) == code_to_word.end()) {
-            code_to_word[136] = "find";
-            code_to_short[136] = "FIND";
-        }
-        name_to_code["KEY_CUT"] = 137;
-        word_to_code["cut"] = 137;
-        if (code_to_word.find(137) == code_to_word.end()) {
-            code_to_word[137] = "cut";
-            code_to_short[137] = "CUT";
-        }
-        name_to_code["KEY_HELP"] = 138;
-        word_to_code["help"] = 138;
-        if (code_to_word.find(138) == code_to_word.end()) {
-            code_to_word[138] = "help";
-            code_to_short[138] = "HELP";
-        }
-        name_to_code["KEY_MENU"] = 139;
-        word_to_code["menu"] = 139;
-        if (code_to_word.find(139) == code_to_word.end()) {
-            code_to_word[139] = "menu";
-            code_to_short[139] = "MENU";
-        }
-        name_to_code["KEY_CALC"] = 140;
-        word_to_code["calc"] = 140;
-        if (code_to_word.find(140) == code_to_word.end()) {
-            code_to_word[140] = "calc";
-            code_to_short[140] = "CALC";
-        }
-        name_to_code["KEY_SETUP"] = 141;
-        word_to_code["setup"] = 141;
-        if (code_to_word.find(141) == code_to_word.end()) {
-            code_to_word[141] = "setup";
-            code_to_short[141] = "SETUP";
-        }
-        name_to_code["KEY_SLEEP"] = 142;
-        word_to_code["sleep"] = 142;
-        if (code_to_word.find(142) == code_to_word.end()) {
-            code_to_word[142] = "sleep";
-            code_to_short[142] = "SLEEP";
-        }
-        name_to_code["KEY_WAKEUP"] = 143;
-        word_to_code["wakeup"] = 143;
-        if (code_to_word.find(143) == code_to_word.end()) {
-            code_to_word[143] = "wakeup";
-            code_to_short[143] = "WAKEUP";
-        }
-        name_to_code["KEY_FILE"] = 144;
-        word_to_code["file"] = 144;
-        if (code_to_word.find(144) == code_to_word.end()) {
-            code_to_word[144] = "file";
-            code_to_short[144] = "FILE";
-        }
-        name_to_code["KEY_SENDFILE"] = 145;
-        word_to_code["sendfile"] = 145;
-        if (code_to_word.find(145) == code_to_word.end()) {
-            code_to_word[145] = "sendfile";
-            code_to_short[145] = "SENDFILE";
-        }
-        name_to_code["KEY_DELETEFILE"] = 146;
-        word_to_code["deletefile"] = 146;
-        if (code_to_word.find(146) == code_to_word.end()) {
-            code_to_word[146] = "deletefile";
-            code_to_short[146] = "DELETEFILE";
-        }
-        name_to_code["KEY_XFER"] = 147;
-        word_to_code["xfer"] = 147;
-        if (code_to_word.find(147) == code_to_word.end()) {
-            code_to_word[147] = "xfer";
-            code_to_short[147] = "XFER";
-        }
-        name_to_code["KEY_PROG1"] = 148;
-        word_to_code["prog1"] = 148;
-        if (code_to_word.find(148) == code_to_word.end()) {
-            code_to_word[148] = "prog1";
-            code_to_short[148] = "PROG1";
-        }
-        name_to_code["KEY_PROG2"] = 149;
-        word_to_code["prog2"] = 149;
-        if (code_to_word.find(149) == code_to_word.end()) {
-            code_to_word[149] = "prog2";
-            code_to_short[149] = "PROG2";
-        }
-        name_to_code["KEY_WWW"] = 150;
-        word_to_code["www"] = 150;
-        if (code_to_word.find(150) == code_to_word.end()) {
-            code_to_word[150] = "www";
-            code_to_short[150] = "WWW";
-        }
-        name_to_code["KEY_MSDOS"] = 151;
-        word_to_code["msdos"] = 151;
-        if (code_to_word.find(151) == code_to_word.end()) {
-            code_to_word[151] = "msdos";
-            code_to_short[151] = "MSDOS";
-        }
-        name_to_code["KEY_COFFEE"] = 152;
-        word_to_code["coffee"] = 152;
-        if (code_to_word.find(152) == code_to_word.end()) {
-            code_to_word[152] = "coffee";
-            code_to_short[152] = "COFFEE";
-        }
-        name_to_code["KEY_ROTATE_DISPLAY"] = 153;
-        word_to_code["rotate_display"] = 153;
-        if (code_to_word.find(153) == code_to_word.end()) {
-            code_to_word[153] = "rotate_display";
-            code_to_short[153] = "ROTATE_DISPLAY";
-        }
-        name_to_code["KEY_CYCLEWINDOWS"] = 154;
-        word_to_code["cyclewindows"] = 154;
-        if (code_to_word.find(154) == code_to_word.end()) {
-            code_to_word[154] = "cyclewindows";
-            code_to_short[154] = "CYCLEWINDOWS";
-        }
-        name_to_code["KEY_MAIL"] = 155;
-        word_to_code["mail"] = 155;
-        if (code_to_word.find(155) == code_to_word.end()) {
-            code_to_word[155] = "mail";
-            code_to_short[155] = "MAIL";
-        }
-        name_to_code["KEY_BOOKMARKS"] = 156;
-        word_to_code["bookmarks"] = 156;
-        if (code_to_word.find(156) == code_to_word.end()) {
-            code_to_word[156] = "bookmarks";
-            code_to_short[156] = "BOOKMARKS";
-        }
-        name_to_code["KEY_COMPUTER"] = 157;
-        word_to_code["computer"] = 157;
-        if (code_to_word.find(157) == code_to_word.end()) {
-            code_to_word[157] = "computer";
-            code_to_short[157] = "COMPUTER";
-        }
-        name_to_code["KEY_BACK"] = 158;
-        word_to_code["back"] = 158;
-        if (code_to_word.find(158) == code_to_word.end()) {
-            code_to_word[158] = "back";
-            code_to_short[158] = "BACK";
-        }
-        name_to_code["KEY_FORWARD"] = 159;
-        word_to_code["forward"] = 159;
-        if (code_to_word.find(159) == code_to_word.end()) {
-            code_to_word[159] = "forward";
-            code_to_short[159] = "FORWARD";
-        }
-        name_to_code["KEY_CLOSECD"] = 160;
-        word_to_code["closecd"] = 160;
-        if (code_to_word.find(160) == code_to_word.end()) {
-            code_to_word[160] = "closecd";
-            code_to_short[160] = "CLOSECD";
-        }
-        name_to_code["KEY_EJECTCD"] = 161;
-        word_to_code["ejectcd"] = 161;
-        if (code_to_word.find(161) == code_to_word.end()) {
-            code_to_word[161] = "ejectcd";
-            code_to_short[161] = "EJECTCD";
-        }
-        name_to_code["KEY_EJECTCLOSECD"] = 162;
-        word_to_code["ejectclosecd"] = 162;
-        if (code_to_word.find(162) == code_to_word.end()) {
-            code_to_word[162] = "ejectclosecd";
-            code_to_short[162] = "EJECTCLOSECD";
-        }
-        name_to_code["KEY_NEXTSONG"] = 163;
-        word_to_code["nextsong"] = 163;
-        if (code_to_word.find(163) == code_to_word.end()) {
-            code_to_word[163] = "nextsong";
-            code_to_short[163] = "NEXTSONG";
-        }
-        name_to_code["KEY_PLAYPAUSE"] = 164;
-        word_to_code["playpause"] = 164;
-        if (code_to_word.find(164) == code_to_word.end()) {
-            code_to_word[164] = "playpause";
-            code_to_short[164] = "PLAYPAUSE";
-        }
-        name_to_code["KEY_PREVIOUSSONG"] = 165;
-        word_to_code["previoussong"] = 165;
-        if (code_to_word.find(165) == code_to_word.end()) {
-            code_to_word[165] = "previoussong";
-            code_to_short[165] = "PREVIOUSSONG";
-        }
-        name_to_code["KEY_STOPCD"] = 166;
-        word_to_code["stopcd"] = 166;
-        if (code_to_word.find(166) == code_to_word.end()) {
-            code_to_word[166] = "stopcd";
-            code_to_short[166] = "STOPCD";
-        }
-        name_to_code["KEY_RECORD"] = 167;
-        word_to_code["record"] = 167;
-        if (code_to_word.find(167) == code_to_word.end()) {
-            code_to_word[167] = "record";
-            code_to_short[167] = "RECORD";
-        }
-        name_to_code["KEY_REWIND"] = 168;
-        word_to_code["rewind"] = 168;
-        if (code_to_word.find(168) == code_to_word.end()) {
-            code_to_word[168] = "rewind";
-            code_to_short[168] = "REWIND";
-        }
-        name_to_code["KEY_PHONE"] = 169;
-        word_to_code["phone"] = 169;
-        if (code_to_word.find(169) == code_to_word.end()) {
-            code_to_word[169] = "phone";
-            code_to_short[169] = "PHONE";
-        }
-        name_to_code["KEY_ISO"] = 170;
-        word_to_code["iso"] = 170;
-        if (code_to_word.find(170) == code_to_word.end()) {
-            code_to_word[170] = "iso";
-            code_to_short[170] = "ISO";
-        }
-        name_to_code["KEY_CONFIG"] = 171;
-        word_to_code["config"] = 171;
-        if (code_to_word.find(171) == code_to_word.end()) {
-            code_to_word[171] = "config";
-            code_to_short[171] = "CONFIG";
-        }
-        name_to_code["KEY_HOMEPAGE"] = 172;
-        word_to_code["homepage"] = 172;
-        if (code_to_word.find(172) == code_to_word.end()) {
-            code_to_word[172] = "homepage";
-            code_to_short[172] = "HOMEPAGE";
-        }
-        name_to_code["KEY_REFRESH"] = 173;
-        word_to_code["refresh"] = 173;
-        if (code_to_word.find(173) == code_to_word.end()) {
-            code_to_word[173] = "refresh";
-            code_to_short[173] = "REFRESH";
-        }
-        name_to_code["KEY_EXIT"] = 174;
-        word_to_code["exit"] = 174;
-        if (code_to_word.find(174) == code_to_word.end()) {
-            code_to_word[174] = "exit";
-            code_to_short[174] = "EXIT";
-        }
-        name_to_code["KEY_MOVE"] = 175;
-        word_to_code["move"] = 175;
-        if (code_to_word.find(175) == code_to_word.end()) {
-            code_to_word[175] = "move";
-            code_to_short[175] = "MOVE";
-        }
-        name_to_code["KEY_EDIT"] = 176;
-        word_to_code["edit"] = 176;
-        if (code_to_word.find(176) == code_to_word.end()) {
-            code_to_word[176] = "edit";
-            code_to_short[176] = "EDIT";
-        }
-        name_to_code["KEY_SCROLLUP"] = 177;
-        word_to_code["scrollup"] = 177;
-        if (code_to_word.find(177) == code_to_word.end()) {
-            code_to_word[177] = "scrollup";
-            code_to_short[177] = "SCROLLUP";
-        }
-        name_to_code["KEY_SCROLLDOWN"] = 178;
-        word_to_code["scrolldown"] = 178;
-        if (code_to_word.find(178) == code_to_word.end()) {
-            code_to_word[178] = "scrolldown";
-            code_to_short[178] = "SCROLLDOWN";
-        }
-        name_to_code["KEY_KPLEFTPAREN"] = 179;
-        word_to_code["kpleftparen"] = 179;
-        if (code_to_word.find(179) == code_to_word.end()) {
-            code_to_word[179] = "kpleftparen";
-            code_to_short[179] = "KPLEFTPAREN";
-        }
-        name_to_code["KEY_KPRIGHTPAREN"] = 180;
-        word_to_code["kprightparen"] = 180;
-        if (code_to_word.find(180) == code_to_word.end()) {
-            code_to_word[180] = "kprightparen";
-            code_to_short[180] = "KPRIGHTPAREN";
-        }
-        name_to_code["KEY_NEW"] = 181;
-        word_to_code["new"] = 181;
-        if (code_to_word.find(181) == code_to_word.end()) {
-            code_to_word[181] = "new";
-            code_to_short[181] = "NEW";
-        }
-        name_to_code["KEY_REDO"] = 182;
-        word_to_code["redo"] = 182;
-        if (code_to_word.find(182) == code_to_word.end()) {
-            code_to_word[182] = "redo";
-            code_to_short[182] = "REDO";
-        }
-        name_to_code["KEY_F13"] = 183;
-        word_to_code["f13"] = 183;
-        if (code_to_word.find(183) == code_to_word.end()) {
-            code_to_word[183] = "f13";
-            code_to_short[183] = "F13";
-        }
-        name_to_code["KEY_F14"] = 184;
-        word_to_code["f14"] = 184;
-        if (code_to_word.find(184) == code_to_word.end()) {
-            code_to_word[184] = "f14";
-            code_to_short[184] = "F14";
-        }
-        name_to_code["KEY_F15"] = 185;
-        word_to_code["f15"] = 185;
-        if (code_to_word.find(185) == code_to_word.end()) {
-            code_to_word[185] = "f15";
-            code_to_short[185] = "F15";
-        }
-        name_to_code["KEY_F16"] = 186;
-        word_to_code["f16"] = 186;
-        if (code_to_word.find(186) == code_to_word.end()) {
-            code_to_word[186] = "f16";
-            code_to_short[186] = "F16";
-        }
-        name_to_code["KEY_F17"] = 187;
-        word_to_code["f17"] = 187;
-        if (code_to_word.find(187) == code_to_word.end()) {
-            code_to_word[187] = "f17";
-            code_to_short[187] = "F17";
-        }
-        name_to_code["KEY_F18"] = 188;
-        word_to_code["f18"] = 188;
-        if (code_to_word.find(188) == code_to_word.end()) {
-            code_to_word[188] = "f18";
-            code_to_short[188] = "F18";
-        }
-        name_to_code["KEY_F19"] = 189;
-        word_to_code["f19"] = 189;
-        if (code_to_word.find(189) == code_to_word.end()) {
-            code_to_word[189] = "f19";
-            code_to_short[189] = "F19";
-        }
-        name_to_code["KEY_F20"] = 190;
-        word_to_code["f20"] = 190;
-        if (code_to_word.find(190) == code_to_word.end()) {
-            code_to_word[190] = "f20";
-            code_to_short[190] = "F20";
-        }
-        name_to_code["KEY_F21"] = 191;
-        word_to_code["f21"] = 191;
-        if (code_to_word.find(191) == code_to_word.end()) {
-            code_to_word[191] = "f21";
-            code_to_short[191] = "F21";
-        }
-        name_to_code["KEY_F22"] = 192;
-        word_to_code["f22"] = 192;
-        if (code_to_word.find(192) == code_to_word.end()) {
-            code_to_word[192] = "f22";
-            code_to_short[192] = "F22";
-        }
-        name_to_code["KEY_F23"] = 193;
-        word_to_code["f23"] = 193;
-        if (code_to_word.find(193) == code_to_word.end()) {
-            code_to_word[193] = "f23";
-            code_to_short[193] = "F23";
-        }
-        name_to_code["KEY_F24"] = 194;
-        word_to_code["f24"] = 194;
-        if (code_to_word.find(194) == code_to_word.end()) {
-            code_to_word[194] = "f24";
-            code_to_short[194] = "F24";
-        }
-        name_to_code["KEY_PLAYCD"] = 200;
-        word_to_code["playcd"] = 200;
-        if (code_to_word.find(200) == code_to_word.end()) {
-            code_to_word[200] = "playcd";
-            code_to_short[200] = "PLAYCD";
-        }
-        name_to_code["KEY_PAUSECD"] = 201;
-        word_to_code["pausecd"] = 201;
-        if (code_to_word.find(201) == code_to_word.end()) {
-            code_to_word[201] = "pausecd";
-            code_to_short[201] = "PAUSECD";
-        }
-        name_to_code["KEY_PROG3"] = 202;
-        word_to_code["prog3"] = 202;
-        if (code_to_word.find(202) == code_to_word.end()) {
-            code_to_word[202] = "prog3";
-            code_to_short[202] = "PROG3";
-        }
-        name_to_code["KEY_PROG4"] = 203;
-        word_to_code["prog4"] = 203;
-        if (code_to_word.find(203) == code_to_word.end()) {
-            code_to_word[203] = "prog4";
-            code_to_short[203] = "PROG4";
-        }
-        name_to_code["KEY_ALL_APPLICATIONS"] = 204;
-        word_to_code["all_applications"] = 204;
-        if (code_to_word.find(204) == code_to_word.end()) {
-            code_to_word[204] = "all_applications";
-            code_to_short[204] = "ALL_APPLICATIONS";
-        }
-        name_to_code["KEY_SUSPEND"] = 205;
-        word_to_code["suspend"] = 205;
-        if (code_to_word.find(205) == code_to_word.end()) {
-            code_to_word[205] = "suspend";
-            code_to_short[205] = "SUSPEND";
-        }
-        name_to_code["KEY_CLOSE"] = 206;
-        word_to_code["close"] = 206;
-        if (code_to_word.find(206) == code_to_word.end()) {
-            code_to_word[206] = "close";
-            code_to_short[206] = "CLOSE";
-        }
-        name_to_code["KEY_PLAY"] = 207;
-        word_to_code["play"] = 207;
-        if (code_to_word.find(207) == code_to_word.end()) {
-            code_to_word[207] = "play";
-            code_to_short[207] = "PLAY";
-        }
-        name_to_code["KEY_FASTFORWARD"] = 208;
-        word_to_code["fastforward"] = 208;
-        if (code_to_word.find(208) == code_to_word.end()) {
-            code_to_word[208] = "fastforward";
-            code_to_short[208] = "FASTFORWARD";
-        }
-        name_to_code["KEY_BASSBOOST"] = 209;
-        word_to_code["bassboost"] = 209;
-        if (code_to_word.find(209) == code_to_word.end()) {
-            code_to_word[209] = "bassboost";
-            code_to_short[209] = "BASSBOOST";
-        }
-        name_to_code["KEY_PRINT"] = 210;
-        word_to_code["print"] = 210;
-        if (code_to_word.find(210) == code_to_word.end()) {
-            code_to_word[210] = "print";
-            code_to_short[210] = "PRINT";
-        }
-        name_to_code["KEY_HP"] = 211;
-        word_to_code["hp"] = 211;
-        if (code_to_word.find(211) == code_to_word.end()) {
-            code_to_word[211] = "hp";
-            code_to_short[211] = "HP";
-        }
-        name_to_code["KEY_CAMERA"] = 212;
-        word_to_code["camera"] = 212;
-        if (code_to_word.find(212) == code_to_word.end()) {
-            code_to_word[212] = "camera";
-            code_to_short[212] = "CAMERA";
-        }
-        name_to_code["KEY_SOUND"] = 213;
-        word_to_code["sound"] = 213;
-        if (code_to_word.find(213) == code_to_word.end()) {
-            code_to_word[213] = "sound";
-            code_to_short[213] = "SOUND";
-        }
-        name_to_code["KEY_QUESTION"] = 214;
-        word_to_code["question"] = 214;
-        if (code_to_word.find(214) == code_to_word.end()) {
-            code_to_word[214] = "question";
-            code_to_short[214] = "QUESTION";
-        }
-        name_to_code["KEY_EMAIL"] = 215;
-        word_to_code["email"] = 215;
-        if (code_to_word.find(215) == code_to_word.end()) {
-            code_to_word[215] = "email";
-            code_to_short[215] = "EMAIL";
-        }
-        name_to_code["KEY_CHAT"] = 216;
-        word_to_code["chat"] = 216;
-        if (code_to_word.find(216) == code_to_word.end()) {
-            code_to_word[216] = "chat";
-            code_to_short[216] = "CHAT";
-        }
-        name_to_code["KEY_SEARCH"] = 217;
-        word_to_code["search"] = 217;
-        if (code_to_word.find(217) == code_to_word.end()) {
-            code_to_word[217] = "search";
-            code_to_short[217] = "SEARCH";
-        }
-        name_to_code["KEY_CONNECT"] = 218;
-        word_to_code["connect"] = 218;
-        if (code_to_word.find(218) == code_to_word.end()) {
-            code_to_word[218] = "connect";
-            code_to_short[218] = "CONNECT";
-        }
-        name_to_code["KEY_FINANCE"] = 219;
-        word_to_code["finance"] = 219;
-        if (code_to_word.find(219) == code_to_word.end()) {
-            code_to_word[219] = "finance";
-            code_to_short[219] = "FINANCE";
-        }
-        name_to_code["KEY_SPORT"] = 220;
-        word_to_code["sport"] = 220;
-        if (code_to_word.find(220) == code_to_word.end()) {
-            code_to_word[220] = "sport";
-            code_to_short[220] = "SPORT";
-        }
-        name_to_code["KEY_SHOP"] = 221;
-        word_to_code["shop"] = 221;
-        if (code_to_word.find(221) == code_to_word.end()) {
-            code_to_word[221] = "shop";
-            code_to_short[221] = "SHOP";
-        }
-        name_to_code["KEY_ALTERASE"] = 222;
-        word_to_code["alterase"] = 222;
-        if (code_to_word.find(222) == code_to_word.end()) {
-            code_to_word[222] = "alterase";
-            code_to_short[222] = "ALTERASE";
-        }
-        name_to_code["KEY_CANCEL"] = 223;
-        word_to_code["cancel"] = 223;
-        if (code_to_word.find(223) == code_to_word.end()) {
-            code_to_word[223] = "cancel";
-            code_to_short[223] = "CANCEL";
-        }
-        name_to_code["KEY_BRIGHTNESSDOWN"] = 224;
-        word_to_code["brightnessdown"] = 224;
-        if (code_to_word.find(224) == code_to_word.end()) {
-            code_to_word[224] = "brightnessdown";
-            code_to_short[224] = "BRIGHTNESSDOWN";
-        }
-        name_to_code["KEY_BRIGHTNESSUP"] = 225;
-        word_to_code["brightnessup"] = 225;
-        if (code_to_word.find(225) == code_to_word.end()) {
-            code_to_word[225] = "brightnessup";
-            code_to_short[225] = "BRIGHTNESSUP";
-        }
-        name_to_code["KEY_MEDIA"] = 226;
-        word_to_code["media"] = 226;
-        if (code_to_word.find(226) == code_to_word.end()) {
-            code_to_word[226] = "media";
-            code_to_short[226] = "MEDIA";
-        }
-        name_to_code["KEY_SWITCHVIDEOMODE"] = 227;
-        word_to_code["switchvideomode"] = 227;
-        if (code_to_word.find(227) == code_to_word.end()) {
-            code_to_word[227] = "switchvideomode";
-            code_to_short[227] = "SWITCHVIDEOMODE";
-        }
-        name_to_code["KEY_KBDILLUMTOGGLE"] = 228;
-        word_to_code["kbdillumtoggle"] = 228;
-        if (code_to_word.find(228) == code_to_word.end()) {
-            code_to_word[228] = "kbdillumtoggle";
-            code_to_short[228] = "KBDILLUMTOGGLE";
-        }
-        name_to_code["KEY_KBDILLUMDOWN"] = 229;
-        word_to_code["kbdillumdown"] = 229;
-        if (code_to_word.find(229) == code_to_word.end()) {
-            code_to_word[229] = "kbdillumdown";
-            code_to_short[229] = "KBDILLUMDOWN";
-        }
-        name_to_code["KEY_KBDILLUMUP"] = 230;
-        word_to_code["kbdillumup"] = 230;
-        if (code_to_word.find(230) == code_to_word.end()) {
-            code_to_word[230] = "kbdillumup";
-            code_to_short[230] = "KBDILLUMUP";
-        }
-        name_to_code["KEY_SEND"] = 231;
-        word_to_code["send"] = 231;
-        if (code_to_word.find(231) == code_to_word.end()) {
-            code_to_word[231] = "send";
-            code_to_short[231] = "SEND";
-        }
-        name_to_code["KEY_REPLY"] = 232;
-        word_to_code["reply"] = 232;
-        if (code_to_word.find(232) == code_to_word.end()) {
-            code_to_word[232] = "reply";
-            code_to_short[232] = "REPLY";
-        }
-        name_to_code["KEY_FORWARDMAIL"] = 233;
-        word_to_code["forwardmail"] = 233;
-        if (code_to_word.find(233) == code_to_word.end()) {
-            code_to_word[233] = "forwardmail";
-            code_to_short[233] = "FORWARDMAIL";
-        }
-        name_to_code["KEY_SAVE"] = 234;
-        word_to_code["save"] = 234;
-        if (code_to_word.find(234) == code_to_word.end()) {
-            code_to_word[234] = "save";
-            code_to_short[234] = "SAVE";
-        }
-        name_to_code["KEY_DOCUMENTS"] = 235;
-        word_to_code["documents"] = 235;
-        if (code_to_word.find(235) == code_to_word.end()) {
-            code_to_word[235] = "documents";
-            code_to_short[235] = "DOCUMENTS";
-        }
-        name_to_code["KEY_BATTERY"] = 236;
-        word_to_code["battery"] = 236;
-        if (code_to_word.find(236) == code_to_word.end()) {
-            code_to_word[236] = "battery";
-            code_to_short[236] = "BATTERY";
-        }
-        name_to_code["KEY_BLUETOOTH"] = 237;
-        word_to_code["bluetooth"] = 237;
-        if (code_to_word.find(237) == code_to_word.end()) {
-            code_to_word[237] = "bluetooth";
-            code_to_short[237] = "BLUETOOTH";
-        }
-        name_to_code["KEY_WLAN"] = 238;
-        word_to_code["wlan"] = 238;
-        if (code_to_word.find(238) == code_to_word.end()) {
-            code_to_word[238] = "wlan";
-            code_to_short[238] = "WLAN";
-        }
-        name_to_code["KEY_UWB"] = 239;
-        word_to_code["uwb"] = 239;
-        if (code_to_word.find(239) == code_to_word.end()) {
-            code_to_word[239] = "uwb";
-            code_to_short[239] = "UWB";
-        }
-        name_to_code["KEY_UNKNOWN"] = 240;
-        word_to_code["unknown"] = 240;
-        if (code_to_word.find(240) == code_to_word.end()) {
-            code_to_word[240] = "unknown";
-            code_to_short[240] = "UNKNOWN";
-        }
-        name_to_code["KEY_VIDEO_NEXT"] = 241;
-        word_to_code["video_next"] = 241;
-        if (code_to_word.find(241) == code_to_word.end()) {
-            code_to_word[241] = "video_next";
-            code_to_short[241] = "VIDEO_NEXT";
-        }
-        name_to_code["KEY_VIDEO_PREV"] = 242;
-        word_to_code["video_prev"] = 242;
-        if (code_to_word.find(242) == code_to_word.end()) {
-            code_to_word[242] = "video_prev";
-            code_to_short[242] = "VIDEO_PREV";
-        }
-        name_to_code["KEY_BRIGHTNESS_CYCLE"] = 243;
-        word_to_code["brightness_cycle"] = 243;
-        if (code_to_word.find(243) == code_to_word.end()) {
-            code_to_word[243] = "brightness_cycle";
-            code_to_short[243] = "BRIGHTNESS_CYCLE";
-        }
-        name_to_code["KEY_BRIGHTNESS_AUTO"] = 244;
-        word_to_code["brightness_auto"] = 244;
-        if (code_to_word.find(244) == code_to_word.end()) {
-            code_to_word[244] = "brightness_auto";
-            code_to_short[244] = "BRIGHTNESS_AUTO";
-        }
-        name_to_code["KEY_DISPLAY_OFF"] = 245;
-        word_to_code["display_off"] = 245;
-        if (code_to_word.find(245) == code_to_word.end()) {
-            code_to_word[245] = "display_off";
-            code_to_short[245] = "DISPLAY_OFF";
-        }
-        name_to_code["KEY_WWAN"] = 246;
-        word_to_code["wwan"] = 246;
-        if (code_to_word.find(246) == code_to_word.end()) {
-            code_to_word[246] = "wwan";
-            code_to_short[246] = "WWAN";
-        }
-        name_to_code["KEY_RFKILL"] = 247;
-        word_to_code["rfkill"] = 247;
-        if (code_to_word.find(247) == code_to_word.end()) {
-            code_to_word[247] = "rfkill";
-            code_to_short[247] = "RFKILL";
-        }
-        name_to_code["KEY_MICMUTE"] = 248;
-        word_to_code["micmute"] = 248;
-        if (code_to_word.find(248) == code_to_word.end()) {
-            code_to_word[248] = "micmute";
-            code_to_short[248] = "MICMUTE";
-        }
-        name_to_code["KEY_OK"] = 0;
-        word_to_code["ok"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "ok";
-            code_to_short[0] = "OK";
-        }
-        name_to_code["KEY_SELECT"] = 0;
-        word_to_code["select"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "select";
-            code_to_short[0] = "SELECT";
-        }
-        name_to_code["KEY_GOTO"] = 0;
-        word_to_code["goto"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "goto";
-            code_to_short[0] = "GOTO";
-        }
-        name_to_code["KEY_CLEAR"] = 0;
-        word_to_code["clear"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "clear";
-            code_to_short[0] = "CLEAR";
-        }
-        name_to_code["KEY_POWER2"] = 0;
-        word_to_code["power2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "power2";
-            code_to_short[0] = "POWER2";
-        }
-        name_to_code["KEY_OPTION"] = 0;
-        word_to_code["option"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "option";
-            code_to_short[0] = "OPTION";
-        }
-        name_to_code["KEY_INFO"] = 0;
-        word_to_code["info"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "info";
-            code_to_short[0] = "INFO";
-        }
-        name_to_code["KEY_TIME"] = 0;
-        word_to_code["time"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "time";
-            code_to_short[0] = "TIME";
-        }
-        name_to_code["KEY_VENDOR"] = 0;
-        word_to_code["vendor"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "vendor";
-            code_to_short[0] = "VENDOR";
-        }
-        name_to_code["KEY_ARCHIVE"] = 0;
-        word_to_code["archive"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "archive";
-            code_to_short[0] = "ARCHIVE";
-        }
-        name_to_code["KEY_PROGRAM"] = 0;
-        word_to_code["program"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "program";
-            code_to_short[0] = "PROGRAM";
-        }
-        name_to_code["KEY_CHANNEL"] = 0;
-        word_to_code["channel"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "channel";
-            code_to_short[0] = "CHANNEL";
-        }
-        name_to_code["KEY_FAVORITES"] = 0;
-        word_to_code["favorites"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "favorites";
-            code_to_short[0] = "FAVORITES";
-        }
-        name_to_code["KEY_EPG"] = 0;
-        word_to_code["epg"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "epg";
-            code_to_short[0] = "EPG";
-        }
-        name_to_code["KEY_PVR"] = 0;
-        word_to_code["pvr"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "pvr";
-            code_to_short[0] = "PVR";
-        }
-        name_to_code["KEY_MHP"] = 0;
-        word_to_code["mhp"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "mhp";
-            code_to_short[0] = "MHP";
-        }
-        name_to_code["KEY_LANGUAGE"] = 0;
-        word_to_code["language"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "language";
-            code_to_short[0] = "LANGUAGE";
-        }
-        name_to_code["KEY_TITLE"] = 0;
-        word_to_code["title"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "title";
-            code_to_short[0] = "TITLE";
-        }
-        name_to_code["KEY_SUBTITLE"] = 0;
-        word_to_code["subtitle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "subtitle";
-            code_to_short[0] = "SUBTITLE";
-        }
-        name_to_code["KEY_ANGLE"] = 0;
-        word_to_code["angle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "angle";
-            code_to_short[0] = "ANGLE";
-        }
-        name_to_code["KEY_FULL_SCREEN"] = 0;
-        word_to_code["full_screen"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "full_screen";
-            code_to_short[0] = "FULL_SCREEN";
-        }
-        name_to_code["KEY_MODE"] = 0;
-        word_to_code["mode"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "mode";
-            code_to_short[0] = "MODE";
-        }
-        name_to_code["KEY_KEYBOARD"] = 0;
-        word_to_code["keyboard"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "keyboard";
-            code_to_short[0] = "KEYBOARD";
-        }
-        name_to_code["KEY_ASPECT_RATIO"] = 0;
-        word_to_code["aspect_ratio"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "aspect_ratio";
-            code_to_short[0] = "ASPECT_RATIO";
-        }
-        name_to_code["KEY_PC"] = 0;
-        word_to_code["pc"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "pc";
-            code_to_short[0] = "PC";
-        }
-        name_to_code["KEY_TV"] = 0;
-        word_to_code["tv"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "tv";
-            code_to_short[0] = "TV";
-        }
-        name_to_code["KEY_TV2"] = 0;
-        word_to_code["tv2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "tv2";
-            code_to_short[0] = "TV2";
-        }
-        name_to_code["KEY_VCR"] = 0;
-        word_to_code["vcr"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "vcr";
-            code_to_short[0] = "VCR";
-        }
-        name_to_code["KEY_VCR2"] = 0;
-        word_to_code["vcr2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "vcr2";
-            code_to_short[0] = "VCR2";
-        }
-        name_to_code["KEY_SAT"] = 0;
-        word_to_code["sat"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "sat";
-            code_to_short[0] = "SAT";
-        }
-        name_to_code["KEY_SAT2"] = 0;
-        word_to_code["sat2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "sat2";
-            code_to_short[0] = "SAT2";
-        }
-        name_to_code["KEY_CD"] = 0;
-        word_to_code["cd"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "cd";
-            code_to_short[0] = "CD";
-        }
-        name_to_code["KEY_TAPE"] = 0;
-        word_to_code["tape"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "tape";
-            code_to_short[0] = "TAPE";
-        }
-        name_to_code["KEY_RADIO"] = 0;
-        word_to_code["radio"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "radio";
-            code_to_short[0] = "RADIO";
-        }
-        name_to_code["KEY_TUNER"] = 0;
-        word_to_code["tuner"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "tuner";
-            code_to_short[0] = "TUNER";
-        }
-        name_to_code["KEY_PLAYER"] = 0;
-        word_to_code["player"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "player";
-            code_to_short[0] = "PLAYER";
-        }
-        name_to_code["KEY_TEXT"] = 0;
-        word_to_code["text"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "text";
-            code_to_short[0] = "TEXT";
-        }
-        name_to_code["KEY_DVD"] = 0;
-        word_to_code["dvd"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "dvd";
-            code_to_short[0] = "DVD";
-        }
-        name_to_code["KEY_AUX"] = 0;
-        word_to_code["aux"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "aux";
-            code_to_short[0] = "AUX";
-        }
-        name_to_code["KEY_MP3"] = 0;
-        word_to_code["mp3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "mp3";
-            code_to_short[0] = "MP3";
-        }
-        name_to_code["KEY_AUDIO"] = 0;
-        word_to_code["audio"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "audio";
-            code_to_short[0] = "AUDIO";
-        }
-        name_to_code["KEY_VIDEO"] = 0;
-        word_to_code["video"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "video";
-            code_to_short[0] = "VIDEO";
-        }
-        name_to_code["KEY_DIRECTORY"] = 0;
-        word_to_code["directory"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "directory";
-            code_to_short[0] = "DIRECTORY";
-        }
-        name_to_code["KEY_LIST"] = 0;
-        word_to_code["list"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "list";
-            code_to_short[0] = "LIST";
-        }
-        name_to_code["KEY_MEMO"] = 0;
-        word_to_code["memo"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "memo";
-            code_to_short[0] = "MEMO";
-        }
-        name_to_code["KEY_CALENDAR"] = 0;
-        word_to_code["calendar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "calendar";
-            code_to_short[0] = "CALENDAR";
-        }
-        name_to_code["KEY_RED"] = 0;
-        word_to_code["red"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "red";
-            code_to_short[0] = "RED";
-        }
-        name_to_code["KEY_GREEN"] = 0;
-        word_to_code["green"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "green";
-            code_to_short[0] = "GREEN";
-        }
-        name_to_code["KEY_YELLOW"] = 0;
-        word_to_code["yellow"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "yellow";
-            code_to_short[0] = "YELLOW";
-        }
-        name_to_code["KEY_BLUE"] = 0;
-        word_to_code["blue"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "blue";
-            code_to_short[0] = "BLUE";
-        }
-        name_to_code["KEY_CHANNELUP"] = 0;
-        word_to_code["channelup"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "channelup";
-            code_to_short[0] = "CHANNELUP";
-        }
-        name_to_code["KEY_CHANNELDOWN"] = 0;
-        word_to_code["channeldown"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "channeldown";
-            code_to_short[0] = "CHANNELDOWN";
-        }
-        name_to_code["KEY_FIRST"] = 0;
-        word_to_code["first"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "first";
-            code_to_short[0] = "FIRST";
-        }
-        name_to_code["KEY_LAST"] = 0;
-        word_to_code["last"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "last";
-            code_to_short[0] = "LAST";
-        }
-        name_to_code["KEY_AB"] = 0;
-        word_to_code["ab"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "ab";
-            code_to_short[0] = "AB";
-        }
-        name_to_code["KEY_NEXT"] = 0;
-        word_to_code["next"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "next";
-            code_to_short[0] = "NEXT";
-        }
-        name_to_code["KEY_RESTART"] = 0;
-        word_to_code["restart"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "restart";
-            code_to_short[0] = "RESTART";
-        }
-        name_to_code["KEY_SLOW"] = 0;
-        word_to_code["slow"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "slow";
-            code_to_short[0] = "SLOW";
-        }
-        name_to_code["KEY_SHUFFLE"] = 0;
-        word_to_code["shuffle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "shuffle";
-            code_to_short[0] = "SHUFFLE";
-        }
-        name_to_code["KEY_BREAK"] = 0;
-        word_to_code["break"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "break";
-            code_to_short[0] = "BREAK";
-        }
-        name_to_code["KEY_PREVIOUS"] = 0;
-        word_to_code["previous"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "previous";
-            code_to_short[0] = "PREVIOUS";
-        }
-        name_to_code["KEY_DIGITS"] = 0;
-        word_to_code["digits"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "digits";
-            code_to_short[0] = "DIGITS";
-        }
-        name_to_code["KEY_TEEN"] = 0;
-        word_to_code["teen"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "teen";
-            code_to_short[0] = "TEEN";
-        }
-        name_to_code["KEY_TWEN"] = 0;
-        word_to_code["twen"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "twen";
-            code_to_short[0] = "TWEN";
-        }
-        name_to_code["KEY_VIDEOPHONE"] = 0;
-        word_to_code["videophone"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "videophone";
-            code_to_short[0] = "VIDEOPHONE";
-        }
-        name_to_code["KEY_GAMES"] = 0;
-        word_to_code["games"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "games";
-            code_to_short[0] = "GAMES";
-        }
-        name_to_code["KEY_ZOOMIN"] = 0;
-        word_to_code["zoomin"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "zoomin";
-            code_to_short[0] = "ZOOMIN";
-        }
-        name_to_code["KEY_ZOOMOUT"] = 0;
-        word_to_code["zoomout"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "zoomout";
-            code_to_short[0] = "ZOOMOUT";
-        }
-        name_to_code["KEY_ZOOMRESET"] = 0;
-        word_to_code["zoomreset"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "zoomreset";
-            code_to_short[0] = "ZOOMRESET";
-        }
-        name_to_code["KEY_WORDPROCESSOR"] = 0;
-        word_to_code["wordprocessor"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "wordprocessor";
-            code_to_short[0] = "WORDPROCESSOR";
-        }
-        name_to_code["KEY_EDITOR"] = 0;
-        word_to_code["editor"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "editor";
-            code_to_short[0] = "EDITOR";
-        }
-        name_to_code["KEY_SPREADSHEET"] = 0;
-        word_to_code["spreadsheet"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "spreadsheet";
-            code_to_short[0] = "SPREADSHEET";
-        }
-        name_to_code["KEY_GRAPHICSEDITOR"] = 0;
-        word_to_code["graphicseditor"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "graphicseditor";
-            code_to_short[0] = "GRAPHICSEDITOR";
-        }
-        name_to_code["KEY_PRESENTATION"] = 0;
-        word_to_code["presentation"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "presentation";
-            code_to_short[0] = "PRESENTATION";
-        }
-        name_to_code["KEY_DATABASE"] = 0;
-        word_to_code["database"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "database";
-            code_to_short[0] = "DATABASE";
-        }
-        name_to_code["KEY_NEWS"] = 0;
-        word_to_code["news"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "news";
-            code_to_short[0] = "NEWS";
-        }
-        name_to_code["KEY_VOICEMAIL"] = 0;
-        word_to_code["voicemail"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "voicemail";
-            code_to_short[0] = "VOICEMAIL";
-        }
-        name_to_code["KEY_ADDRESSBOOK"] = 0;
-        word_to_code["addressbook"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "addressbook";
-            code_to_short[0] = "ADDRESSBOOK";
-        }
-        name_to_code["KEY_MESSENGER"] = 0;
-        word_to_code["messenger"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "messenger";
-            code_to_short[0] = "MESSENGER";
-        }
-        name_to_code["KEY_DISPLAYTOGGLE"] = 0;
-        word_to_code["displaytoggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "displaytoggle";
-            code_to_short[0] = "DISPLAYTOGGLE";
-        }
-        name_to_code["KEY_SPELLCHECK"] = 0;
-        word_to_code["spellcheck"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "spellcheck";
-            code_to_short[0] = "SPELLCHECK";
-        }
-        name_to_code["KEY_LOGOFF"] = 0;
-        word_to_code["logoff"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "logoff";
-            code_to_short[0] = "LOGOFF";
-        }
-        name_to_code["KEY_DOLLAR"] = 0;
-        word_to_code["dollar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "dollar";
-            code_to_short[0] = "DOLLAR";
-        }
-        name_to_code["KEY_EURO"] = 0;
-        word_to_code["euro"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "euro";
-            code_to_short[0] = "EURO";
-        }
-        name_to_code["KEY_FRAMEBACK"] = 0;
-        word_to_code["frameback"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "frameback";
-            code_to_short[0] = "FRAMEBACK";
-        }
-        name_to_code["KEY_FRAMEFORWARD"] = 0;
-        word_to_code["frameforward"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "frameforward";
-            code_to_short[0] = "FRAMEFORWARD";
-        }
-        name_to_code["KEY_CONTEXT_MENU"] = 0;
-        word_to_code["context_menu"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "context_menu";
-            code_to_short[0] = "CONTEXT_MENU";
-        }
-        name_to_code["KEY_MEDIA_REPEAT"] = 0;
-        word_to_code["media_repeat"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "media_repeat";
-            code_to_short[0] = "MEDIA_REPEAT";
-        }
-        name_to_code["KEY_10CHANNELSUP"] = 0;
-        word_to_code["10channelsup"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "10channelsup";
-            code_to_short[0] = "10CHANNELSUP";
-        }
-        name_to_code["KEY_10CHANNELSDOWN"] = 0;
-        word_to_code["10channelsdown"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "10channelsdown";
-            code_to_short[0] = "10CHANNELSDOWN";
-        }
-        name_to_code["KEY_IMAGES"] = 0;
-        word_to_code["images"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "images";
-            code_to_short[0] = "IMAGES";
-        }
-        name_to_code["KEY_NOTIFICATION_CENTER"] = 0;
-        word_to_code["notification_center"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "notification_center";
-            code_to_short[0] = "NOTIFICATION_CENTER";
-        }
-        name_to_code["KEY_PICKUP_PHONE"] = 0;
-        word_to_code["pickup_phone"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "pickup_phone";
-            code_to_short[0] = "PICKUP_PHONE";
-        }
-        name_to_code["KEY_HANGUP_PHONE"] = 0;
-        word_to_code["hangup_phone"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "hangup_phone";
-            code_to_short[0] = "HANGUP_PHONE";
-        }
-        name_to_code["KEY_LINK_PHONE"] = 0;
-        word_to_code["link_phone"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "link_phone";
-            code_to_short[0] = "LINK_PHONE";
-        }
-        name_to_code["KEY_DEL_EOL"] = 0;
-        word_to_code["del_eol"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "del_eol";
-            code_to_short[0] = "DEL_EOL";
-        }
-        name_to_code["KEY_DEL_EOS"] = 0;
-        word_to_code["del_eos"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "del_eos";
-            code_to_short[0] = "DEL_EOS";
-        }
-        name_to_code["KEY_INS_LINE"] = 0;
-        word_to_code["ins_line"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "ins_line";
-            code_to_short[0] = "INS_LINE";
-        }
-        name_to_code["KEY_DEL_LINE"] = 0;
-        word_to_code["del_line"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "del_line";
-            code_to_short[0] = "DEL_LINE";
-        }
-        name_to_code["KEY_FN"] = 0;
-        word_to_code["fn"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn";
-            code_to_short[0] = "FN";
-        }
-        name_to_code["KEY_FN_ESC"] = 0;
-        word_to_code["fn_esc"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_esc";
-            code_to_short[0] = "FN_ESC";
-        }
-        name_to_code["KEY_FN_F1"] = 0;
-        word_to_code["fn_f1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f1";
-            code_to_short[0] = "FN_F1";
-        }
-        name_to_code["KEY_FN_F2"] = 0;
-        word_to_code["fn_f2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f2";
-            code_to_short[0] = "FN_F2";
-        }
-        name_to_code["KEY_FN_F3"] = 0;
-        word_to_code["fn_f3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f3";
-            code_to_short[0] = "FN_F3";
-        }
-        name_to_code["KEY_FN_F4"] = 0;
-        word_to_code["fn_f4"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f4";
-            code_to_short[0] = "FN_F4";
-        }
-        name_to_code["KEY_FN_F5"] = 0;
-        word_to_code["fn_f5"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f5";
-            code_to_short[0] = "FN_F5";
-        }
-        name_to_code["KEY_FN_F6"] = 0;
-        word_to_code["fn_f6"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f6";
-            code_to_short[0] = "FN_F6";
-        }
-        name_to_code["KEY_FN_F7"] = 0;
-        word_to_code["fn_f7"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f7";
-            code_to_short[0] = "FN_F7";
-        }
-        name_to_code["KEY_FN_F8"] = 0;
-        word_to_code["fn_f8"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f8";
-            code_to_short[0] = "FN_F8";
-        }
-        name_to_code["KEY_FN_F9"] = 0;
-        word_to_code["fn_f9"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f9";
-            code_to_short[0] = "FN_F9";
-        }
-        name_to_code["KEY_FN_F10"] = 0;
-        word_to_code["fn_f10"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f10";
-            code_to_short[0] = "FN_F10";
-        }
-        name_to_code["KEY_FN_F11"] = 0;
-        word_to_code["fn_f11"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f11";
-            code_to_short[0] = "FN_F11";
-        }
-        name_to_code["KEY_FN_F12"] = 0;
-        word_to_code["fn_f12"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f12";
-            code_to_short[0] = "FN_F12";
-        }
-        name_to_code["KEY_FN_1"] = 0;
-        word_to_code["fn_1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_1";
-            code_to_short[0] = "FN_1";
-        }
-        name_to_code["KEY_FN_2"] = 0;
-        word_to_code["fn_2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_2";
-            code_to_short[0] = "FN_2";
-        }
-        name_to_code["KEY_FN_D"] = 0;
-        word_to_code["fn_d"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_d";
-            code_to_short[0] = "FN_D";
-        }
-        name_to_code["KEY_FN_E"] = 0;
-        word_to_code["fn_e"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_e";
-            code_to_short[0] = "FN_E";
-        }
-        name_to_code["KEY_FN_F"] = 0;
-        word_to_code["fn_f"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_f";
-            code_to_short[0] = "FN_F";
-        }
-        name_to_code["KEY_FN_S"] = 0;
-        word_to_code["fn_s"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_s";
-            code_to_short[0] = "FN_S";
-        }
-        name_to_code["KEY_FN_B"] = 0;
-        word_to_code["fn_b"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_b";
-            code_to_short[0] = "FN_B";
-        }
-        name_to_code["KEY_FN_RIGHT_SHIFT"] = 0;
-        word_to_code["fn_right_shift"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fn_right_shift";
-            code_to_short[0] = "FN_RIGHT_SHIFT";
-        }
-        name_to_code["KEY_BRL_DOT1"] = 0;
-        word_to_code["brl_dot1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot1";
-            code_to_short[0] = "BRL_DOT1";
-        }
-        name_to_code["KEY_BRL_DOT2"] = 0;
-        word_to_code["brl_dot2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot2";
-            code_to_short[0] = "BRL_DOT2";
-        }
-        name_to_code["KEY_BRL_DOT3"] = 0;
-        word_to_code["brl_dot3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot3";
-            code_to_short[0] = "BRL_DOT3";
-        }
-        name_to_code["KEY_BRL_DOT4"] = 0;
-        word_to_code["brl_dot4"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot4";
-            code_to_short[0] = "BRL_DOT4";
-        }
-        name_to_code["KEY_BRL_DOT5"] = 0;
-        word_to_code["brl_dot5"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot5";
-            code_to_short[0] = "BRL_DOT5";
-        }
-        name_to_code["KEY_BRL_DOT6"] = 0;
-        word_to_code["brl_dot6"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot6";
-            code_to_short[0] = "BRL_DOT6";
-        }
-        name_to_code["KEY_BRL_DOT7"] = 0;
-        word_to_code["brl_dot7"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot7";
-            code_to_short[0] = "BRL_DOT7";
-        }
-        name_to_code["KEY_BRL_DOT8"] = 0;
-        word_to_code["brl_dot8"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot8";
-            code_to_short[0] = "BRL_DOT8";
-        }
-        name_to_code["KEY_BRL_DOT9"] = 0;
-        word_to_code["brl_dot9"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot9";
-            code_to_short[0] = "BRL_DOT9";
-        }
-        name_to_code["KEY_BRL_DOT10"] = 0;
-        word_to_code["brl_dot10"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brl_dot10";
-            code_to_short[0] = "BRL_DOT10";
-        }
-        name_to_code["KEY_NUMERIC_0"] = 0;
-        word_to_code["numeric_0"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_0";
-            code_to_short[0] = "NUMERIC_0";
-        }
-        name_to_code["KEY_NUMERIC_1"] = 0;
-        word_to_code["numeric_1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_1";
-            code_to_short[0] = "NUMERIC_1";
-        }
-        name_to_code["KEY_NUMERIC_2"] = 0;
-        word_to_code["numeric_2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_2";
-            code_to_short[0] = "NUMERIC_2";
-        }
-        name_to_code["KEY_NUMERIC_3"] = 0;
-        word_to_code["numeric_3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_3";
-            code_to_short[0] = "NUMERIC_3";
-        }
-        name_to_code["KEY_NUMERIC_4"] = 0;
-        word_to_code["numeric_4"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_4";
-            code_to_short[0] = "NUMERIC_4";
-        }
-        name_to_code["KEY_NUMERIC_5"] = 0;
-        word_to_code["numeric_5"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_5";
-            code_to_short[0] = "NUMERIC_5";
-        }
-        name_to_code["KEY_NUMERIC_6"] = 0;
-        word_to_code["numeric_6"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_6";
-            code_to_short[0] = "NUMERIC_6";
-        }
-        name_to_code["KEY_NUMERIC_7"] = 0;
-        word_to_code["numeric_7"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_7";
-            code_to_short[0] = "NUMERIC_7";
-        }
-        name_to_code["KEY_NUMERIC_8"] = 0;
-        word_to_code["numeric_8"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_8";
-            code_to_short[0] = "NUMERIC_8";
-        }
-        name_to_code["KEY_NUMERIC_9"] = 0;
-        word_to_code["numeric_9"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_9";
-            code_to_short[0] = "NUMERIC_9";
-        }
-        name_to_code["KEY_NUMERIC_STAR"] = 0;
-        word_to_code["numeric_star"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_star";
-            code_to_short[0] = "NUMERIC_STAR";
-        }
-        name_to_code["KEY_NUMERIC_POUND"] = 0;
-        word_to_code["numeric_pound"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_pound";
-            code_to_short[0] = "NUMERIC_POUND";
-        }
-        name_to_code["KEY_NUMERIC_A"] = 0;
-        word_to_code["numeric_a"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_a";
-            code_to_short[0] = "NUMERIC_A";
-        }
-        name_to_code["KEY_NUMERIC_B"] = 0;
-        word_to_code["numeric_b"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_b";
-            code_to_short[0] = "NUMERIC_B";
-        }
-        name_to_code["KEY_NUMERIC_C"] = 0;
-        word_to_code["numeric_c"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_c";
-            code_to_short[0] = "NUMERIC_C";
-        }
-        name_to_code["KEY_NUMERIC_D"] = 0;
-        word_to_code["numeric_d"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_d";
-            code_to_short[0] = "NUMERIC_D";
-        }
-        name_to_code["KEY_CAMERA_FOCUS"] = 0;
-        word_to_code["camera_focus"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_focus";
-            code_to_short[0] = "CAMERA_FOCUS";
-        }
-        name_to_code["KEY_WPS_BUTTON"] = 0;
-        word_to_code["wps_button"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "wps_button";
-            code_to_short[0] = "WPS_BUTTON";
-        }
-        name_to_code["KEY_TOUCHPAD_TOGGLE"] = 0;
-        word_to_code["touchpad_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "touchpad_toggle";
-            code_to_short[0] = "TOUCHPAD_TOGGLE";
-        }
-        name_to_code["KEY_TOUCHPAD_ON"] = 0;
-        word_to_code["touchpad_on"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "touchpad_on";
-            code_to_short[0] = "TOUCHPAD_ON";
-        }
-        name_to_code["KEY_TOUCHPAD_OFF"] = 0;
-        word_to_code["touchpad_off"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "touchpad_off";
-            code_to_short[0] = "TOUCHPAD_OFF";
-        }
-        name_to_code["KEY_CAMERA_ZOOMIN"] = 0;
-        word_to_code["camera_zoomin"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_zoomin";
-            code_to_short[0] = "CAMERA_ZOOMIN";
-        }
-        name_to_code["KEY_CAMERA_ZOOMOUT"] = 0;
-        word_to_code["camera_zoomout"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_zoomout";
-            code_to_short[0] = "CAMERA_ZOOMOUT";
-        }
-        name_to_code["KEY_CAMERA_UP"] = 0;
-        word_to_code["camera_up"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_up";
-            code_to_short[0] = "CAMERA_UP";
-        }
-        name_to_code["KEY_CAMERA_DOWN"] = 0;
-        word_to_code["camera_down"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_down";
-            code_to_short[0] = "CAMERA_DOWN";
-        }
-        name_to_code["KEY_CAMERA_LEFT"] = 0;
-        word_to_code["camera_left"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_left";
-            code_to_short[0] = "CAMERA_LEFT";
-        }
-        name_to_code["KEY_CAMERA_RIGHT"] = 0;
-        word_to_code["camera_right"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_right";
-            code_to_short[0] = "CAMERA_RIGHT";
-        }
-        name_to_code["KEY_ATTENDANT_ON"] = 0;
-        word_to_code["attendant_on"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "attendant_on";
-            code_to_short[0] = "ATTENDANT_ON";
-        }
-        name_to_code["KEY_ATTENDANT_OFF"] = 0;
-        word_to_code["attendant_off"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "attendant_off";
-            code_to_short[0] = "ATTENDANT_OFF";
-        }
-        name_to_code["KEY_ATTENDANT_TOGGLE"] = 0;
-        word_to_code["attendant_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "attendant_toggle";
-            code_to_short[0] = "ATTENDANT_TOGGLE";
-        }
-        name_to_code["KEY_LIGHTS_TOGGLE"] = 0;
-        word_to_code["lights_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "lights_toggle";
-            code_to_short[0] = "LIGHTS_TOGGLE";
-        }
-        name_to_code["KEY_ALS_TOGGLE"] = 0;
-        word_to_code["als_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "als_toggle";
-            code_to_short[0] = "ALS_TOGGLE";
-        }
-        name_to_code["KEY_ROTATE_LOCK_TOGGLE"] = 0;
-        word_to_code["rotate_lock_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "rotate_lock_toggle";
-            code_to_short[0] = "ROTATE_LOCK_TOGGLE";
-        }
-        name_to_code["KEY_REFRESH_RATE_TOGGLE"] = 0;
-        word_to_code["refresh_rate_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "refresh_rate_toggle";
-            code_to_short[0] = "REFRESH_RATE_TOGGLE";
-        }
-        name_to_code["KEY_BUTTONCONFIG"] = 0;
-        word_to_code["buttonconfig"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "buttonconfig";
-            code_to_short[0] = "BUTTONCONFIG";
-        }
-        name_to_code["KEY_TASKMANAGER"] = 0;
-        word_to_code["taskmanager"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "taskmanager";
-            code_to_short[0] = "TASKMANAGER";
-        }
-        name_to_code["KEY_JOURNAL"] = 0;
-        word_to_code["journal"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "journal";
-            code_to_short[0] = "JOURNAL";
-        }
-        name_to_code["KEY_CONTROLPANEL"] = 0;
-        word_to_code["controlpanel"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "controlpanel";
-            code_to_short[0] = "CONTROLPANEL";
-        }
-        name_to_code["KEY_APPSELECT"] = 0;
-        word_to_code["appselect"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "appselect";
-            code_to_short[0] = "APPSELECT";
-        }
-        name_to_code["KEY_SCREENSAVER"] = 0;
-        word_to_code["screensaver"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "screensaver";
-            code_to_short[0] = "SCREENSAVER";
-        }
-        name_to_code["KEY_VOICECOMMAND"] = 0;
-        word_to_code["voicecommand"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "voicecommand";
-            code_to_short[0] = "VOICECOMMAND";
-        }
-        name_to_code["KEY_ASSISTANT"] = 0;
-        word_to_code["assistant"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "assistant";
-            code_to_short[0] = "ASSISTANT";
-        }
-        name_to_code["KEY_KBD_LAYOUT_NEXT"] = 0;
-        word_to_code["kbd_layout_next"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbd_layout_next";
-            code_to_short[0] = "KBD_LAYOUT_NEXT";
-        }
-        name_to_code["KEY_EMOJI_PICKER"] = 0;
-        word_to_code["emoji_picker"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "emoji_picker";
-            code_to_short[0] = "EMOJI_PICKER";
-        }
-        name_to_code["KEY_DICTATE"] = 0;
-        word_to_code["dictate"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "dictate";
-            code_to_short[0] = "DICTATE";
-        }
-        name_to_code["KEY_CAMERA_ACCESS_ENABLE"] = 0;
-        word_to_code["camera_access_enable"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_access_enable";
-            code_to_short[0] = "CAMERA_ACCESS_ENABLE";
-        }
-        name_to_code["KEY_CAMERA_ACCESS_DISABLE"] = 0;
-        word_to_code["camera_access_disable"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_access_disable";
-            code_to_short[0] = "CAMERA_ACCESS_DISABLE";
-        }
-        name_to_code["KEY_CAMERA_ACCESS_TOGGLE"] = 0;
-        word_to_code["camera_access_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "camera_access_toggle";
-            code_to_short[0] = "CAMERA_ACCESS_TOGGLE";
-        }
-        name_to_code["KEY_ACCESSIBILITY"] = 0;
-        word_to_code["accessibility"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "accessibility";
-            code_to_short[0] = "ACCESSIBILITY";
-        }
-        name_to_code["KEY_DO_NOT_DISTURB"] = 0;
-        word_to_code["do_not_disturb"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "do_not_disturb";
-            code_to_short[0] = "DO_NOT_DISTURB";
-        }
-        name_to_code["KEY_BRIGHTNESS_MIN"] = 0;
-        word_to_code["brightness_min"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brightness_min";
-            code_to_short[0] = "BRIGHTNESS_MIN";
-        }
-        name_to_code["KEY_BRIGHTNESS_MAX"] = 0;
-        word_to_code["brightness_max"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brightness_max";
-            code_to_short[0] = "BRIGHTNESS_MAX";
-        }
-        name_to_code["KEY_EPRIVACY_SCREEN_ON"] = 0;
-        word_to_code["eprivacy_screen_on"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "eprivacy_screen_on";
-            code_to_short[0] = "EPRIVACY_SCREEN_ON";
-        }
-        name_to_code["KEY_EPRIVACY_SCREEN_OFF"] = 0;
-        word_to_code["eprivacy_screen_off"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "eprivacy_screen_off";
-            code_to_short[0] = "EPRIVACY_SCREEN_OFF";
-        }
-        name_to_code["KEY_ACTION_ON_SELECTION"] = 0;
-        word_to_code["action_on_selection"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "action_on_selection";
-            code_to_short[0] = "ACTION_ON_SELECTION";
-        }
-        name_to_code["KEY_CONTEXTUAL_INSERT"] = 0;
-        word_to_code["contextual_insert"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "contextual_insert";
-            code_to_short[0] = "CONTEXTUAL_INSERT";
-        }
-        name_to_code["KEY_CONTEXTUAL_QUERY"] = 0;
-        word_to_code["contextual_query"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "contextual_query";
-            code_to_short[0] = "CONTEXTUAL_QUERY";
-        }
-        name_to_code["KEY_KBDINPUTASSIST_PREV"] = 0;
-        word_to_code["kbdinputassist_prev"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbdinputassist_prev";
-            code_to_short[0] = "KBDINPUTASSIST_PREV";
-        }
-        name_to_code["KEY_KBDINPUTASSIST_NEXT"] = 0;
-        word_to_code["kbdinputassist_next"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbdinputassist_next";
-            code_to_short[0] = "KBDINPUTASSIST_NEXT";
-        }
-        name_to_code["KEY_KBDINPUTASSIST_PREVGROUP"] = 0;
-        word_to_code["kbdinputassist_prevgroup"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbdinputassist_prevgroup";
-            code_to_short[0] = "KBDINPUTASSIST_PREVGROUP";
-        }
-        name_to_code["KEY_KBDINPUTASSIST_NEXTGROUP"] = 0;
-        word_to_code["kbdinputassist_nextgroup"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbdinputassist_nextgroup";
-            code_to_short[0] = "KBDINPUTASSIST_NEXTGROUP";
-        }
-        name_to_code["KEY_KBDINPUTASSIST_ACCEPT"] = 0;
-        word_to_code["kbdinputassist_accept"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbdinputassist_accept";
-            code_to_short[0] = "KBDINPUTASSIST_ACCEPT";
-        }
-        name_to_code["KEY_KBDINPUTASSIST_CANCEL"] = 0;
-        word_to_code["kbdinputassist_cancel"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbdinputassist_cancel";
-            code_to_short[0] = "KBDINPUTASSIST_CANCEL";
-        }
-        name_to_code["KEY_RIGHT_UP"] = 0;
-        word_to_code["right_up"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "right_up";
-            code_to_short[0] = "RIGHT_UP";
-        }
-        name_to_code["KEY_RIGHT_DOWN"] = 0;
-        word_to_code["right_down"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "right_down";
-            code_to_short[0] = "RIGHT_DOWN";
-        }
-        name_to_code["KEY_LEFT_UP"] = 0;
-        word_to_code["left_up"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "left_up";
-            code_to_short[0] = "LEFT_UP";
-        }
-        name_to_code["KEY_LEFT_DOWN"] = 0;
-        word_to_code["left_down"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "left_down";
-            code_to_short[0] = "LEFT_DOWN";
-        }
-        name_to_code["KEY_ROOT_MENU"] = 0;
-        word_to_code["root_menu"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "root_menu";
-            code_to_short[0] = "ROOT_MENU";
-        }
-        name_to_code["KEY_MEDIA_TOP_MENU"] = 0;
-        word_to_code["media_top_menu"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "media_top_menu";
-            code_to_short[0] = "MEDIA_TOP_MENU";
-        }
-        name_to_code["KEY_NUMERIC_11"] = 0;
-        word_to_code["numeric_11"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_11";
-            code_to_short[0] = "NUMERIC_11";
-        }
-        name_to_code["KEY_NUMERIC_12"] = 0;
-        word_to_code["numeric_12"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "numeric_12";
-            code_to_short[0] = "NUMERIC_12";
-        }
-        name_to_code["KEY_AUDIO_DESC"] = 0;
-        word_to_code["audio_desc"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "audio_desc";
-            code_to_short[0] = "AUDIO_DESC";
-        }
-        name_to_code["KEY_3D_MODE"] = 0;
-        word_to_code["3d_mode"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "3d_mode";
-            code_to_short[0] = "3D_MODE";
-        }
-        name_to_code["KEY_NEXT_FAVORITE"] = 0;
-        word_to_code["next_favorite"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "next_favorite";
-            code_to_short[0] = "NEXT_FAVORITE";
-        }
-        name_to_code["KEY_STOP_RECORD"] = 0;
-        word_to_code["stop_record"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "stop_record";
-            code_to_short[0] = "STOP_RECORD";
-        }
-        name_to_code["KEY_PAUSE_RECORD"] = 0;
-        word_to_code["pause_record"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "pause_record";
-            code_to_short[0] = "PAUSE_RECORD";
-        }
-        name_to_code["KEY_VOD"] = 0;
-        word_to_code["vod"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "vod";
-            code_to_short[0] = "VOD";
-        }
-        name_to_code["KEY_UNMUTE"] = 0;
-        word_to_code["unmute"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "unmute";
-            code_to_short[0] = "UNMUTE";
-        }
-        name_to_code["KEY_FASTREVERSE"] = 0;
-        word_to_code["fastreverse"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fastreverse";
-            code_to_short[0] = "FASTREVERSE";
-        }
-        name_to_code["KEY_SLOWREVERSE"] = 0;
-        word_to_code["slowreverse"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "slowreverse";
-            code_to_short[0] = "SLOWREVERSE";
-        }
-        name_to_code["KEY_DATA"] = 0;
-        word_to_code["data"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "data";
-            code_to_short[0] = "DATA";
-        }
-        name_to_code["KEY_ONSCREEN_KEYBOARD"] = 0;
-        word_to_code["onscreen_keyboard"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "onscreen_keyboard";
-            code_to_short[0] = "ONSCREEN_KEYBOARD";
-        }
-        name_to_code["KEY_PRIVACY_SCREEN_TOGGLE"] = 0;
-        word_to_code["privacy_screen_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "privacy_screen_toggle";
-            code_to_short[0] = "PRIVACY_SCREEN_TOGGLE";
-        }
-        name_to_code["KEY_SELECTIVE_SCREENSHOT"] = 0;
-        word_to_code["selective_screenshot"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "selective_screenshot";
-            code_to_short[0] = "SELECTIVE_SCREENSHOT";
-        }
-        name_to_code["KEY_NEXT_ELEMENT"] = 0;
-        word_to_code["next_element"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "next_element";
-            code_to_short[0] = "NEXT_ELEMENT";
-        }
-        name_to_code["KEY_PREVIOUS_ELEMENT"] = 0;
-        word_to_code["previous_element"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "previous_element";
-            code_to_short[0] = "PREVIOUS_ELEMENT";
-        }
-        name_to_code["KEY_AUTOPILOT_ENGAGE_TOGGLE"] = 0;
-        word_to_code["autopilot_engage_toggle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "autopilot_engage_toggle";
-            code_to_short[0] = "AUTOPILOT_ENGAGE_TOGGLE";
-        }
-        name_to_code["KEY_MARK_WAYPOINT"] = 0;
-        word_to_code["mark_waypoint"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "mark_waypoint";
-            code_to_short[0] = "MARK_WAYPOINT";
-        }
-        name_to_code["KEY_SOS"] = 0;
-        word_to_code["sos"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "sos";
-            code_to_short[0] = "SOS";
-        }
-        name_to_code["KEY_NAV_CHART"] = 0;
-        word_to_code["nav_chart"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "nav_chart";
-            code_to_short[0] = "NAV_CHART";
-        }
-        name_to_code["KEY_FISHING_CHART"] = 0;
-        word_to_code["fishing_chart"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "fishing_chart";
-            code_to_short[0] = "FISHING_CHART";
-        }
-        name_to_code["KEY_SINGLE_RANGE_RADAR"] = 0;
-        word_to_code["single_range_radar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "single_range_radar";
-            code_to_short[0] = "SINGLE_RANGE_RADAR";
-        }
-        name_to_code["KEY_DUAL_RANGE_RADAR"] = 0;
-        word_to_code["dual_range_radar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "dual_range_radar";
-            code_to_short[0] = "DUAL_RANGE_RADAR";
-        }
-        name_to_code["KEY_RADAR_OVERLAY"] = 0;
-        word_to_code["radar_overlay"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "radar_overlay";
-            code_to_short[0] = "RADAR_OVERLAY";
-        }
-        name_to_code["KEY_TRADITIONAL_SONAR"] = 0;
-        word_to_code["traditional_sonar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "traditional_sonar";
-            code_to_short[0] = "TRADITIONAL_SONAR";
-        }
-        name_to_code["KEY_CLEARVU_SONAR"] = 0;
-        word_to_code["clearvu_sonar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "clearvu_sonar";
-            code_to_short[0] = "CLEARVU_SONAR";
-        }
-        name_to_code["KEY_SIDEVU_SONAR"] = 0;
-        word_to_code["sidevu_sonar"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "sidevu_sonar";
-            code_to_short[0] = "SIDEVU_SONAR";
-        }
-        name_to_code["KEY_NAV_INFO"] = 0;
-        word_to_code["nav_info"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "nav_info";
-            code_to_short[0] = "NAV_INFO";
-        }
-        name_to_code["KEY_BRIGHTNESS_MENU"] = 0;
-        word_to_code["brightness_menu"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "brightness_menu";
-            code_to_short[0] = "BRIGHTNESS_MENU";
-        }
-        name_to_code["KEY_MACRO1"] = 0;
-        word_to_code["macro1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro1";
-            code_to_short[0] = "MACRO1";
-        }
-        name_to_code["KEY_MACRO2"] = 0;
-        word_to_code["macro2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro2";
-            code_to_short[0] = "MACRO2";
-        }
-        name_to_code["KEY_MACRO3"] = 0;
-        word_to_code["macro3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro3";
-            code_to_short[0] = "MACRO3";
-        }
-        name_to_code["KEY_MACRO4"] = 0;
-        word_to_code["macro4"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro4";
-            code_to_short[0] = "MACRO4";
-        }
-        name_to_code["KEY_MACRO5"] = 0;
-        word_to_code["macro5"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro5";
-            code_to_short[0] = "MACRO5";
-        }
-        name_to_code["KEY_MACRO6"] = 0;
-        word_to_code["macro6"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro6";
-            code_to_short[0] = "MACRO6";
-        }
-        name_to_code["KEY_MACRO7"] = 0;
-        word_to_code["macro7"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro7";
-            code_to_short[0] = "MACRO7";
-        }
-        name_to_code["KEY_MACRO8"] = 0;
-        word_to_code["macro8"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro8";
-            code_to_short[0] = "MACRO8";
-        }
-        name_to_code["KEY_MACRO9"] = 0;
-        word_to_code["macro9"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro9";
-            code_to_short[0] = "MACRO9";
-        }
-        name_to_code["KEY_MACRO10"] = 0;
-        word_to_code["macro10"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro10";
-            code_to_short[0] = "MACRO10";
-        }
-        name_to_code["KEY_MACRO11"] = 0;
-        word_to_code["macro11"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro11";
-            code_to_short[0] = "MACRO11";
-        }
-        name_to_code["KEY_MACRO12"] = 0;
-        word_to_code["macro12"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro12";
-            code_to_short[0] = "MACRO12";
-        }
-        name_to_code["KEY_MACRO13"] = 0;
-        word_to_code["macro13"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro13";
-            code_to_short[0] = "MACRO13";
-        }
-        name_to_code["KEY_MACRO14"] = 0;
-        word_to_code["macro14"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro14";
-            code_to_short[0] = "MACRO14";
-        }
-        name_to_code["KEY_MACRO15"] = 0;
-        word_to_code["macro15"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro15";
-            code_to_short[0] = "MACRO15";
-        }
-        name_to_code["KEY_MACRO16"] = 0;
-        word_to_code["macro16"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro16";
-            code_to_short[0] = "MACRO16";
-        }
-        name_to_code["KEY_MACRO17"] = 0;
-        word_to_code["macro17"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro17";
-            code_to_short[0] = "MACRO17";
-        }
-        name_to_code["KEY_MACRO18"] = 0;
-        word_to_code["macro18"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro18";
-            code_to_short[0] = "MACRO18";
-        }
-        name_to_code["KEY_MACRO19"] = 0;
-        word_to_code["macro19"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro19";
-            code_to_short[0] = "MACRO19";
-        }
-        name_to_code["KEY_MACRO20"] = 0;
-        word_to_code["macro20"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro20";
-            code_to_short[0] = "MACRO20";
-        }
-        name_to_code["KEY_MACRO21"] = 0;
-        word_to_code["macro21"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro21";
-            code_to_short[0] = "MACRO21";
-        }
-        name_to_code["KEY_MACRO22"] = 0;
-        word_to_code["macro22"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro22";
-            code_to_short[0] = "MACRO22";
-        }
-        name_to_code["KEY_MACRO23"] = 0;
-        word_to_code["macro23"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro23";
-            code_to_short[0] = "MACRO23";
-        }
-        name_to_code["KEY_MACRO24"] = 0;
-        word_to_code["macro24"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro24";
-            code_to_short[0] = "MACRO24";
-        }
-        name_to_code["KEY_MACRO25"] = 0;
-        word_to_code["macro25"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro25";
-            code_to_short[0] = "MACRO25";
-        }
-        name_to_code["KEY_MACRO26"] = 0;
-        word_to_code["macro26"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro26";
-            code_to_short[0] = "MACRO26";
-        }
-        name_to_code["KEY_MACRO27"] = 0;
-        word_to_code["macro27"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro27";
-            code_to_short[0] = "MACRO27";
-        }
-        name_to_code["KEY_MACRO28"] = 0;
-        word_to_code["macro28"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro28";
-            code_to_short[0] = "MACRO28";
-        }
-        name_to_code["KEY_MACRO29"] = 0;
-        word_to_code["macro29"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro29";
-            code_to_short[0] = "MACRO29";
-        }
-        name_to_code["KEY_MACRO30"] = 0;
-        word_to_code["macro30"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro30";
-            code_to_short[0] = "MACRO30";
-        }
-        name_to_code["KEY_MACRO_RECORD_START"] = 0;
-        word_to_code["macro_record_start"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro_record_start";
-            code_to_short[0] = "MACRO_RECORD_START";
-        }
-        name_to_code["KEY_MACRO_RECORD_STOP"] = 0;
-        word_to_code["macro_record_stop"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro_record_stop";
-            code_to_short[0] = "MACRO_RECORD_STOP";
-        }
-        name_to_code["KEY_MACRO_PRESET_CYCLE"] = 0;
-        word_to_code["macro_preset_cycle"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro_preset_cycle";
-            code_to_short[0] = "MACRO_PRESET_CYCLE";
-        }
-        name_to_code["KEY_MACRO_PRESET1"] = 0;
-        word_to_code["macro_preset1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro_preset1";
-            code_to_short[0] = "MACRO_PRESET1";
-        }
-        name_to_code["KEY_MACRO_PRESET2"] = 0;
-        word_to_code["macro_preset2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro_preset2";
-            code_to_short[0] = "MACRO_PRESET2";
-        }
-        name_to_code["KEY_MACRO_PRESET3"] = 0;
-        word_to_code["macro_preset3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "macro_preset3";
-            code_to_short[0] = "MACRO_PRESET3";
-        }
-        name_to_code["KEY_KBD_LCD_MENU1"] = 0;
-        word_to_code["kbd_lcd_menu1"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbd_lcd_menu1";
-            code_to_short[0] = "KBD_LCD_MENU1";
-        }
-        name_to_code["KEY_KBD_LCD_MENU2"] = 0;
-        word_to_code["kbd_lcd_menu2"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbd_lcd_menu2";
-            code_to_short[0] = "KBD_LCD_MENU2";
-        }
-        name_to_code["KEY_KBD_LCD_MENU3"] = 0;
-        word_to_code["kbd_lcd_menu3"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbd_lcd_menu3";
-            code_to_short[0] = "KBD_LCD_MENU3";
-        }
-        name_to_code["KEY_KBD_LCD_MENU4"] = 0;
-        word_to_code["kbd_lcd_menu4"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbd_lcd_menu4";
-            code_to_short[0] = "KBD_LCD_MENU4";
-        }
-        name_to_code["KEY_KBD_LCD_MENU5"] = 0;
-        word_to_code["kbd_lcd_menu5"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "kbd_lcd_menu5";
-            code_to_short[0] = "KBD_LCD_MENU5";
-        }
-        name_to_code["KEY_PERFORMANCE"] = 0;
-        word_to_code["performance"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "performance";
-            code_to_short[0] = "PERFORMANCE";
-        }
-        name_to_code["KEY_MAX"] = 0;
-        word_to_code["max"] = 0;
-        if (code_to_word.find(0) == code_to_word.end()) {
-            code_to_word[0] = "max";
-            code_to_short[0] = "MAX";
+        for (const auto& item : KEY_ITEMS) {
+            name_to_code[item.name] = item.code;
+            word_to_code[item.word] = item.code;
+            if (code_to_word.find(item.code) == code_to_word.end()) {
+                code_to_word[item.code] = item.word;
+                code_to_short[item.code] = item.short_name;
+            }
         }
     }
 };
-
 const KeyTable& getTable() {
     static KeyTable table;
     return table;
