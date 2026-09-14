@@ -1,10 +1,22 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 project(tff_like_remapper VERSION 1.0.0)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Sanitizer options
+option(ENABLE_SANITIZERS "Enable AddressSanitizer (ASan) and UndefinedBehaviorSanitizer (UBSan)" OFF)
+if(ENABLE_SANITIZERS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
+        add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g)
+        add_link_options(-fsanitize=address,undefined)
+    else()
+        message(FATAL_ERROR "Sanitizers requested but compiler ${CMAKE_CXX_COMPILER_ID} is not GNU or Clang")
+    endif()
+endif()
 
 # Include directories
 include_directories(include)
@@ -38,7 +50,6 @@ add_library(tff_core ${CORE_SOURCES})
 target_compile_options(tff_core PRIVATE
     -Wall
     -Wextra
-    -O2
 )
 
 # Create Linux platform library

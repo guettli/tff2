@@ -57,3 +57,35 @@ jobs:
           tff --help
           tff validate /etc/tff/tff-combos.yaml
           systemd-analyze verify /etc/systemd/system/ten-flying-fingers.service || true
+
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ASAN_OPTIONS: 'detect_leaks=1:abort_on_error=1:fast_unwind_on_fatal=0'
+      UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup system dependencies
+        run: |
+          sudo modprobe uinput || true
+          sudo chmod 0666 /dev/uinput || true
+
+      - name: Configure CMake with Sanitizers
+        run: cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+
+      - name: Build targets
+        run: cmake --build build-asan -j$(nproc)
+
+      - name: Run test suite under ASan & UBSan
+        run: ctest --test-dir build-asan --output-on-failure
+
+      - name: Test TFF CLI commands under ASan & UBSan
+        run: |
+          ./build-asan/tff_linux --help
+          ./build-asan/tff_linux --list
+          ./build-asan/tff_linux validate config/tff-combos.yaml
