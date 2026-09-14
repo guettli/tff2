@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test (Linux GCC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup system dependencies
+        run: |
+          sudo modprobe uinput || true
+          sudo chmod 0666 /dev/uinput || true
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build targets
+        run: cmake --build build -j$(nproc)
+
+      - name: Run unit and integration tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Test TFF CLI commands
+        run: |
+          ./build/tff_linux --help
+          ./build/tff_linux --list
+          ./build/tff_linux validate config/tff-combos.yaml
+
+      - name: Test installer script (system-wide)
+        run: |
+          sudo ./install.sh
+          which tff
+          tff --help
+          tff validate /etc/tff/tff-combos.yaml
+          systemd-analyze verify /etc/systemd/system/ten-flying-fingers.service || true
