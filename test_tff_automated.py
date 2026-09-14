@@ -169,6 +169,14 @@ TEST_CASES = [
         'type': 'combo',
     },
     {
+        'name': 'Triple Combo: D + F + J -> Escape',
+        'keys': [HID_KEYS['d'], HID_KEYS['f'], HID_KEYS['j']],
+        'delay_ms': 20,
+        'expected_linux_code': LINUX_KEY_CODES['ESC'],
+        'expected_name': 'KEY_ESC (1)',
+        'type': 'triple',
+    },
+    {
         'name': 'Sequential Typing: J then F (>100ms threshold, no combo)',
         'key1': HID_KEYS['j'],
         'key2': HID_KEYS['f'],
@@ -274,7 +282,7 @@ def run_tests():
             report2 = bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0])
             os.write(out_fd, report2)
 
-            time.sleep(0.04)
+            time.sleep(0.06)
 
             # Send Release
             report_empty = bytearray(8)
@@ -290,6 +298,35 @@ def run_tests():
                 and events[1] == (expected_code, KEY_UP)
             )
 
+            if passed:
+                print("PASS")
+                passed_count += 1
+                results.append((test_name, "PASS", f"Output {test['expected_name']}"))
+            else:
+                print(f"FAIL (got {events})")
+                failed_count += 1
+                results.append((test_name, "FAIL", f"Expected {test['expected_name']}, got {events}"))
+
+        elif test['type'] == 'triple':
+            # Send Key 1
+            os.write(out_fd, bytearray([0, 0, test['keys'][0], 0, 0, 0, 0, 0]))
+            time.sleep(test['delay_ms'] / 1000.0)
+            # Send Key 1 + Key 2
+            os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], 0, 0, 0, 0]))
+            time.sleep(test['delay_ms'] / 1000.0)
+            # Send Key 1 + Key 2 + Key 3
+            os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
+            time.sleep(0.06)
+            # Send Release
+            os.write(out_fd, bytearray(8))
+
+            events = read_input_events(in_fd, timeout=0.6)
+            expected_code = test['expected_linux_code']
+            passed = (
+                len(events) >= 2
+                and events[0] == (expected_code, KEY_DOWN)
+                and events[1] == (expected_code, KEY_UP)
+            )
             if passed:
                 print("PASS")
                 passed_count += 1
