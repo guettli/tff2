@@ -36,6 +36,7 @@ void printHelp(const char* prog) {
               << "                          (default: auto-discover all connected keyboards)\n"
               << "  -g, --grab              Exclusively grab input device (default: true)\n"
               << "  --no-grab               Do not grab device (events still pass to OS)\n"
+              << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging (default: enabled)\n"
               << "  -l, --list              List all discovered keyboards and exit\n"
               << "  -v, --verbose           Print detailed key down/up event logs\n"
               << "  -h, --help              Show this help message\n\n"
@@ -51,6 +52,7 @@ int main(int argc, char* argv[]) {
     std::string config_file = "config/tff-combos.yaml";
     std::vector<std::string> device_paths;
     bool grab = true;
+    bool hotplug = true;
     bool list_only = false;
     bool validate_only = false;
     bool verbose = false;
@@ -73,6 +75,8 @@ int main(int argc, char* argv[]) {
             grab = true;
         } else if (arg == "--no-grab") {
             grab = false;
+        } else if (arg == "--no-hotplug") {
+            hotplug = false;
         } else if (arg == "-c" || arg == "--config") {
             if (i + 1 < argc) {
                 config_file = argv[++i];
@@ -175,31 +179,44 @@ int main(int argc, char* argv[]) {
     const auto& combos = platform.getEngine().getCombos();
     std::cout << "Loaded " << combos.size() << " combo mapping(s)\n";
 
+    platform.setGrab(grab);
+    platform.enableHotplug(hotplug);
+
     if (device_paths.empty()) {
         std::cout << "Auto-discovering keyboards...\n";
         device_paths = LinuxPlatform::discoverKeyboards();
         if (device_paths.empty()) {
-            std::cerr << "Error: No keyboard devices found in /dev/input/\n";
-            return 1;
+            if (hotplug) {
+                std::cout << "No keyboard devices currently found in /dev/input/.\n"
+                          << "Dynamic hotplugging active: waiting for keyboards to be plugged in...\n";
+            } else {
+                std::cerr << "Error: No keyboard devices found in /dev/input/\n";
+                return 1;
+            }
         }
     }
 
-    std::cout << "Opening " << device_paths.size() << " input keyboard device(s) (grab="
-              << (grab ? "yes" : "no") << "):\n";
-    for (const auto& p : device_paths) {
-        std::string name = LinuxPlatform::getDeviceName(p);
-        std::string alias = LinuxPlatform::getDeviceAlias(p);
-        std::cout << "  -> " << p;
-        if (!name.empty()) std::cout << " (" << name << ")";
-        std::cout << "\n";
-        if (!alias.empty()) {
-            std::cout << "     Alias: " << alias << "\n";
+    if (!device_paths.empty()) {
+        std::cout << "Opening " << device_paths.size() << " input keyboard device(s) (grab="
+                  << (grab ? "yes" : "no") << "):\n";
+        for (const auto& p : device_paths) {
+            std::string name = LinuxPlatform::getDeviceName(p);
+            std::string alias = LinuxPlatform::getDeviceAlias(p);
+            std::cout << "  -> " << p;
+            if (!name.empty()) std::cout << " (" << name << ")";
+            std::cout << "\n";
+            if (!alias.empty()) {
+                std::cout << "     Alias: " << alias << "\n";
+            }
         }
-    }
 
-    if (!platform.openInputDevices(device_paths, grab)) {
-        std::cerr << "Error: Could not open any input devices\n";
-        return 1;
+        if (!platform.openInputDevices(device_paths, grab)) {
+            if (!hotplug) {
+                std::cerr << "Error: Could not open any input devices\n";
+                return 1;
+            }
+            std::cerr << "Warning: Could not open initial devices; waiting for hotplug events.\n";
+        }
     }
 
     std::cout << "Virtual keyboard created via /dev/uinput\n";

@@ -160,6 +160,73 @@ void testSequentialTypingNoRemap() {
     std::cout << "PASSED\n";
 }
 
+void testHotplugConfiguration() {
+    std::cout << "Test 6: Inotify hotplug configuration... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    assert(!platform.isHotplugEnabled());
+    bool ok = platform.enableHotplug(true);
+    // In environments with /dev/input permissions, ok is true; otherwise false
+    if (ok) {
+        assert(platform.isHotplugEnabled());
+        bool disabled = platform.enableHotplug(false);
+        assert(disabled);
+        assert(!platform.isHotplugEnabled());
+    }
+
+    platform.setGrab(true);
+    assert(platform.isGrabbed());
+    platform.setGrab(false);
+    assert(!platform.isGrabbed());
+
+    platform.cleanup();
+    assert(!platform.isHotplugEnabled());
+    std::cout << "PASSED\n";
+}
+
+void testDeviceManagement() {
+    std::cout << "Test 7: Device attach/detach and keyboard validation... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    assert(platform.getAttachedDeviceCount() == 0);
+    assert(!platform.isDeviceAttached("/dev/input/nonexistent_device_test"));
+
+    // Validation checks for non-devices and non-keyboards
+    std::string name;
+    assert(!LinuxPlatform::isKeyboardDevice("/dev/null", &name));
+    assert(!LinuxPlatform::isKeyboardDevice("/nonexistent/file/path", &name));
+
+    // Discover existing keyboards (if any in test environment)
+    auto keyboards = LinuxPlatform::discoverKeyboards();
+    if (!keyboards.empty()) {
+        const std::string& first_kbd = keyboards[0];
+        assert(LinuxPlatform::isKeyboardDevice(first_kbd, &name));
+
+        bool attached = platform.attachInputDevice(first_kbd, false);
+        if (attached) {
+            assert(platform.isDeviceAttached(first_kbd));
+            assert(platform.getAttachedDeviceCount() == 1);
+
+            // Attaching same device again should be idempotent
+            bool reattached = platform.attachInputDevice(first_kbd, false);
+            assert(reattached);
+            assert(platform.getAttachedDeviceCount() == 1);
+
+            int fd = platform.getInputFd();
+            assert(fd >= 0);
+            bool detached = platform.detachInputDevice(fd);
+            assert(detached);
+            assert(platform.getAttachedDeviceCount() == 0);
+            assert(!platform.isDeviceAttached(first_kbd));
+        }
+    }
+
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -167,6 +234,8 @@ int main() {
     testLoadYamlConfiguration();
     testComboRemapping();
     testSequentialTypingNoRemap();
+    testHotplugConfiguration();
+    testDeviceManagement();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }
