@@ -66,8 +66,10 @@ LinuxPlatform::LinuxPlatform()
       initialized_(false),
       verbose_(false),
       hotplug_enabled_(false),
+      config_watch_enabled_(false),
       inotify_fd_(-1),
-      inotify_wd_(-1) {
+      hotplug_wd_(-1),
+      config_wd_(-1) {
 }
 
 LinuxPlatform::~LinuxPlatform() {
@@ -120,9 +122,13 @@ bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
         initialize();
     }
 
-    std::ifstream file(config_file);
-    if (!file.is_open() && config_file.rfind("../", 0) != 0) {
-        file.open("../" + config_file);
+    std::string resolved = config_file;
+    std::ifstream file(resolved);
+    if (!file.is_open() && resolved.rfind("../", 0) != 0) {
+        file.open("../" + resolved);
+        if (file.is_open()) {
+            resolved = "../" + resolved;
+        }
     }
     if (!file.is_open()) {
         std::cerr << "Failed to open config file: " << config_file << "\n";
@@ -134,11 +140,54 @@ bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
     std::string err_msg;
     std::vector<tff::Combo> combos;
     if (!tff::loadYamlCombos(buffer.str(), combos, err_msg)) {
-        std::cerr << "Failed to parse YAML config (" << config_file << "): " << err_msg << "\n";
+        std::cerr << "Failed to parse YAML config (" << resolved << "): " << err_msg << "\n";
         return false;
     }
 
+    config_file_ = resolved;
     setCombos(combos);
+    return true;
+}
+
+bool LinuxPlatform::reloadConfiguration() {
+    if (config_file_.empty()) {
+        std::cerr << "Error: cannot reload configuration, no config file specified\n";
+        return false;
+    }
+    return reloadConfiguration(config_file_);
+}
+
+bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
+    std::string resolved = config_file;
+    std::ifstream file(resolved);
+    if (!file.is_open() && resolved.rfind("../", 0) != 0) {
+        file.open("../" + resolved);
+        if (file.is_open()) {
+            resolved = "../" + resolved;
+        }
+    }
+    if (!file.is_open()) {
+        std::cerr << "Error reloading config: failed to open " << config_file << "\n";
+        std::cerr << "Keeping current configuration ("
+                  << (engine_ ? engine_->getCombos().size() : 0) << " combo(s) active)\n";
+        return false;
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string err_msg;
+    std::vector<tff::Combo> combos;
+    if (!tff::loadYamlCombos(buffer.str(), combos, err_msg)) {
+        std::cerr << "Error reloading config (" << resolved << "): " << err_msg << "\n";
+        std::cerr << "Keeping current configuration ("
+                  << (engine_ ? engine_->getCombos().size() : 0) << " combo(s) active)\n";
+        return false;
+    }
+
+    config_file_ = resolved;
+    setCombos(combos);
+    std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved
+              << " (" << combos.size() << " combo(s) active)\n";
     return true;
 }
 
@@ -379,22 +428,26 @@ bool LinuxPlatform::enableHotplug(bool enable) {
 }
 
 void LinuxPlatform::setupInotify() {
-    if (inotify_fd_ >= 0) {
+    if (hotplug_wd_ >= 0) {
         return;
     }
-    inotify_fd_ = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
     if (inotify_fd_ < 0) {
-        std::cerr << "Warning: Failed to initialize inotify for keyboard hotplugging: "
-                  << strerror(errno) << "\n";
-        hotplug_enabled_ = false;
-        return;
+        inotify_fd_ = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+        if (inotify_fd_ < 0) {
+            std::cerr << "Warning: Failed to initialize inotify for keyboard hotplugging: "
+                      << strerror(errno) << "\n";
+            hotplug_enabled_ = false;
+            return;
+        }
     }
-    inotify_wd_ = inotify_add_watch(inotify_fd_, "/dev/input", IN_CREATE | IN_ATTRIB);
-    if (inotify_wd_ < 0) {
+    hotplug_wd_ = inotify_add_watch(inotify_fd_, "/dev/input", IN_CREATE | IN_ATTRIB);
+    if (hotplug_wd_ < 0) {
         std::cerr << "Warning: Failed to watch /dev/input for hotplugging: "
                   << strerror(errno) << "\n";
-        close(inotify_fd_);
-        inotify_fd_ = -1;
+        if (config_wd_ < 0) {
+            close(inotify_fd_);
+            inotify_fd_ = -1;
+        }
         hotplug_enabled_ = false;
         return;
     }
@@ -405,18 +458,102 @@ void LinuxPlatform::setupInotify() {
 }
 
 void LinuxPlatform::teardownInotify() {
-    if (inotify_wd_ >= 0 && inotify_fd_ >= 0) {
-        inotify_rm_watch(inotify_fd_, inotify_wd_);
-        inotify_wd_ = -1;
+    if (hotplug_wd_ >= 0 && inotify_fd_ >= 0) {
+        inotify_rm_watch(inotify_fd_, hotplug_wd_);
+        hotplug_wd_ = -1;
     }
-    if (inotify_fd_ >= 0) {
+    hotplug_enabled_ = false;
+    if (config_wd_ < 0 && inotify_fd_ >= 0) {
         close(inotify_fd_);
         inotify_fd_ = -1;
     }
-    hotplug_enabled_ = false;
 }
 
-void LinuxPlatform::processHotplugEvents() {
+bool LinuxPlatform::enableConfigWatch(bool enable, const std::string& config_path) {
+    if (!config_path.empty()) {
+        config_file_ = config_path;
+    }
+    if (enable == config_watch_enabled_) {
+        return true;
+    }
+    if (enable) {
+        setupConfigWatch();
+    } else {
+        teardownConfigWatch();
+    }
+    return config_watch_enabled_ == enable;
+}
+
+void LinuxPlatform::setupConfigWatch() {
+    if (config_file_.empty()) {
+        config_watch_enabled_ = false;
+        return;
+    }
+
+    if (inotify_fd_ < 0) {
+        inotify_fd_ = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+        if (inotify_fd_ < 0) {
+            std::cerr << "Warning: Failed to initialize inotify for config watching: "
+                      << strerror(errno) << "\n";
+            config_watch_enabled_ = false;
+            return;
+        }
+    }
+
+    if (config_wd_ >= 0) {
+        inotify_rm_watch(inotify_fd_, config_wd_);
+        config_wd_ = -1;
+    }
+
+    size_t pos = config_file_.find_last_of('/');
+    if (pos != std::string::npos) {
+        config_dir_ = config_file_.substr(0, pos);
+        config_basename_ = config_file_.substr(pos + 1);
+        if (config_dir_.empty()) {
+            config_dir_ = "/";
+        }
+    } else {
+        config_dir_ = ".";
+        config_basename_ = config_file_;
+    }
+
+    // Try watching parent directory for IN_CLOSE_WRITE and IN_MOVED_TO
+    config_wd_ = inotify_add_watch(inotify_fd_, config_dir_.c_str(), IN_CLOSE_WRITE | IN_MOVED_TO);
+    if (config_wd_ < 0) {
+        // Fallback to watching file directly
+        config_wd_ = inotify_add_watch(inotify_fd_, config_file_.c_str(), IN_CLOSE_WRITE);
+    }
+
+    if (config_wd_ < 0) {
+        std::cerr << "Warning: Failed to watch config file (" << config_file_
+                  << ") via inotify: " << strerror(errno) << "\n";
+        config_watch_enabled_ = false;
+        if (hotplug_wd_ < 0) {
+            close(inotify_fd_);
+            inotify_fd_ = -1;
+        }
+        return;
+    }
+
+    config_watch_enabled_ = true;
+    if (verbose_) {
+        std::cout << "[TFF Config] Monitoring " << config_file_ << " for live changes\n";
+    }
+}
+
+void LinuxPlatform::teardownConfigWatch() {
+    if (config_wd_ >= 0 && inotify_fd_ >= 0) {
+        inotify_rm_watch(inotify_fd_, config_wd_);
+        config_wd_ = -1;
+    }
+    config_watch_enabled_ = false;
+    if (hotplug_wd_ < 0 && inotify_fd_ >= 0) {
+        close(inotify_fd_);
+        inotify_fd_ = -1;
+    }
+}
+
+void LinuxPlatform::processInotifyEvents() {
     if (inotify_fd_ < 0) return;
 
     alignas(struct inotify_event) char buffer[4096];
@@ -428,36 +565,52 @@ void LinuxPlatform::processHotplugEvents() {
 
         for (ssize_t i = 0; i < bytes;) {
             const struct inotify_event* event = reinterpret_cast<const struct inotify_event*>(buffer + i);
-            if (event->len > 0) {
-                std::string entry_name(event->name);
-                if (entry_name.rfind("event", 0) == 0) {
-                    std::string dev_path = "/dev/input/" + entry_name;
-                    if (!isDeviceAttached(dev_path)) {
-                        // If device node not yet accessible (e.g. udev setting permissions),
-                        // retry up to 3 times only if open fails with EACCES or ENOENT.
-                        int test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-                        if (test_fd < 0 && (errno == EACCES || errno == ENOENT)) {
-                            for (int attempt = 0; attempt < 3; ++attempt) {
-                                usleep(15000);
-                                test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-                                if (test_fd >= 0) break;
-                            }
-                        }
-                        if (test_fd >= 0) {
-                            close(test_fd);
-                        }
-
-                        std::string kbd_name;
-                        if (isKeyboardDevice(dev_path, &kbd_name)) {
-                            if (attachInputDevice(dev_path, grabbed_)) {
-                                std::cout << "[TFF Hotplug] Connected keyboard: " << dev_path;
-                                if (!kbd_name.empty()) {
-                                    std::cout << " (" << kbd_name << ")";
+            if (hotplug_wd_ >= 0 && event->wd == hotplug_wd_) {
+                if (event->len > 0) {
+                    std::string entry_name(event->name);
+                    if (entry_name.rfind("event", 0) == 0) {
+                        std::string dev_path = "/dev/input/" + entry_name;
+                        if (!isDeviceAttached(dev_path)) {
+                            // If device node not yet accessible (e.g. udev setting permissions),
+                            // retry up to 3 times only if open fails with EACCES or ENOENT.
+                            int test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                            if (test_fd < 0 && (errno == EACCES || errno == ENOENT)) {
+                                for (int attempt = 0; attempt < 3; ++attempt) {
+                                    usleep(15000);
+                                    test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                                    if (test_fd >= 0) break;
                                 }
-                                std::cout << "\n";
+                            }
+                            if (test_fd >= 0) {
+                                close(test_fd);
+                            }
+
+                            std::string kbd_name;
+                            if (isKeyboardDevice(dev_path, &kbd_name)) {
+                                if (attachInputDevice(dev_path, grabbed_)) {
+                                    std::cout << "[TFF Hotplug] Connected keyboard: " << dev_path;
+                                    if (!kbd_name.empty()) {
+                                        std::cout << " (" << kbd_name << ")";
+                                    }
+                                    std::cout << "\n";
+                                }
                             }
                         }
                     }
+                }
+            } else if (config_wd_ >= 0 && event->wd == config_wd_) {
+                bool trigger_reload = false;
+                if (event->len > 0) {
+                    std::string entry_name(event->name);
+                    if (entry_name == config_basename_) {
+                        trigger_reload = true;
+                    }
+                } else {
+                    // Direct file watch
+                    trigger_reload = true;
+                }
+                if (trigger_reload) {
+                    reloadConfiguration();
                 }
             }
             i += sizeof(struct inotify_event) + event->len;
@@ -465,7 +618,7 @@ void LinuxPlatform::processHotplugEvents() {
     }
 }
 
-void LinuxPlatform::run(std::atomic<bool>& should_stop) {
+void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* should_reload) {
     if (!initialized_) {
         initialize();
     }
@@ -483,11 +636,18 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop) {
         }
     }
 
-    if (hotplug_enabled_ && inotify_fd_ < 0) {
+    if (hotplug_enabled_ && hotplug_wd_ < 0) {
         setupInotify();
+    }
+    if (config_watch_enabled_ && config_wd_ < 0) {
+        setupConfigWatch();
     }
 
     while (!should_stop.load()) {
+        if (should_reload && should_reload->exchange(false)) {
+            reloadConfiguration();
+        }
+
         std::vector<struct pollfd> pfds;
         if (inotify_fd_ >= 0) {
             struct pollfd pfd;
@@ -529,6 +689,9 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop) {
         int ret = poll(pfds.data(), pfds.size(), timeout_ms);
         if (ret < 0) {
             if (errno == EINTR) {
+                if (should_reload && should_reload->exchange(false)) {
+                    reloadConfiguration();
+                }
                 continue;
             }
             std::cerr << "poll error: " << strerror(errno) << "\n";
@@ -557,14 +720,15 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop) {
             detachInputDevice(fd);
         }
 
-        // 2. Process inotify events (new devices attached after old fds detached)
+        // 2. Process inotify events (both hotplug and config changes)
         for (const auto& pfd : pfds) {
             if (pfd.fd == inotify_fd_) {
                 if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                    std::cerr << "Warning: inotify error on /dev/input; disabling hotplug.\n";
+                    std::cerr << "Warning: inotify error; disabling inotify watches.\n";
                     teardownInotify();
+                    teardownConfigWatch();
                 } else if (pfd.revents & POLLIN) {
-                    processHotplugEvents();
+                    processInotifyEvents();
                 }
                 break;
             }
@@ -665,6 +829,7 @@ bool LinuxPlatform::receiveMappedKeys(std::vector<uint32_t>& key_codes) {
 
 void LinuxPlatform::cleanup() {
     teardownInotify();
+    teardownConfigWatch();
 
     for (const auto& dev : devices_) {
         if (dev.fd >= 0) {

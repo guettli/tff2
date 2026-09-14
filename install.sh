@@ -82,6 +82,7 @@ Restart=always
 RestartSec=3
 Nice=-20
 ExecStart=${BIN_DIR}/tff --config ${CONFIG_DIR}/tff-combos.yaml
+ExecReload=/bin/kill -HUP \$MAINPID
 
 [Install]
 WantedBy=default.target
