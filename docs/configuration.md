@@ -2,251 +2,131 @@
 
 ## Overview
 
-The configuration system allows users to customize key mappings and behavior of the TFF-like keyboard remapping system. It uses YAML files for human-readable configuration and supports multiple layers for different contexts.
+The configuration system allows users to customize keyboard chord combinations (combos) for Ten Flying Fingers (TFF). It uses human-readable YAML files that define multi-key chords and their mapped output key actions.
+
+Configurations are parsed natively in C++ using a lightweight parser (`tff::loadYamlCombos`) that supports the standard TFF combo format.
 
 ## Configuration File Structure
+
+The configuration file contains a list of combos under the `combos:` root key.
 
 ### Basic Structure
 
 ```yaml
-settings:
-  overlap_threshold_ms: 100
+combos:
+  # Home row index finger combos
+  - keys: j f
+    outKeys: backspace
 
-mappings:
-  - name: "example_mapping"
-    combo: ["f", "j"]
-    output: "1"
+  - keys: f j
+    outKeys: delete
 
-layers:
-  - name: "main"
-    active: true
-    mappings:
-      - combo: ["f", "space"]
-        output: ["ctrl", "s"]
+  # Pinky combos
+  - keys: semicolon a
+    outKeys: home
+
+  - keys: a semicolon
+    outKeys: end
+
+  # Navigation combos with F
+  - keys: f n
+    outKeys: down
+
+  - keys: f u
+    outKeys: up
+
+  - keys: f k
+    outKeys: left
+
+  - keys: f l
+    outKeys: right
 ```
 
-### Settings Section
+### Key Formats
 
-The `settings` section controls global behavior:
+The parser supports multiple convenient ways to express keys:
 
+#### Space-separated string:
 ```yaml
-settings:
-  overlap_threshold_ms: 100  # Time window for overlapping key detection (milliseconds)
-  enable_logging: false      # Enable debug logging (future feature)
+- keys: j f
+  outKeys: backspace
 ```
 
-### Mappings Section
-
-The `mappings` section defines global key combinations:
-
+#### YAML sequence / list:
 ```yaml
-mappings:
-  # Basic key combination
-  - name: "move_right"
-    combo: ["f", "j"]
-    output: "right"
-
-  # Multiple key output
-  - name: "save_document"
-    combo: ["f", "space"]
-    output: ["ctrl", "s"]
-
-  # Complex combination
-  - name: "complex_macro"
-    combo: ["f", "j", "k"]
-    output: ["ctrl", "shift", "s"]
+- keys:
+    - j
+    - f
+  outKeys:
+    - backspace
 ```
 
-### Layers Section
-
-Layers allow context-specific mappings:
-
+#### Single key or multi-key output sequences:
 ```yaml
-layers:
-  - name: "main"
-    active: true
-    mappings:
-      - combo: ["f", "j"]
-        output: "1"
-
-  - name: "symbols"
-    active: false
-    mappings:
-      - combo: ["f", "j"]
-        output: "!"
+- keys: f space
+  outKeys: ctrl s
 ```
 
-## Key Names and Codes
+## Supported Key Names
 
-### Supported Keys
+Key names are case-insensitive and mapped to standard Linux input event codes (`KEY_*`):
 
-The system supports standard keyboard keys:
+- **Letters**: `a` through `z`
+- **Digits**: `0` through `9`
+- **Navigation & Editing**: `backspace`, `delete`, `home`, `end`, `up`, `down`, `left`, `right`, `pageup`, `pagedown`, `insert`
+- **Control & Modifiers**: `esc`, `enter`, `tab`, `space`, `capslock`, `leftctrl`, `rightctrl`, `leftshift`, `rightshift`, `leftalt`, `rightalt`, `leftmeta`, `rightmeta`
+- **Punctuation**: `semicolon`, `colon`, `comma`, `dot`, `slash`, `backslash`, `minus`, `equal`, `leftbrace`, `rightbrace`, `apostrophe`, `grave`
+- **Function Keys**: `f1` through `f12`
 
-- Letters: "a", "b", "c", ..., "z"
-- Numbers: "1", "2", "3", ..., "0"
-- Special keys: "space", "enter", "tab", "esc"
-- Modifier keys: "ctrl", "shift", "alt", "gui"
-- Navigation keys: "up", "down", "left", "right"
-- Function keys: "f1", "f2", ..., "f12"
+## CLI Validation
 
-### Key Combination Syntax
+You can validate any configuration file before running the daemon:
 
-Key combinations are defined as arrays of key names:
-
-```yaml
-# Two-key combination
-combo: ["f", "j"]
-
-# Three-key combination
-combo: ["ctrl", "shift", "s"]
-
-# Single key (for remapping individual keys)
-combo: ["capslock"]
+```bash
+tff validate /etc/tff/tff-combos.yaml
 ```
 
-## Example Configurations
+If any key name or syntax is invalid, the validator prints the exact line and error details and exits with code 1.
 
-### Basic Configuration
+## Dynamic Reloading
 
-```yaml
-settings:
-  overlap_threshold_ms: 100
+The Linux daemon (`tff_linux` / `tff`) monitors the configuration file using `inotify`. When you edit and save the configuration file:
+1. The daemon detects the change.
+2. It validates the new YAML syntax.
+3. If valid, the combos are reloaded in memory without restarting the daemon or losing active device grabs.
+4. If invalid, the error is logged to stderr (and journald) and existing mappings remain active safely.
 
-mappings:
-  - name: "navigation_fj"
-    combo: ["f", "j"]
-    output: "right"
+## Programmatic C++ Usage
 
-  - name: "navigation_jf"
-    combo: ["j", "f"]
-    output: "left"
-
-  - name: "save_document"
-    combo: ["f", "space"]
-    output: ["ctrl", "s"]
-```
-
-### Advanced Configuration with Layers
-
-```yaml
-settings:
-  overlap_threshold_ms: 100
-
-mappings:
-  - name: "global_escape"
-    combo: ["j", "j"]
-    output: "esc"
-
-layers:
-  - name: "main"
-    active: true
-    mappings:
-      - combo: ["f", "j"]
-        output: "1"
-      - combo: ["j", "f"]
-        output: "2"
-      - combo: ["f", "space"]
-        output: ["ctrl", "s"]
-
-  - name: "gaming"
-    active: false
-    mappings:
-      - combo: ["f", "j"]
-        output: "space"
-      - combo: ["j", "f"]
-        output: "tab"
-```
-
-## Loading Configuration
-
-### Programmatic Loading
+### Loading via `KeyMapper`
 
 ```cpp
-#include "config_manager.h"
 #include "key_mapper.h"
+#include <iostream>
 
-ConfigManager config_manager;
-KeyMapper key_mapper;
-
-// Load configuration from file
-bool success = config_manager.loadFromFile("config/mappings.yaml", key_mapper);
-
-if (success) {
-    std::cout << "Configuration loaded successfully" << std::endl;
+KeyMapper mapper;
+if (mapper.loadTffConfiguration("config/tff-combos.yaml")) {
+    std::cout << "Loaded " << mapper.getMappingCount() << " combos.\n";
 } else {
-    std::cerr << "Failed to load configuration" << std::endl;
+    std::cerr << "Failed to load TFF configuration.\n";
 }
 ```
 
-### Runtime Reloading
-
-Future implementations will support runtime configuration reloading:
+### Loading via `tff::loadYamlCombos`
 
 ```cpp
-// Watch for configuration file changes
-config_manager.watchFile("config/mappings.yaml");
+#include "tff_parser.h"
+#include <vector>
+#include <string>
+#include <iostream>
 
-// Reload when file changes
-config_manager.reloadOnChange(key_mapper);
+std::string yaml_content = "...";
+std::vector<tff::Combo> combos;
+std::string err_msg;
+
+if (tff::loadYamlCombos(yaml_content, combos, err_msg)) {
+    std::cout << "Successfully parsed " << combos.size() << " combos.\n";
+} else {
+    std::cerr << "YAML error: " << err_msg << "\n";
+}
 ```
-
-## Validation and Error Handling
-
-### Configuration Validation
-
-The system validates configurations:
-
-- Checks for duplicate key combinations
-- Verifies key names are supported
-- Ensures output keys are valid
-- Validates layer names and references
-
-### Error Reporting
-
-Errors are reported with descriptive messages:
-
-```
-Error: Duplicate key combination found: ["f", "j"]
-Error: Unknown key name: "xyz"
-Error: Invalid layer name: "invalid_layer"
-```
-
-## Best Practices
-
-### Naming Conventions
-
-- Use descriptive names for mappings
-- Follow consistent naming patterns
-- Include context in layer names
-
-### Performance Considerations
-
-- Limit the number of layers for better performance
-- Avoid overly complex key combinations
-- Use single-key mappings sparingly
-
-### Organization Tips
-
-- Group related mappings together
-- Use comments to explain complex mappings
-- Separate global and layer-specific mappings clearly
-
-## Future Extensions
-
-### Planned Features
-
-1. **JSON Configuration Support**
-   - Alternative to YAML format
-   - Same structure, different syntax
-
-2. **Remote Configuration**
-   - Load configurations from URLs
-   - Centralized configuration management
-
-3. **Configuration GUI**
-   - Visual editor for key mappings
-   - Real-time preview of changes
-
-4. **Profile Management**
-   - Save and load configuration profiles
-   - Import/export configurations

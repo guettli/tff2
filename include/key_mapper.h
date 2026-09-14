@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <utility>
 #include "key_events.h"
 
 /**
@@ -21,7 +22,7 @@ public:
     KeyMapper();
 
     /**
-     * @brief Load mappings from a configuration file
+     * @brief Load mappings from a YAML configuration file
      * @param config_file Path to YAML configuration file
      * @return true if successful, false otherwise
      */
@@ -61,35 +62,6 @@ private:
     };
 
     std::unordered_map<std::pair<uint32_t, uint32_t>, std::vector<uint32_t>, KeyComboHash> mappings_;
-
-    /**
-     * @brief Parse a key name to key code
-     * @param key_name String name of key (e.g., "f", "space", "ctrl")
-     * @return Key code, or 0 if unknown
-     */
-    uint32_t parseKeyName(const std::string& key_name) const;
-
-    /**
-     * @brief Parse a key code from string representation
-     * @param key_str String representation of key code
-     * @return Key code, or 0 if invalid
-     */
-    uint32_t parseKeyCode(const std::string& key_str) const;
-
-    /**
-     * @brief Load TFF-specific configuration
-     * @param config_file Path to TFF YAML configuration file
-     * @return true if successful, false otherwise
-     */
-    bool loadTffConfiguration(const std::string& config_file);
-
-    /**
-     * @brief Process a single combo entry from YAML
-     * @param keys_str String containing input keys
-     * @param outkeys_str String containing output keys
-     * @return true if successful, false otherwise
-     */
-    bool processComboEntry(const std::string& keys_str, const std::string& outkeys_str);
 };
 
 #endif // KEY_MAPPER_H

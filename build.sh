@@ -1,40 +1,17 @@
 #!/bin/bash
-
 # TFF-like Keyboard Remapping Build Script
+set -e
 
-set -e  # Exit on any error
+echo "Building TFF C++ System..."
 
-echo "Building TFF-like Keyboard Remapping System..."
+# Configure and build with CMake
+cmake -B build
+cmake --build build -j"$(nproc)"
 
-# Create build directory
-mkdir -p build
-cd build
-
-# Configure with CMake
-echo "Configuring with CMake..."
-cmake ..
-
-# Build the project
-echo "Building project..."
-make -j$(nproc)
-
-# Run unit tests
+# Run all unit tests via CTest
 echo "Running unit tests..."
-./test_key_detector
-./test_key_mapper
-./test_tff_app
-./test_tff_go_suite
-./test_linux_platform
-
-# Build test executable
-echo "Running demo application..."
-./tff_test
+ctest --test-dir build --output-on-failure
 
 echo ""
-echo "Build completed successfully!"
-echo ""
-echo "To run unit tests again:"
-echo "  cd build && ./test_key_detector && ./test_key_mapper && ./test_tff_app"
-echo ""
-echo "To run the demo:"
-echo "  cd build && ./tff_test"
+echo "Build and tests completed successfully!"
+echo "Binary created: build/tff_linux (symlinked as build/tff and build/tff2)"

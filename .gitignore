@@ -37,13 +37,12 @@ test_key_detector
 test_key_mapper
 test_tff_app
 test_rp2040_platform
-test_config_manager
+test_yaml_parser
 test_tff_mappings
-test_upboard_setup
-test_tff_demo
-tff_test
+test_tff_go_suite
+test_linux_platform
+tff_linux
 tff_rp2040
-yaml_to_json_converter
 libtff_core.a
 liblinux_platform.a
 librp2040_platform.a
@@ -84,9 +83,6 @@ Thumbs.db
 !tests/testdata/*.log
 *.tmp
 *.temp
-
-# Auto-generated configuration (converted from YAML)
-config/tff-combos.json
 
 # Redundant nested duplicate directory
 /tff2/
