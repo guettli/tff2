@@ -107,11 +107,23 @@ The firmware will be generated as a UF2 file that can be flashed to the RP2040 b
 
 ## Testing
 
+### Unit Tests (Linux)
+
 Run unit tests on Linux:
 
 ```bash
 ./build-linux/tests/unit_tests
 ```
+
+### Automated Hardware Testing (USB-OTG Loop)
+
+End-to-end hardware testing can be run using the UpBoard's micro-USB OTG port connected to the RP2040 USB-A host port:
+
+```bash
+./test_tff_automated.sh
+```
+
+See [AUTOMATED_TESTING_SOLUTION.md](AUTOMATED_TESTING_SOLUTION.md) for full architectural details and test cases.
 
 ## Hardware Setup
 

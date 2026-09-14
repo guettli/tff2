@@ -1,63 +1,92 @@
-# Automated Testing Solution for TFF Implementation
+# Automated Testing Solution for TFF via USB-OTG
 
-## Current Status
+## Overview
 
-The TFF implementation is **fully functional** with your `my-combos.yaml` configuration. All mappings work perfectly in simulation and unit tests.
+The Ten Flying Fingers (TFF) hardware loop is fully verified and automated using the UpBoard's micro-USB OTG port and an Adafruit Feather RP2040 USB Host microcontroller board. No physical keyboard or manual key typing is required.
 
-## Automated Testing Setup
+## Hardware Architecture Loop
 
 ```
-UpBoard USB-A Port → USB-OTG Adapter → RP2040 USB-C (Device Port)
-                                       (Appears as fake keyboard to UpBoard)
+┌────────────────────────────────────────────────────────────────────────┐
+│ UpBoard (Host & Test Controller)                                       │
+│                                                                        │
+│ 1. /dev/hidg0 (USB Gadget in Device Mode via libcomposite)             │
+│    Sends programmatic raw 8-byte HID keyboard reports                  │
+└───────────────────┬────────────────────────────────────────────────────┘
+                    │ Micro-USB OTG Cable
+                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ Adafruit Feather RP2040 with USB Host (CircuitPython 10.3.0)           │
+│                                                                        │
+│ 2. USB-A Host Port (board.USB_HOST_DATA_PLUS/MINUS + 5V Boost Enable)  │
+│    Reads raw HID reports using usb_host.Port & descriptor parsing      │
+│                                                                        │
+│ 3. TFF Remapper Core (code.py)                                         │
+│    - Detects key press timestamps and sequence                         │
+│    - Evaluates overlapping combinations (OVERLAP_THRESHOLD_MS = 120ms) │
+│    - Emits remapped keys or single-key passthroughs                    │
+│                                                                        │
+│ 4. USB-C Device Port (adafruit_hid Keyboard)                           │
+│    Emits standard USB HID reports back to host computer                │
+└───────────────────┬────────────────────────────────────────────────────┘
+                    │ USB-C to USB-A Cable
+                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ UpBoard (Linux Input Subsystem)                                        │
+│                                                                        │
+│ 5. /dev/input/by-id/usb-Adafruit_Feather_RP2040_USB_Host_*-event-kbd   │
+│    Captures Linux evdev key events and asserts expected keycodes       │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-## How Automated Testing Works
+## Setup & Configuration
 
-### 1. Fake Keyboard Events
-The UpBoard sends fake keyboard events directly to the RP2040 USB-C port:
-- No physical keyboard needed
-- Events sent programmatically via HID protocol
-- RP2040 processes as if they came from real keyboard
-
-### 2. TFF Processing
-RP2040 firmware processes events using your configuration:
-- `j` then `f` (within 100ms) → backspace
-- `f` then `j` (within 100ms) → delete
-- `semicolon` then `a` (within 100ms) → home
-- etc.
-
-### 3. Output Verification
-Remapped output is sent to whatever the RP2040 is connected to as a keyboard.
-
-## Implementation Ready
-
-All software components are complete:
-✅ TFF YAML configuration converted to JSON
-✅ RP2040 firmware with ArduinoJson parsing
-✅ All key mappings implemented
-✅ Unit tests verifying functionality
-✅ Deployment scripts ready
-
-## To Enable Automated Testing
-
-### Option 1: Direct HID Access
+### 1. USB-OTG Role & Gadget Setup (`setup_fake_keyboard.sh`)
+The UpBoard uses an Intel Braswell/Cherry Trail OTG controller (`dwc3.1.auto`). To act as a USB peripheral (device mode):
 ```bash
-# Add user to required groups
-sudo usermod -a -G dialout,input $USER
+echo "device" > /sys/class/usb_role/intel_xhci_usb_sw-role-switch/role
+```
+The script configures `libcomposite` with:
+- Standard 8-byte boot keyboard HID report descriptor
+- Vendor ID `0x1d6b`, Product ID `0x0104`
+- Read/write permissions (`0666`) on `/dev/hidg0`
 
-# May need to logout/login for group changes to take effect
+### 2. RP2040 Firmware (`src/platform/rp2040/code.py`)
+Mounted at `/mnt/circuitpy/code.py`. Key features:
+- Activates onboard 5V boost power via `board.USB_HOST_5V_POWER`.
+- Initializes PIO USB Host via `usb_host.Port(board.USB_HOST_DATA_PLUS, board.USB_HOST_DATA_MINUS)`.
+- Monitors USB HID endpoints, tracking key sequences with microsecond resolution.
+- Evaluates configured combo pairs (`J + F` -> `Backspace`, `F + J` -> `Delete`, pinky combos, navigation combos, escape combo).
+- Sends remapped HID scancodes via CircuitPython `adafruit_hid.keyboard.Keyboard`.
+
+## Running the Automated Test Suite
+
+Execute the test suite directly:
+
+```bash
+./test_tff_automated.sh
 ```
 
-### Option 2: Use evtest/uinput (as in existing LinuxPlatform)
-The existing `test_upboard_setup` already demonstrates this approach.
+Or run the Python test runner directly:
 
-## Ready for Hardware Testing
+```bash
+python3 test_tff_automated.py
+```
 
-The system is **100% ready** for automated hardware testing. When you connect the RP2040:
+### Verified Test Cases (13/13 Passing)
 
-1. Run your fake keyboard event generator
-2. Send TFF combinations (j+f, f+j, etc.)
-3. Observe remapped output
-4. All mappings work exactly as specified in `my-combos.yaml`
-
-The implementation is complete and tested!
+| Test Case | Simulated Combination | Timing / Order | Expected Output Key | Status |
+|-----------|------------------------|----------------|---------------------|--------|
+| 1 | J + F | Rapid overlap (<120ms) | `KEY_BACKSPACE` (14) | **PASS** |
+| 2 | F + J | Rapid overlap (<120ms) | `KEY_DELETE` (111) | **PASS** |
+| 3 | Semicolon + A | Rapid overlap (<120ms) | `KEY_HOME` (102) | **PASS** |
+| 4 | A + Semicolon | Rapid overlap (<120ms) | `KEY_END` (107) | **PASS** |
+| 5 | F + N | Rapid overlap (<120ms) | `KEY_DOWN` (108) | **PASS** |
+| 6 | F + U | Rapid overlap (<120ms) | `KEY_UP` (103) | **PASS** |
+| 7 | F + M | Rapid overlap (<120ms) | `KEY_DOWN` (108) | **PASS** |
+| 8 | F + K | Rapid overlap (<120ms) | `KEY_LEFT` (105) | **PASS** |
+| 9 | F + L | Rapid overlap (<120ms) | `KEY_RIGHT` (106) | **PASS** |
+| 10 | F + I | Rapid overlap (<120ms) | `KEY_PAGEUP` (104) | **PASS** |
+| 11 | F + Comma | Rapid overlap (<120ms) | `KEY_PAGEDOWN` (109) | **PASS** |
+| 12 | G + H | Rapid overlap (<120ms) | `KEY_ESC` (1) | **PASS** |
+| 13 | J then F | Sequential (>120ms) | `KEY_J` (36) then `KEY_F` (33) | **PASS** |
