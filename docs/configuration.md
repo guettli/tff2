@@ -44,24 +44,15 @@ combos:
 
 ### Key Formats
 
-The parser supports multiple convenient ways to express keys:
+Key combinations and output actions are specified as space-separated key names:
 
-#### Space-separated string:
+#### Two-key combo to single output key:
 ```yaml
 - keys: j f
   outKeys: backspace
 ```
 
-#### YAML sequence / list:
-```yaml
-- keys:
-    - j
-    - f
-  outKeys:
-    - backspace
-```
-
-#### Single key or multi-key output sequences:
+#### Chord to multiple output keys (sequence/macro):
 ```yaml
 - keys: f space
   outKeys: ctrl s
@@ -105,7 +96,7 @@ The Linux daemon (`tff_linux` / `tff`) monitors the configuration file using `in
 #include <iostream>
 
 KeyMapper mapper;
-if (mapper.loadTffConfiguration("config/tff-combos.yaml")) {
+if (mapper.loadConfiguration("config/tff-combos.yaml")) {
     std::cout << "Loaded " << mapper.getMappingCount() << " combos.\n";
 } else {
     std::cerr << "Failed to load TFF configuration.\n";

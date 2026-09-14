@@ -47,7 +47,7 @@ cp tff-combos.yaml ~/.config/tff/tff-combos.yaml
 
 ## 3. Quick Installation from Source (install.sh)
 
-If building from source in a cloned repository, use the provided [`install.sh`](file:///home/tff2/tff2/install.sh) script.
+If building from source in a cloned repository, use the provided [`install.sh`](../install.sh) script.
 
 ### System-Wide Installation (Recommended for multi-user / root)
 
@@ -133,7 +133,7 @@ TFF supports two modes of keyboard detection:
 
 ### System-Wide Service (`/etc/systemd/system/ten-flying-fingers.service`)
 
-See [`ten-flying-fingers.service.example`](file:///home/tff2/tff2/ten-flying-fingers.service.example):
+See [`ten-flying-fingers.service.example`](../ten-flying-fingers.service.example):
 
 ```ini
 [Unit]
