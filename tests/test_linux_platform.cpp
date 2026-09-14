@@ -20,18 +20,15 @@ void testInitialization() {
 void testDiscoverKeyboards() {
     std::cout << "Test 2: Keyboard auto-discovery... ";
     auto keyboards = LinuxPlatform::discoverKeyboards();
-    // On this test machine, RP2040 keyboard is at /dev/input/event8
-    assert(!keyboards.empty());
-    bool found_event8 = false;
+    // Validate all discovered keyboards
     for (const auto& dev : keyboards) {
-        if (dev.find("event8") != std::string::npos) {
-            found_event8 = true;
-        }
-        // Ensure no power buttons or mice were classified as keyboards
+        std::string name = LinuxPlatform::getDeviceName(dev);
+        // Ensure virtual TFF device is excluded
+        assert(name.find("TFF Virtual Keyboard") == std::string::npos);
+        // Ensure known non-keyboard devices on local machine are not misclassified
         assert(dev.find("event0") == std::string::npos); // Power Button
         assert(dev.find("event9") == std::string::npos); // Mouse
     }
-    assert(found_event8);
     std::cout << "PASSED (found " << keyboards.size() << " keyboard(s))\n";
 }
 

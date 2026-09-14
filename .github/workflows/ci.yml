@@ -3,13 +3,28 @@ name: CI
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
     name: Build & Test (Linux GCC)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -17,8 +32,6 @@ jobs:
 
       - name: Setup system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake g++
           sudo modprobe uinput || true
           sudo chmod 0666 /dev/uinput || true
 
@@ -43,4 +56,4 @@ jobs:
           which tff
           tff --help
           tff validate /etc/tff/tff-combos.yaml
-          systemctl is-active ten-flying-fingers || true
+          systemd-analyze verify /etc/systemd/system/ten-flying-fingers.service || true
