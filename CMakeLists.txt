@@ -11,10 +11,10 @@ option(ENABLE_SANITIZERS "Enable AddressSanitizer (ASan) and UndefinedBehaviorSa
 if(ENABLE_SANITIZERS)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
-        add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
+        add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g)
         add_link_options(-fsanitize=address,undefined)
     else()
-        message(WARNING "Sanitizers requested but compiler ${CMAKE_CXX_COMPILER_ID} is not GNU or Clang")
+        message(FATAL_ERROR "Sanitizers requested but compiler ${CMAKE_CXX_COMPILER_ID} is not GNU or Clang")
     endif()
 endif()
 
@@ -50,7 +50,6 @@ add_library(tff_core ${CORE_SOURCES})
 target_compile_options(tff_core PRIVATE
     -Wall
     -Wextra
-    -O2
 )
 
 # Create Linux platform library

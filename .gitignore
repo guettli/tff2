@@ -1,8 +1,7 @@
 # Build directories
 build/
-build_*/
 build-*/
-build*/
+build_*/
 bin/
 
 # CMake generated files
