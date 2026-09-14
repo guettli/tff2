@@ -48,6 +48,7 @@ set(CORE_SOURCES
 # RP2040 platform source files
 set(RP2040_PLATFORM_SOURCES
     src/platform/rp2040/rp2040_platform.cpp
+    src/platform/rp2040/usb_descriptors.c
 )
 
 # Compiler warning options
