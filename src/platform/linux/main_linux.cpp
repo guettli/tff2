@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
 #include <csignal>
 #include <atomic>
 #include <unistd.h>
@@ -15,14 +17,23 @@ void signalHandler(int sig) {
 }
 
 void printHelp(const char* prog) {
-    std::cout << "Ten Flying Fingers (TFF) - Linux Keyboard Remapper\n\n"
+    std::cout << "Ten Flying Fingers (TFF) - Linux Keyboard Remapper\n"
+              << "https://github.com/guettli/tff2\n\n"
               << "Usage:\n"
-              << "  " << prog << " [options] [combos.yaml] [device1 device2 ...]\n\n"
+              << "  " << prog << " [options] [combos.yaml] [device1 device2 ...]\n"
+              << "  " << prog << " combos [options] combos.yaml [device1 device2 ...]\n"
+              << "  " << prog << " validate combos.yaml\n"
+              << "  " << prog << " list\n\n"
+              << "Commands:\n"
+              << "  combos                  Run remapper with specified combos and devices\n"
+              << "  validate                Validate a combos YAML configuration file\n"
+              << "  list                    List all discovered keyboards with persistent paths\n"
+              << "  help                    Show this help message\n\n"
               << "Options:\n"
               << "  -c, --config <file>     Path to combos YAML configuration file\n"
               << "                          (default: config/tff-combos.yaml)\n"
               << "  -d, --device <path>     Path to input evdev device (e.g. /dev/input/event8)\n"
-              << "                          (default: auto-discover keyboards)\n"
+              << "                          (default: auto-discover all connected keyboards)\n"
               << "  -g, --grab              Exclusively grab input device (default: true)\n"
               << "  --no-grab               Do not grab device (events still pass to OS)\n"
               << "  -l, --list              List all discovered keyboards and exit\n"
@@ -31,7 +42,8 @@ void printHelp(const char* prog) {
               << "Examples:\n"
               << "  " << prog << " config/tff-combos.yaml\n"
               << "  " << prog << " --list\n"
-              << "  " << prog << " -c config/tff-combos.yaml -d /dev/input/event8\n";
+              << "  " << prog << " combos my-combos.yaml /dev/input/by-id/usb-*-event-kbd\n"
+              << "  " << prog << " validate config/tff-combos.yaml\n";
 }
 } // anonymous namespace
 
@@ -40,15 +52,21 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> device_paths;
     bool grab = true;
     bool list_only = false;
+    bool validate_only = false;
     bool verbose = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "-h" || arg == "--help") {
+        if (arg == "-h" || arg == "--help" || arg == "help") {
             printHelp(argv[0]);
             return 0;
-        } else if (arg == "-l" || arg == "--list") {
+        } else if (arg == "-l" || arg == "--list" || arg == "list") {
             list_only = true;
+        } else if (arg == "validate") {
+            validate_only = true;
+        } else if (arg == "combos") {
+            // Subcommand keyword for compatibility with Go tff
+            continue;
         } else if (arg == "-v" || arg == "--verbose") {
             verbose = true;
         } else if (arg == "-g" || arg == "--grab") {
@@ -75,7 +93,7 @@ int main(int argc, char* argv[]) {
             return 1;
         } else {
             // Positional arguments
-            if (config_file == "config/tff-combos.yaml" &&
+            if ((config_file == "config/tff-combos.yaml" || validate_only) &&
                 (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos)) {
                 config_file = arg;
             } else {
@@ -90,11 +108,43 @@ int main(int argc, char* argv[]) {
         if (keyboards.empty()) {
             std::cout << "No keyboard devices found.\n";
         } else {
-            std::cout << "Found " << keyboards.size() << " keyboard device(s):\n";
-            for (const auto& dev : keyboards) {
-                std::cout << "  " << dev << "\n";
+            std::cout << "Found " << keyboards.size() << " keyboard device(s):\n\n";
+            for (size_t i = 0; i < keyboards.size(); ++i) {
+                const auto& dev = keyboards[i];
+                std::string name = LinuxPlatform::getDeviceName(dev);
+                std::string alias = LinuxPlatform::getDeviceAlias(dev);
+                std::cout << "  [" << (i + 1) << "] " << dev << "\n";
+                if (!name.empty()) {
+                    std::cout << "      Name:  " << name << "\n";
+                }
+                if (!alias.empty()) {
+                    std::cout << "      Alias: " << alias << "\n";
+                }
+                std::cout << "\n";
             }
+            std::cout << "Hint: In systemd service files, use the persistent Alias path to survive reboots/replugs.\n";
         }
+        return 0;
+    }
+
+    if (validate_only) {
+        std::ifstream file(config_file);
+        if (!file.is_open() && config_file.rfind("../", 0) != 0) {
+            file.open("../" + config_file);
+        }
+        if (!file.is_open()) {
+            std::cerr << "Error: Failed to open config file: " << config_file << "\n";
+            return 1;
+        }
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        std::vector<tff::Combo> combos;
+        std::string err_msg;
+        if (!tff::loadYamlCombos(buffer.str(), combos, err_msg)) {
+            std::cerr << "Validation error: " << err_msg << "\n";
+            return 1;
+        }
+        std::cout << "Configuration is valid! Loaded " << combos.size() << " combo(s) from " << config_file << "\n";
         return 0;
     }
 
@@ -114,7 +164,6 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Loading configuration: " << config_file << "\n";
     if (!platform.loadConfiguration(config_file)) {
-        // Check fallback location
         if (config_file == "config/tff-combos.yaml" && platform.loadConfiguration("../config/tff-combos.yaml")) {
             std::cout << "Loaded configuration from ../config/tff-combos.yaml\n";
         } else {
@@ -138,7 +187,14 @@ int main(int argc, char* argv[]) {
     std::cout << "Opening " << device_paths.size() << " input keyboard device(s) (grab="
               << (grab ? "yes" : "no") << "):\n";
     for (const auto& p : device_paths) {
-        std::cout << "  -> " << p << "\n";
+        std::string name = LinuxPlatform::getDeviceName(p);
+        std::string alias = LinuxPlatform::getDeviceAlias(p);
+        std::cout << "  -> " << p;
+        if (!name.empty()) std::cout << " (" << name << ")";
+        std::cout << "\n";
+        if (!alias.empty()) {
+            std::cout << "     Alias: " << alias << "\n";
+        }
     }
 
     if (!platform.openInputDevices(device_paths, grab)) {

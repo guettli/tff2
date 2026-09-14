@@ -31,18 +31,28 @@ A cross-platform keyboard remapping solution that allows overlapping key combina
 - **Input**: Reads physical keyboard events via evdev (`/dev/input/event*`) with optional exclusive grab (`ioctl(fd, EVIOCGRAB, 1)`)
 - **Output**: Emits remapped virtual keyboard events via uinput (`/dev/uinput`)
 - **Core**: 100% shared `tff::TFFEngine` matching the Go `tff` state machine and CircuitPython RP2040 firmware
-- **CLI Daemon**: `tff_linux` supports auto-discovery, custom YAML configs, multi-keyboard polling, and graceful signal handling
+- **CLI Daemon**: `tff` (or `tff_linux`) supports auto-discovery, custom YAML configs, multi-keyboard polling, and graceful signal handling
+- **Systemd Service**: Runs in the background with auto-restart and highest CPU priority (`Nice=-20`)
 
 ```bash
-# List discovered keyboards
-./build/tff_linux --list
+# Automated install (system-wide):
+sudo ./install.sh
 
-# Run with custom combo configuration
-./build/tff_linux config/tff-combos.yaml
+# Or user-level install (no root needed):
+./install.sh --user
 
-# Run for specific device with verbose logs
-./build/tff_linux -c config/tff-combos.yaml -d /dev/input/event8 -v
+# List discovered keyboards and persistent symlinks:
+tff --list
+
+# Validate combo configuration:
+tff validate /etc/tff/tff-combos.yaml
+
+# Manage the background service:
+sudo systemctl status ten-flying-fingers
+sudo journalctl -u ten-flying-fingers -f
 ```
+
+See [Linux Installation & Systemd Guide](docs/install.md) and [Systemd Service Example](ten-flying-fingers.service.example) for details.
 
 ### RP2040 Version  
 - **Input**: USB host port reads from connected keyboard

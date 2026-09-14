@@ -1,0 +1,45 @@
+# Systemd Service Example for Ten Flying Fingers (TFF)
+# https://github.com/guettli/tff2
+#
+# Quick setup:
+# 1. Discover your keyboard device paths with:
+#    tff --list
+#
+# 2. Edit this service file:
+#    - Option A (Auto-discovery): Omit device paths to let TFF automatically
+#      detect and attach to all connected keyboards.
+#    - Option B (Explicit devices): Specify persistent /dev/input/by-id/ symlinks
+#      so the paths remain valid across system reboots and USB re-plugs.
+#
+# 3. Install and enable the service:
+#    sudo cp ten-flying-fingers.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now ten-flying-fingers.service
+#
+# 4. Manage the service:
+#    sudo systemctl status ten-flying-fingers
+#    sudo journalctl -u ten-flying-fingers -f
+#    sudo systemctl restart ten-flying-fingers
+
+[Unit]
+Description=Ten Flying Fingers (TFF) Keyboard Remapper
+Documentation=https://github.com/guettli/tff2
+After=multi-user.target
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+
+# Run with highest CPU scheduling priority to minimize keyboard input latency
+Nice=-20
+
+# Option A: Auto-discover all connected keyboards
+ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml
+
+# Option B: Specify persistent device paths explicitly
+# ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml /dev/input/by-id/usb-SOME_KEYBOARD-event-kbd
+
+[Install]
+WantedBy=default.target

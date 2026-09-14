@@ -14,6 +14,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <climits>
 
 namespace {
 
@@ -204,6 +205,43 @@ std::vector<std::string> LinuxPlatform::discoverKeyboards() {
     }
 
     return keyboards;
+}
+
+std::string LinuxPlatform::getDeviceName(const std::string& dev_path) {
+    int fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0) return "";
+    char name[256] = {0};
+    ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name);
+    close(fd);
+    return std::string(name);
+}
+
+std::string LinuxPlatform::getDeviceAlias(const std::string& dev_path) {
+    char real_dev[PATH_MAX];
+    if (!realpath(dev_path.c_str(), real_dev)) {
+        return "";
+    }
+    std::string real_str(real_dev);
+
+    const std::vector<std::string> base_dirs = {"/dev/input/by-id", "/dev/input/by-path"};
+    for (const auto& base_dir : base_dirs) {
+        DIR* dir = opendir(base_dir.c_str());
+        if (!dir) continue;
+        struct dirent* ent;
+        while ((ent = readdir(dir)) != nullptr) {
+            if (ent->d_name[0] == '.') continue;
+            std::string full_path = base_dir + "/" + ent->d_name;
+            char real_entry[PATH_MAX];
+            if (realpath(full_path.c_str(), real_entry)) {
+                if (real_str == real_entry) {
+                    closedir(dir);
+                    return full_path;
+                }
+            }
+        }
+        closedir(dir);
+    }
+    return "";
 }
 
 bool LinuxPlatform::openInputDevice(const std::string& device_path, bool grab) {

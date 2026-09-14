@@ -49,6 +49,16 @@ public:
     static std::vector<std::string> discoverKeyboards();
 
     /**
+     * @brief Get human-readable device name from evdev path
+     */
+    static std::string getDeviceName(const std::string& dev_path);
+
+    /**
+     * @brief Find stable persistent symlink (by-id or by-path) for device
+     */
+    static std::string getDeviceAlias(const std::string& dev_path);
+
+    /**
      * @brief Open a specific input keyboard device
      * @param device_path Path like /dev/input/event8
      * @param grab Whether to exclusively grab the device (ioctl EVIOCGRAB)
