@@ -82,6 +82,32 @@ combos:
     outKeys: delete
 ```
 
+## Tap-vs-Hold Keys (Dual-Role Keys)
+
+Tap-vs-Hold allows a physical key to perform two completely different functions based on how it is pressed:
+- **Tap**: Pressing and quickly releasing the key sends a tap key (e.g., `esc`).
+- **Hold**: Holding the key down longer than the timeout (default: 200ms), or pressing any other key while holding it, emits a hold modifier (e.g., `super` / Windows key).
+
+### Configuration Syntax
+
+#### Multi-line Property Block
+```yaml
+tap_hold:
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: 200
+```
+
+#### Compact Inline Format
+```yaml
+tap_hold:
+  capslock: [esc, super, 200]
+```
+
+### Chording and Permissive Hold
+When a tap-hold key is pressed and another key is tapped (e.g., CapsLock + `c`), TFF immediately promotes CapsLock to Super/Windows key without waiting for the timeout to elapse. This ensures instantaneous responsiveness for modifier combinations like Win+D, Win+Tab, or Win+Arrow.
+
 ## Supported Key Names and Symbols
 
 Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to standard Linux input event codes:

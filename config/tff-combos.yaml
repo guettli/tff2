@@ -60,7 +60,15 @@ combos:
   - keys: d f j
     outKeys: esc
 
-# TODO: I am not sure yet how to trigger ESC, TAB, ENTER.
+# Tap vs Hold (Dual-role keys):
+# Short tap on CapsLock emits Escape.
+# Long press or chord with another key emits Super (Windows key).
+tap_hold:
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: 200
+
 # Later it would be nice to have shortcuts for ctrl-a, ctrl-x, ctrl-c, ctrl-v. So that my fingers
 # can stay on the home row.
 # A numeric "layer" would be nice. I could use a "d f" on the right hand, and type numbers with the left hand....

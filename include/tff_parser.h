@@ -39,6 +39,9 @@ bool parseDurationMicros(const std::string& str, int64_t& out_us);
 // Loads YAML combos matching Go load_yaml.go
 bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg);
 
+// Loads complete YAML configuration including combos and tap_hold settings
+bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg);
+
 } // namespace tff
 
 #endif // TFF_PARSER_H

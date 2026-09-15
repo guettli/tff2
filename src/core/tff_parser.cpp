@@ -280,16 +280,39 @@ std::string normalizeShortCsv(const std::string& input) {
     return res;
 }
 
-bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg) {
+bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg) {
     std::istringstream iss(yaml_str);
     std::string line;
     bool in_combos = false;
+    bool in_tap_hold = false;
     std::string current_keys;
     std::string current_outkeys;
     bool has_combos_tag = false;
+    bool has_tap_hold_tag = false;
     size_t combos_base_indent = 0;
+    size_t tap_hold_base_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
+
+    // For multi-line tap_hold definitions
+    TapHoldKey pending_th;
+    bool has_pending_th = false;
+    size_t pending_th_indent = 0;
+
+    auto flush_pending_th = [&]() -> bool {
+        if (has_pending_th) {
+            if (pending_th.key != 0) {
+                if (pending_th.tap_key == 0 || pending_th.hold_key == 0) {
+                    err_msg = "tap_hold definition requires both 'tap' and 'hold'";
+                    return false;
+                }
+                config.tap_hold_keys.push_back(pending_th);
+            }
+            pending_th = TapHoldKey{};
+            has_pending_th = false;
+        }
+        return true;
+    };
 
     while (std::getline(iss, line)) {
         // Strip inline comment if any
@@ -301,7 +324,9 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
         size_t current_indent = line.find_first_not_of(" \t");
 
         if (t.rfind("combos:", 0) == 0) {
+            if (!flush_pending_th()) return false;
             in_combos = true;
+            in_tap_hold = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -311,9 +336,104 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
             return false;
         }
 
+        if (t.rfind("tap_hold:", 0) == 0) {
+            if (!flush_pending_th()) return false;
+            in_tap_hold = true;
+            in_combos = false;
+            has_tap_hold_tag = true;
+            tap_hold_base_indent = current_indent;
+            continue;
+        }
+
         if (in_combos && current_indent <= combos_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_combos = false;
             current_leader.clear();
+        }
+
+        if (in_tap_hold && current_indent <= tap_hold_base_indent && t.find(':') != std::string::npos) {
+            if (!flush_pending_th()) return false;
+            in_tap_hold = false;
+        }
+
+        if (in_tap_hold) {
+            auto colon = t.find(':');
+            if (colon == std::string::npos) continue;
+
+            std::string key_part = trim(t.substr(0, colon));
+            std::string val_part = trim(t.substr(colon + 1));
+
+            // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "timeout_ms: 200")
+            if (has_pending_th && current_indent > pending_th_indent) {
+                if (key_part == "tap") {
+                    if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "hold") {
+                    if (!wordToKeyCode(val_part, pending_th.hold_key, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "timeout_ms" || key_part == "timeout") {
+                    try {
+                        pending_th.timeout_us = std::stoll(val_part) * 1000LL;
+                    } catch (...) {
+                        err_msg = "invalid timeout value: " + val_part;
+                        return false;
+                    }
+                }
+                continue;
+            }
+
+            // New key under tap_hold
+            if (!flush_pending_th()) return false;
+
+            KeyCode th_code = 0;
+            if (!wordToKeyCode(key_part, th_code, err_msg)) {
+                return false;
+            }
+
+            if (val_part.empty()) {
+                // Multi-line property block, e.g. "capslock:"
+                has_pending_th = true;
+                pending_th_indent = current_indent;
+                pending_th.key = th_code;
+                pending_th.timeout_us = 200000LL;
+            } else {
+                // Inline compact format: "capslock: [esc, super]" or "capslock: esc super"
+                std::string clean_val = val_part;
+                if (clean_val.front() == '[') clean_val = clean_val.substr(1);
+                if (!clean_val.empty() && clean_val.back() == ']') clean_val.pop_back();
+
+                std::vector<std::string> parts;
+                if (clean_val.find(',') != std::string::npos) {
+                    auto raw_parts = split(clean_val, ',');
+                    for (const auto& p : raw_parts) {
+                        std::string w = trim(p);
+                        if (!w.empty()) parts.push_back(w);
+                    }
+                } else {
+                    parts = fields(clean_val);
+                }
+
+                if (parts.size() < 2) {
+                    err_msg = "tap_hold for key '" + key_part + "' requires at least tap and hold keys";
+                    return false;
+                }
+
+                TapHoldKey thk;
+                thk.key = th_code;
+                if (!wordToKeyCode(parts[0], thk.tap_key, err_msg)) return false;
+                if (!wordToKeyCode(parts[1], thk.hold_key, err_msg)) return false;
+                if (parts.size() >= 3) {
+                    try {
+                        thk.timeout_us = std::stoll(parts[2]) * 1000LL;
+                    } catch (...) {
+                        err_msg = "invalid timeout value: " + parts[2];
+                        return false;
+                    }
+                }
+                config.tap_hold_keys.push_back(thk);
+            }
+            continue;
         }
 
         if (!in_combos) continue;
@@ -374,7 +494,7 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
                 c.out_keys.push_back(code);
             }
 
-            combos.push_back(c);
+            config.combos.push_back(c);
             current_keys.clear();
             current_outkeys.clear();
             continue;
@@ -461,34 +581,45 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
                 c1.keys.push_back(chord_codes[0]);
                 c1.keys.push_back(chord_codes[1]);
                 c1.out_keys = out_codes;
-                combos.push_back(c1);
+                config.combos.push_back(c1);
 
                 Combo c2;
                 c2.keys = leader_codes;
                 c2.keys.push_back(chord_codes[1]);
                 c2.keys.push_back(chord_codes[0]);
                 c2.out_keys = out_codes;
-                combos.push_back(c2);
+                config.combos.push_back(c2);
             } else {
                 Combo c;
                 c.keys = leader_codes;
                 c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
                 c.out_keys = out_codes;
-                combos.push_back(c);
+                config.combos.push_back(c);
             }
         }
     }
+
+    if (!flush_pending_th()) return false;
 
     if (!current_keys.empty() && current_outkeys.empty()) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }
 
-    if (!has_combos_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
 
+    return true;
+}
+
+bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg) {
+    Config config;
+    if (!loadYamlConfig(yaml_str, config, err_msg)) {
+        return false;
+    }
+    combos = std::move(config.combos);
     return true;
 }
 

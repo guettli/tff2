@@ -74,6 +74,7 @@ namespace Keys {
     constexpr KeyCode KEY_DOWN       = 108;
     constexpr KeyCode KEY_PAGEDOWN   = 109;
     constexpr KeyCode KEY_DELETE     = 111;
+    constexpr KeyCode KEY_LEFTMETA   = 125;
     constexpr KeyCode KEY_RFKILL     = 247;
 }
 

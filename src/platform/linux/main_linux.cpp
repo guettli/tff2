@@ -155,13 +155,14 @@ int main(int argc, char* argv[]) {
         }
         std::stringstream buffer;
         buffer << file.rdbuf();
-        std::vector<tff::Combo> combos;
+        tff::Config config;
         std::string err_msg;
-        if (!tff::loadYamlCombos(buffer.str(), combos, err_msg)) {
+        if (!tff::loadYamlConfig(buffer.str(), config, err_msg)) {
             std::cerr << "Validation error: " << err_msg << "\n";
             return 1;
         }
-        std::cout << "Configuration is valid! Loaded " << combos.size() << " combo(s) from " << config_file << "\n";
+        std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s) and "
+                  << config.tap_hold_keys.size() << " tap-hold key(s) from " << config_file << "\n";
         return 0;
     }
 
