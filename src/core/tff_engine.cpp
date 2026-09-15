@@ -183,24 +183,47 @@ void TFFEngine::onTimer(TimeVal time) {
 }
 
 bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
-    // 1. Single character down-up check
+    // 1. Check for swallowed key releases (held keys from finished combos)
+    if (!swallow_keys_.empty()) {
+        bool swallowed_any = false;
+        for (auto it = swallow_keys_.begin(); it != swallow_keys_.end(); ) {
+            KeyCode sw_key = *it;
+            bool has_down = false;
+            bool has_up = false;
+            for (const auto& ev : buf_) {
+                if (ev.code == sw_key) {
+                    if (ev.value == KEY_VAL_DOWN) has_down = true;
+                    else if (ev.value == KEY_VAL_UP) has_up = true;
+                }
+            }
+            if (has_down && has_up) {
+                buf_.erase(std::remove_if(buf_.begin(), buf_.end(),
+                    [sw_key](const Event& e) { return e.code == sw_key; }), buf_.end());
+                it = swallow_keys_.erase(it);
+                swallowed_any = true;
+            } else {
+                ++it;
+            }
+        }
+        if (swallowed_any) {
+            bool all_swallow = !buf_.empty();
+            for (const auto& ev : buf_) {
+                if (ev.value != KEY_VAL_DOWN ||
+                    std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) == swallow_keys_.end()) {
+                    all_swallow = false;
+                    break;
+                }
+            }
+            if (all_swallow || buf_.empty()) {
+                return true;
+            }
+        }
+    }
+
+    // 2. Single character down-up check
     if (buf_.size() == 2 &&
         buf_[0].code == buf_[1].code &&
         buf_[0].value == KEY_VAL_DOWN && buf_[1].value == KEY_VAL_UP) {
-        std::vector<KeyCode> new_swallow;
-        bool do_swallow = false;
-        for (KeyCode key : swallow_keys_) {
-            if (buf_[0].code == key) {
-                do_swallow = true;
-                continue;
-            }
-            new_swallow.push_back(key);
-        }
-        if (do_swallow) {
-            swallow_keys_ = std::move(new_swallow);
-            buf_.clear();
-            return true;
-        }
         flushBuffer("Eval>up-down-of-singlechar");
         return true;
     }
@@ -304,6 +327,10 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
 
     for (size_t i = 0; i < combo.keys.size(); ++i) {
         if (i >= seen_down.size()) {
+            if (!seen_up.empty()) {
+                msg = "Key released before all combo keys were pressed";
+                return EvalResult::NoMatch;
+            }
             msg = "Not all down-keys seen";
             return EvalResult::ComboNotFinished;
         }
@@ -407,7 +434,11 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
             missing_up.push_back(k);
         }
     }
-    swallow_keys_.insert(swallow_keys_.end(), missing_up.begin(), missing_up.end());
+    for (KeyCode mu : missing_up) {
+        if (std::find(swallow_keys_.begin(), swallow_keys_.end(), mu) == swallow_keys_.end()) {
+            swallow_keys_.push_back(mu);
+        }
+    }
 
     std::vector<Event> new_buf;
     for (const auto& ev : buf_) {
@@ -464,6 +495,10 @@ void TFFEngine::writeEvent(const Event& ev, const std::string& /*reason*/) {
 void TFFEngine::flushBuffer(const std::string& reason) {
     for (const auto& ev : buf_) {
         writeEvent(ev, reason + ">FlushBuffer");
+        auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code);
+        if (it != swallow_keys_.end()) {
+            swallow_keys_.erase(it);
+        }
     }
     buf_.clear();
     fake_active_timer_next_time_ = TimeVal::maxTime();

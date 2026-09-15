@@ -480,18 +480,38 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
-            Combo c;
-            auto key_words = fields(current_keys);
-            if (key_words.empty()) {
+            bool is_symmetric = (current_keys.find('+') != std::string::npos);
+            std::vector<std::string> chord_words;
+            if (is_symmetric) {
+                auto raw_parts = split(current_keys, '+');
+                for (const auto& p : raw_parts) {
+                    std::string word = trim(p);
+                    if (!word.empty()) chord_words.push_back(word);
+                }
+                if (chord_words.size() < 2) {
+                    err_msg = "symmetric combos with '+' require at least two keys";
+                    return false;
+                }
+                if (chord_words.size() > 5) {
+                    err_msg = "symmetric combo exceeds maximum supported chord size of 5 keys";
+                    return false;
+                }
+            } else {
+                chord_words = fields(current_keys);
+            }
+
+            if (chord_words.empty()) {
                 err_msg = "empty list in 'keys' is not allowed";
                 return false;
             }
-            for (const auto& w : key_words) {
+
+            std::vector<KeyCode> chord_codes;
+            for (const auto& w : chord_words) {
                 KeyCode code = 0;
                 if (!wordToKeyCode(w, code, err_msg)) {
                     return false;
                 }
-                c.keys.push_back(code);
+                chord_codes.push_back(code);
             }
 
             auto out_words = parseOutputWords(current_outkeys);
@@ -499,15 +519,39 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
+            std::vector<KeyCode> out_codes;
             for (const auto& w : out_words) {
                 KeyCode code = 0;
                 if (!wordToKeyCode(w, code, err_msg)) {
                     return false;
                 }
-                c.out_keys.push_back(code);
+                out_codes.push_back(code);
             }
 
-            config.combos.push_back(c);
+            if (is_symmetric) {
+                for (size_t i = 0; i < chord_codes.size(); ++i) {
+                    for (size_t j = i + 1; j < chord_codes.size(); ++j) {
+                        if (chord_codes[i] == chord_codes[j]) {
+                            err_msg = "duplicate key in symmetric combo: " + chord_words[i];
+                            return false;
+                        }
+                    }
+                }
+                std::vector<KeyCode> perm = chord_codes;
+                std::sort(perm.begin(), perm.end());
+                do {
+                    Combo c;
+                    c.keys = perm;
+                    c.out_keys = out_codes;
+                    config.combos.push_back(c);
+                } while (std::next_permutation(perm.begin(), perm.end()));
+            } else {
+                Combo c;
+                c.keys = chord_codes;
+                c.out_keys = out_codes;
+                config.combos.push_back(c);
+            }
+
             current_keys.clear();
             current_outkeys.clear();
             continue;
@@ -539,8 +583,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     std::string word = trim(p);
                     if (!word.empty()) chord_words.push_back(word);
                 }
-                if (chord_words.size() != 2) {
-                    err_msg = "symmetric combos with '+' require exactly two keys";
+                if (chord_words.size() < 2) {
+                    err_msg = "symmetric combos with '+' require at least two keys";
+                    return false;
+                }
+                if (chord_words.size() > 5) {
+                    err_msg = "symmetric combo exceeds maximum supported chord size of 5 keys";
                     return false;
                 }
             } else {
@@ -589,19 +637,31 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
 
             if (is_symmetric) {
-                Combo c1;
-                c1.keys = leader_codes;
-                c1.keys.push_back(chord_codes[0]);
-                c1.keys.push_back(chord_codes[1]);
-                c1.out_keys = out_codes;
-                config.combos.push_back(c1);
-
-                Combo c2;
-                c2.keys = leader_codes;
-                c2.keys.push_back(chord_codes[1]);
-                c2.keys.push_back(chord_codes[0]);
-                c2.out_keys = out_codes;
-                config.combos.push_back(c2);
+                for (size_t i = 0; i < chord_codes.size(); ++i) {
+                    for (size_t j = i + 1; j < chord_codes.size(); ++j) {
+                        if (chord_codes[i] == chord_codes[j]) {
+                            err_msg = "duplicate key in symmetric combo: " + chord_words[i];
+                            return false;
+                        }
+                    }
+                }
+                for (KeyCode lk : leader_codes) {
+                    for (KeyCode ck : chord_codes) {
+                        if (lk == ck) {
+                            err_msg = "chord key '" + keyCodeToWord(ck) + "' conflicts with leader key";
+                            return false;
+                        }
+                    }
+                }
+                std::vector<KeyCode> perm = chord_codes;
+                std::sort(perm.begin(), perm.end());
+                do {
+                    Combo c;
+                    c.keys = leader_codes;
+                    c.keys.insert(c.keys.end(), perm.begin(), perm.end());
+                    c.out_keys = out_codes;
+                    config.combos.push_back(c);
+                } while (std::next_permutation(perm.begin(), perm.end()));
             } else {
                 Combo c;
                 c.keys = leader_codes;
