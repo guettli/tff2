@@ -147,6 +147,9 @@ TFF translates text strings directly into synthesized Linux kernel `evdev` input
 - **Punctuation & Symbols**: All standard ASCII symbols (`,`, `.`, `;`, `:`, `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`, `(`, `)`, `_`, `+`, `-`, `=`, `{`, `}`, `[`, `]`, `|`, `\`, `"`, `'`, `<`, `>`, `?`, `~`, `` ` ``).
 - **Clean Chord Release**: When chord keys are released after triggering a text snippet, they are swallowed cleanly so that no physical chord keys leak into your text buffer or editor.
 
+> [!NOTE]
+> **Keyboard Layout Baseline**: Because TFF operates at the kernel `evdev` level before desktop environment layout translation, synthesized punctuation symbols assume standard US QWERTY keycode locations. If your desktop session uses a non-US keymap (e.g. German QWERTZ or French AZERTY), the desktop environment will translate those scancodes according to your active layout.
+
 ## Tap-vs-Hold Keys (Dual-Role Keys)
 
 Tap-vs-Hold allows a physical key to perform two completely different functions based on how it is pressed:
