@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-#include <map>
+#include <cassert>
 
 namespace tff {
 
@@ -22,15 +22,19 @@ std::string yellow(const std::string& s, bool enable)  { return ansi("33", s, en
 std::string magenta(const std::string& s, bool enable) { return ansi("35", s, enable); }
 std::string blue(const std::string& s, bool enable)    { return ansi("34", s, enable); }
 
-std::string escapeMarkdown(const std::string& s) {
+std::string formatMarkdownCode(const std::string& s) {
     std::string res;
     for (char c : s) {
-        if (c == '|' || c == '`' || c == '\\') {
-            res += '\\';
+        if (c == '|') {
+            res += "\\|";
+        } else {
+            res += c;
         }
-        res += c;
     }
-    return res;
+    if (res.find('`') != std::string::npos) {
+        return "`` " + res + " ``";
+    }
+    return "`" + res + "`";
 }
 
 std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::string& text) {
@@ -57,6 +61,7 @@ std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::
 void printRow(std::ostream& os, const std::string& prefix,
               const std::vector<std::pair<std::string, size_t>>& cells_plain,
               const std::vector<std::string>& cells_colored) {
+    assert(cells_plain.size() == cells_colored.size());
     os << prefix;
     for (size_t i = 0; i < cells_plain.size(); ++i) {
         os << cells_colored[i];
@@ -104,9 +109,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             for (const auto& th : config.tap_hold_keys) {
                 std::string hold_target = !th.hold_layer.empty()
                     ? ("Layer: `" + th.hold_layer + "`")
-                    : ("`" + formatKey(th.hold_key) + "`");
-                ss << "| `" << formatKey(th.key) << "` | `"
-                   << formatKey(th.tap_key) << "` | "
+                    : (formatMarkdownCode(formatKey(th.hold_key)));
+                ss << "| " << formatMarkdownCode(formatKey(th.key)) << " | "
+                   << formatMarkdownCode(formatKey(th.tap_key)) << " | "
                    << hold_target << " | "
                    << (th.timeout_us / 1000) << "ms |\n";
             }
@@ -123,7 +128,8 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 std::string out_act = formatOutputAction(c.out_keys, c.text);
                 std::string type = !c.text.empty() ? "Text Snippet" :
                                    (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
-                ss << "| `" << in_keys << "` | `" << escapeMarkdown(out_act) << "` | " << type << " |\n";
+                ss << "| " << formatMarkdownCode(in_keys) << " | "
+                   << formatMarkdownCode(out_act) << " | " << type << " |\n";
             }
             ss << "\n";
         }
@@ -146,10 +152,15 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                     std::string out_act = formatOutputAction(act.out_keys, act.text);
                     std::string type = !act.text.empty() ? "Text Snippet" :
                                        (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
-                    ss << "| `" << formatKey(k) << "` | `" << escapeMarkdown(out_act) << "` | " << type << " |\n";
+                    ss << "| " << formatMarkdownCode(formatKey(k)) << " | "
+                       << formatMarkdownCode(out_act) << " | " << type << " |\n";
                 }
                 ss << "\n";
             }
+        }
+
+        if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty()) {
+            ss << "_No combos, tap-hold keys, or layers configured._\n\n";
         }
 
         return ss.str();
@@ -197,7 +208,7 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             std::string plain_in = formatKeys(c.keys);
             std::string plain_out = formatOutputAction(c.out_keys, c.text);
             std::string type_plain = !c.text.empty() ? "Text Snippet" :
-                               (c.out_keys.size() > 1 ? "Modifier Chord" : "Key");
+                               (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
 
             std::string out_col = !c.text.empty() ? yellow(plain_out, col) : green(plain_out, col);
 
@@ -229,7 +240,7 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 std::string plain_k = formatKey(k);
                 std::string plain_out = formatOutputAction(act.out_keys, act.text);
                 std::string type_plain = !act.text.empty() ? "Text Snippet" :
-                                   (act.out_keys.size() > 1 ? "Modifier Chord" : "Key");
+                                   (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
 
                 std::string out_col = !act.text.empty() ? yellow(plain_out, col) : green(plain_out, col);
 

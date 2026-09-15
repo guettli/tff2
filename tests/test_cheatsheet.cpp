@@ -20,6 +20,7 @@ static void test_empty_config() {
     opts.markdown = true;
     std::string md = Cheatsheet::generate(config, opts);
     assert(md.find("# Ten Flying Fingers — Cheat Sheet") != std::string::npos);
+    assert(md.find("_No combos, tap-hold keys, or layers configured._") != std::string::npos);
 
     std::cout << "test_empty_config: PASSED\n";
 }

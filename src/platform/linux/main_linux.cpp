@@ -7,6 +7,7 @@
 #include <sstream>
 #include <csignal>
 #include <cstring>
+#include <cstdlib>
 #include <atomic>
 #include <unistd.h>
 
@@ -127,8 +128,10 @@ int main(int argc, char* argv[]) {
             return 1;
         } else {
             // Positional arguments
-            if ((config_file == "config/tff-combos.yaml" || validate_only || cheatsheet_only) &&
-                (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos)) {
+            if (cheatsheet_only || validate_only) {
+                config_file = arg;
+            } else if (config_file == "config/tff-combos.yaml" &&
+                       (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos)) {
                 config_file = arg;
             } else {
                 device_paths.push_back(arg);
@@ -202,7 +205,8 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        if (!isatty(STDOUT_FILENO) || std::getenv("NO_COLOR") != nullptr) {
+        const char* no_color = std::getenv("NO_COLOR");
+        if (!isatty(STDOUT_FILENO) || (no_color != nullptr && no_color[0] != '\0')) {
             cheatsheet_color = false;
         }
 
