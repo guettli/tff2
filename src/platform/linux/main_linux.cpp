@@ -197,8 +197,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    const auto& combos = platform.getEngine().getCombos();
-    std::cout << "Loaded " << combos.size() << " combo mapping(s)\n";
+    const auto& engine = platform.getEngine();
+    std::cout << "Loaded " << engine.getCombos().size() << " combo(s), "
+              << engine.getTapHoldKeys().size() << " tap-hold key(s), and "
+              << engine.getLayers().size() << " layer(s)\n";
 
     platform.setGrab(grab);
     platform.enableHotplug(hotplug);
