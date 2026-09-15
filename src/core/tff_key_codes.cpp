@@ -551,6 +551,48 @@ struct KeyTable {
             code_to_word.try_emplace(item.code, item.word);
             code_to_short.try_emplace(item.code, item.short_name);
         }
+
+        auto add_alias = [this](const char* alias, const char* target) {
+            auto it = word_to_code.find(target);
+            if (it != word_to_code.end()) {
+                word_to_code[alias] = it->second;
+            }
+        };
+
+        // Punctuation & literal symbol aliases
+        add_alias(";", "semicolon");
+        add_alias(",", "comma");
+        add_alias(".", "dot");
+        add_alias("/", "slash");
+        add_alias("\\", "backslash");
+        add_alias("-", "minus");
+        add_alias("=", "equal");
+        add_alias("[", "leftbrace");
+        add_alias("]", "rightbrace");
+        add_alias("'", "apostrophe");
+        add_alias("`", "grave");
+
+        // Friendly name aliases
+        add_alias("ctrl", "leftctrl");
+        add_alias("control", "leftctrl");
+        add_alias("shift", "leftshift");
+        add_alias("alt", "leftalt");
+        add_alias("super", "leftmeta");
+        add_alias("win", "leftmeta");
+        add_alias("meta", "leftmeta");
+        add_alias("windows", "leftmeta");
+        add_alias("escape", "esc");
+        add_alias("del", "delete");
+        add_alias("ins", "insert");
+        add_alias("return", "enter");
+        add_alias("caps", "capslock");
+        add_alias("arrowup", "up");
+        add_alias("arrowdown", "down");
+        add_alias("arrowleft", "left");
+        add_alias("arrowright", "right");
+        add_alias("pgup", "pageup");
+        add_alias("pgdn", "pagedown");
+        add_alias("pagedn", "pagedown");
     }
 };
 

@@ -36,6 +36,23 @@ std::vector<std::string> fields(const std::string& s) {
     return tokens;
 }
 
+std::vector<std::string> parseOutputWords(const std::string& s) {
+    std::vector<std::string> result;
+    auto raw_tokens = fields(s);
+    for (const auto& token : raw_tokens) {
+        if (token.find('+') != std::string::npos) {
+            auto sub_parts = split(token, '+');
+            for (const auto& sp : sub_parts) {
+                std::string t = trim(sp);
+                if (!t.empty()) result.push_back(t);
+            }
+        } else {
+            result.push_back(token);
+        }
+    }
+    return result;
+}
+
 } // namespace
 
 bool parseDurationMicros(const std::string& str, int64_t& out_us) {
@@ -270,22 +287,38 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
     std::string current_keys;
     std::string current_outkeys;
     bool has_combos_tag = false;
+    size_t combos_base_indent = 0;
+    std::string current_leader;
+    size_t leader_indent = 0;
 
     while (std::getline(iss, line)) {
-        std::string t = trim(line);
-        if (t.empty() || t[0] == '#') continue;
+        // Strip inline comment if any
+        auto comment_pos = line.find('#');
+        std::string clean_line = (comment_pos != std::string::npos) ? line.substr(0, comment_pos) : line;
+        std::string t = trim(clean_line);
+        if (t.empty()) continue;
+
+        size_t current_indent = line.find_first_not_of(" \t");
 
         if (t.rfind("combos:", 0) == 0) {
             in_combos = true;
             has_combos_tag = true;
+            combos_base_indent = current_indent;
+            current_leader.clear();
             continue;
         } else if (t.rfind("combos", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
+        if (in_combos && current_indent <= combos_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            in_combos = false;
+            current_leader.clear();
+        }
+
         if (!in_combos) continue;
 
+        // 1. Classic verbose format
         if (t.find("- keys:") != std::string::npos) {
             if (!current_keys.empty() && current_outkeys.empty()) {
                 err_msg = "empty list in 'outKeys' is not allowed";
@@ -293,6 +326,7 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
             }
             auto colon = t.find(':');
             current_keys = trim(t.substr(colon + 1));
+            continue;
         } else if (t.find("- outKeys:") != std::string::npos) {
             if (!current_keys.empty() && current_outkeys.empty()) {
                 err_msg = "empty list in 'outKeys' is not allowed";
@@ -327,7 +361,7 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
                 c.keys.push_back(code);
             }
 
-            auto out_words = fields(current_outkeys);
+            auto out_words = parseOutputWords(current_outkeys);
             if (out_words.empty()) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
@@ -343,6 +377,87 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
             combos.push_back(c);
             current_keys.clear();
             current_outkeys.clear();
+            continue;
+        }
+
+        // 2. Compact dictionary format or leader prefix
+        auto colon = t.find(':');
+        if (colon != std::string::npos) {
+            std::string key_part = trim(t.substr(0, colon));
+            if (key_part.rfind("- ", 0) == 0) {
+                key_part = trim(key_part.substr(2));
+            }
+            std::string val_part = trim(t.substr(colon + 1));
+
+            // Leader prefix case, e.g. "f:"
+            if (val_part.empty()) {
+                current_leader = key_part + " ";
+                leader_indent = current_indent;
+                continue;
+            }
+
+            // End of leader block if indentation dropped
+            if (!current_leader.empty() && current_indent <= leader_indent) {
+                current_leader.clear();
+            }
+
+            std::string full_input = current_leader + key_part;
+            bool is_symmetric = (full_input.find('+') != std::string::npos);
+            std::vector<std::string> in_words;
+            if (is_symmetric) {
+                auto raw_parts = split(full_input, '+');
+                for (const auto& p : raw_parts) {
+                    std::string word = trim(p);
+                    if (!word.empty()) in_words.push_back(word);
+                }
+            } else {
+                in_words = fields(full_input);
+            }
+
+            if (in_words.empty()) {
+                err_msg = "empty list in 'keys' is not allowed";
+                return false;
+            }
+
+            std::vector<KeyCode> in_codes;
+            for (const auto& w : in_words) {
+                KeyCode code = 0;
+                if (!wordToKeyCode(w, code, err_msg)) {
+                    return false;
+                }
+                in_codes.push_back(code);
+            }
+
+            auto out_words = parseOutputWords(val_part);
+            if (out_words.empty()) {
+                err_msg = "empty list in 'outKeys' is not allowed";
+                return false;
+            }
+            std::vector<KeyCode> out_codes;
+            for (const auto& w : out_words) {
+                KeyCode code = 0;
+                if (!wordToKeyCode(w, code, err_msg)) {
+                    return false;
+                }
+                out_codes.push_back(code);
+            }
+
+            if (is_symmetric && in_codes.size() == 2) {
+                Combo c1;
+                c1.keys = {in_codes[0], in_codes[1]};
+                c1.out_keys = out_codes;
+                combos.push_back(c1);
+
+                Combo c2;
+                c2.keys = {in_codes[1], in_codes[0]};
+                c2.out_keys = out_codes;
+                combos.push_back(c2);
+            } else {
+                Combo c;
+                c.keys = in_codes;
+                c.out_keys = out_codes;
+                combos.push_back(c);
+            }
         }
     }
 

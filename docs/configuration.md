@@ -42,31 +42,55 @@ combos:
     outKeys: right
 ```
 
-### Key Formats
+### Formats Supported
 
-Key combinations and output actions are specified as space-separated key names:
+TFF supports two equivalent YAML configuration formats:
 
-#### Two-key combo to single output key:
+#### 1. Compact Shorthand (Recommended)
+Concise key-value mappings with zero boilerplate:
+
 ```yaml
-- keys: j f
-  outKeys: backspace
+combos:
+  j f: backspace
+  f j: delete
+  ; a: home
+  a ;: end
+  g + h: esc       # Symmetric: either g then h, or h then g
+  f space: ctrl+s  # Hotkey action
 ```
 
-#### Chord to multiple output keys (sequence/macro):
+##### Leader Key Grouping
+Group related chords sharing an anchor key (e.g., `f` for navigation):
+
 ```yaml
-- keys: f space
-  outKeys: ctrl s
+combos:
+  f:
+    n: down
+    u: up
+    k: left
+    l: right
+    i: pageup
+    ,: pagedown
 ```
 
-## Supported Key Names
+#### 2. Classic List Format
+```yaml
+combos:
+  - keys: j f
+    outKeys: backspace
+  - keys: f j
+    outKeys: delete
+```
 
-Key names are case-insensitive and mapped to standard Linux input event codes (`KEY_*`):
+## Supported Key Names and Symbols
+
+Key names are case-insensitive and mapped to standard Linux input event codes:
 
 - **Letters**: `a` through `z`
 - **Digits**: `0` through `9`
-- **Navigation & Editing**: `backspace`, `delete`, `home`, `end`, `up`, `down`, `left`, `right`, `pageup`, `pagedown`, `insert`
-- **Control & Modifiers**: `esc`, `enter`, `tab`, `space`, `capslock`, `leftctrl`, `rightctrl`, `leftshift`, `rightshift`, `leftalt`, `rightalt`, `leftmeta`, `rightmeta`
-- **Punctuation**: `semicolon`, `colon`, `comma`, `dot`, `slash`, `backslash`, `minus`, `equal`, `leftbrace`, `rightbrace`, `apostrophe`, `grave`
+- **Literal Punctuation**: `;`, `,`, `.`, `/`, `\`, `-`, `=`, `[`, `]`, `'`, `` ` `` (as well as verbose names `semicolon`, `comma`, etc.)
+- **Navigation & Editing**: `backspace`, `delete` (or `del`), `home`, `end`, `up` (or `arrowup`), `down` (or `arrowdown`), `left` (or `arrowleft`), `right` (or `arrowright`), `pageup` (or `pgup`), `pagedown` (or `pgdn`), `insert` (or `ins`)
+- **Control & Modifiers**: `esc` (or `escape`), `enter` (or `return`), `tab`, `space`, `capslock` (or `caps`), `leftctrl` (or `ctrl`), `leftshift` (or `shift`), `leftalt` (or `alt`), `leftmeta` (or `super`, `win`, `windows`, `meta`)
 - **Function Keys**: `f1` through `f12`
 
 ## CLI Validation
