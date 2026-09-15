@@ -222,11 +222,21 @@ combos:
         assert(!tff::loadYamlCombos("combos:\n  d + f + d: esc\n", combos, err_msg));
         assert(err_msg.find("duplicate key") != std::string::npos);
 
+        // Exceeding maximum chord size (5 keys) is rejected
+        combos.clear();
+        assert(!tff::loadYamlCombos("combos:\n  a + s + d + f + g + h: mute\n", combos, err_msg));
+        assert(err_msg.find("exceeds maximum supported chord size") != std::string::npos);
+
+        // Leader key collision with chord key is rejected
+        combos.clear();
+        assert(!tff::loadYamlCombos("combos:\n  f:\n    f + j: esc\n", combos, err_msg));
+        assert(err_msg.find("conflicts with leader key") != std::string::npos);
+
         // Incomplete combo with '+' is rejected
         combos.clear();
         assert(!tff::loadYamlCombos("combos:\n  g +: esc\n", combos, err_msg));
         assert(err_msg.find("require at least two keys") != std::string::npos);
-        std::cout << "✓ Test 9 passed: N-key symmetric combos (3-key, 4-key), duplicate detection, and validation\n";
+        std::cout << "✓ Test 9 passed: N-key symmetric combos (3-key, 4-key), max limit, duplicate detection, and validation\n";
     }
 
     // Test 10: Hotkey modifier output syntax (ctrl+s, alt+tab)

@@ -492,6 +492,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     err_msg = "symmetric combos with '+' require at least two keys";
                     return false;
                 }
+                if (chord_words.size() > 5) {
+                    err_msg = "symmetric combo exceeds maximum supported chord size of 5 keys";
+                    return false;
+                }
             } else {
                 chord_words = fields(current_keys);
             }
@@ -583,6 +587,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     err_msg = "symmetric combos with '+' require at least two keys";
                     return false;
                 }
+                if (chord_words.size() > 5) {
+                    err_msg = "symmetric combo exceeds maximum supported chord size of 5 keys";
+                    return false;
+                }
             } else {
                 chord_words = fields(key_part);
             }
@@ -633,6 +641,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     for (size_t j = i + 1; j < chord_codes.size(); ++j) {
                         if (chord_codes[i] == chord_codes[j]) {
                             err_msg = "duplicate key in symmetric combo: " + chord_words[i];
+                            return false;
+                        }
+                    }
+                }
+                for (KeyCode lk : leader_codes) {
+                    for (KeyCode ck : chord_codes) {
+                        if (lk == ck) {
+                            err_msg = "chord key '" + keyCodeToWord(ck) + "' conflicts with leader key";
                             return false;
                         }
                     }
