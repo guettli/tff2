@@ -47,6 +47,10 @@ sudo ./install.sh          # System-wide (/usr/local/bin)
 # List discovered keyboards and persistent symlinks:
 tff --list
 
+# View terminal cheat sheet or markdown table of your mappings:
+tff cheatsheet
+tff cheatsheet --markdown
+
 # Validate combo configuration:
 tff validate /etc/tff/tff-combos.yaml
 
