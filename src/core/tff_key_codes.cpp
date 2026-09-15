@@ -691,4 +691,95 @@ bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code) {
     return false;
 }
 
+bool asciiToKeyStroke(char c, KeyCode& code, bool& shift) {
+    shift = false;
+    unsigned char uc = static_cast<unsigned char>(c);
+
+    // Lowercase letters (a-z)
+    static const KeyCode LOWER_LETTERS[26] = {
+        Keys::KEY_A, Keys::KEY_B, Keys::KEY_C, Keys::KEY_D, Keys::KEY_E,
+        Keys::KEY_F, Keys::KEY_G, Keys::KEY_H, Keys::KEY_I, Keys::KEY_J,
+        Keys::KEY_K, Keys::KEY_L, Keys::KEY_M, Keys::KEY_N, Keys::KEY_O,
+        Keys::KEY_P, Keys::KEY_Q, Keys::KEY_R, Keys::KEY_S, Keys::KEY_T,
+        Keys::KEY_U, Keys::KEY_V, Keys::KEY_W, Keys::KEY_X, Keys::KEY_Y,
+        Keys::KEY_Z
+    };
+
+    if (uc >= 'a' && uc <= 'z') {
+        code = LOWER_LETTERS[uc - 'a'];
+        shift = false;
+        return true;
+    }
+
+    // Uppercase letters (A-Z)
+    if (uc >= 'A' && uc <= 'Z') {
+        code = LOWER_LETTERS[uc - 'A'];
+        shift = true;
+        return true;
+    }
+
+    // Digits (0-9)
+    if (uc >= '1' && uc <= '9') {
+        code = Keys::KEY_1 + (uc - '1');
+        shift = false;
+        return true;
+    }
+    if (uc == '0') {
+        code = Keys::KEY_0;
+        shift = false;
+        return true;
+    }
+
+    // Whitespace
+    if (uc == ' ') { code = Keys::KEY_SPACE; shift = false; return true; }
+    if (uc == '\t') { code = Keys::KEY_TAB; shift = false; return true; }
+    if (uc == '\n') { code = Keys::KEY_ENTER; shift = false; return true; }
+
+    // Unshifted punctuation
+    switch (uc) {
+    case '-': code = Keys::KEY_MINUS; shift = false; return true;
+    case '=': code = Keys::KEY_EQUAL; shift = false; return true;
+    case '[': code = Keys::KEY_LEFTBRACE; shift = false; return true;
+    case ']': code = Keys::KEY_RIGHTBRACE; shift = false; return true;
+    case '\\': code = Keys::KEY_BACKSLASH; shift = false; return true;
+    case ';': code = Keys::KEY_SEMICOLON; shift = false; return true;
+    case '\'': code = Keys::KEY_APOSTROPHE; shift = false; return true;
+    case '`': code = Keys::KEY_GRAVE; shift = false; return true;
+    case ',': code = Keys::KEY_COMMA; shift = false; return true;
+    case '.': code = Keys::KEY_DOT; shift = false; return true;
+    case '/': code = Keys::KEY_SLASH; shift = false; return true;
+    default: break;
+    }
+
+    // Shifted punctuation
+    shift = true;
+    switch (uc) {
+    case '!': code = Keys::KEY_1; return true;
+    case '@': code = Keys::KEY_2; return true;
+    case '#': code = Keys::KEY_3; return true;
+    case '$': code = Keys::KEY_4; return true;
+    case '%': code = Keys::KEY_5; return true;
+    case '^': code = Keys::KEY_6; return true;
+    case '&': code = Keys::KEY_7; return true;
+    case '*': code = Keys::KEY_8; return true;
+    case '(': code = Keys::KEY_9; return true;
+    case ')': code = Keys::KEY_0; return true;
+    case '_': code = Keys::KEY_MINUS; return true;
+    case '+': code = Keys::KEY_EQUAL; return true;
+    case '{': code = Keys::KEY_LEFTBRACE; return true;
+    case '}': code = Keys::KEY_RIGHTBRACE; return true;
+    case '|': code = Keys::KEY_BACKSLASH; return true;
+    case ':': code = Keys::KEY_SEMICOLON; return true;
+    case '"': code = Keys::KEY_APOSTROPHE; return true;
+    case '~': code = Keys::KEY_GRAVE; return true;
+    case '<': code = Keys::KEY_COMMA; return true;
+    case '>': code = Keys::KEY_DOT; return true;
+    case '?': code = Keys::KEY_SLASH; return true;
+    default: break;
+    }
+
+    shift = false;
+    return false;
+}
+
 } // namespace tff

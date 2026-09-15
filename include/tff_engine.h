@@ -83,6 +83,7 @@ private:
     void writeComboDownKeys(const Combo& combo);
     void writeComboUpKeys(const Combo& combo);
     void writeCombo(const Combo& combo, TimeVal time, int32_t value);
+    void emitText(const std::string& text, TimeVal base_time);
     void writeKey(KeyCode code, int32_t value, TimeVal time);
     void writeEvent(const Event& ev, const std::string& reason);
 

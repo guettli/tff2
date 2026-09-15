@@ -91,9 +91,14 @@ struct Event {
 struct Combo {
     std::vector<KeyCode> keys;
     std::vector<KeyCode> out_keys;
+    std::string text; // Multi-character text snippet / macro expansion
+
+    Combo() = default;
+    Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "")
+        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)) {}
 
     bool operator==(const Combo& o) const {
-        return keys == o.keys && out_keys == o.out_keys;
+        return keys == o.keys && out_keys == o.out_keys && text == o.text;
     }
 };
 

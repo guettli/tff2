@@ -53,6 +53,113 @@ std::vector<std::string> parseOutputWords(const std::string& s) {
     return result;
 }
 
+std::string stripComment(const std::string& line) {
+    bool in_double_quote = false;
+    bool in_single_quote = false;
+    for (size_t i = 0; i < line.size(); ++i) {
+        char c = line[i];
+        if (c == '\\' && in_double_quote && i + 1 < line.size()) {
+            ++i; // skip escaped character
+            continue;
+        }
+        if (c == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+        } else if (c == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+        } else if (c == '#' && !in_double_quote && !in_single_quote) {
+            return line.substr(0, i);
+        }
+    }
+    return line;
+}
+
+std::string unquoteAndUnescape(const std::string& s) {
+    std::string str = trim(s);
+    if (str.empty()) return "";
+
+    // Check for inline dictionary like { text: "..." } or { type: "..." }
+    if (str.front() == '{' && str.back() == '}') {
+        std::string inner = trim(str.substr(1, str.size() - 2));
+        auto col = inner.find(':');
+        if (col != std::string::npos) {
+            std::string key = trim(inner.substr(0, col));
+            if (key == "text" || key == "type") {
+                return unquoteAndUnescape(inner.substr(col + 1));
+            }
+        }
+    }
+
+    if (str.size() >= 2 && str.front() == '"' && str.back() == '"') {
+        std::string res;
+        size_t end = str.size() - 1;
+        for (size_t i = 1; i < end; ++i) {
+            if (str[i] == '\\' && i + 1 < end) {
+                char next = str[i + 1];
+                if (next == 'n') { res += '\n'; ++i; }
+                else if (next == 't') { res += '\t'; ++i; }
+                else if (next == 'r') { res += '\r'; ++i; }
+                else if (next == '"') { res += '"'; ++i; }
+                else if (next == '\'') { res += '\''; ++i; }
+                else if (next == '\\') { res += '\\'; ++i; }
+                else { res += next; ++i; }
+            } else {
+                res += str[i];
+            }
+        }
+        return res;
+    }
+
+    if (str.size() >= 2 && str.front() == '\'' && str.back() == '\'') {
+        std::string res;
+        size_t end = str.size() - 1;
+        for (size_t i = 1; i < end; ++i) {
+            if (str[i] == '\'' && i + 1 < end && str[i + 1] == '\'') {
+                res += '\'';
+                ++i;
+            } else {
+                res += str[i];
+            }
+        }
+        return res;
+    }
+
+    return str;
+}
+
+bool isTextSnippet(const std::string& val, std::string& text) {
+    std::string s = trim(val);
+    if (s.empty()) return false;
+
+    // Direct quoted string: "..." or '...'
+    if ((s.size() >= 2 && s.front() == '"' && s.back() == '"') ||
+        (s.size() >= 2 && s.front() == '\'' && s.back() == '\'')) {
+        text = unquoteAndUnescape(s);
+        return true;
+    }
+
+    // Inline mapping: { text: "..." } or { type: "..." }
+    if (s.front() == '{' && s.back() == '}') {
+        std::string inner = trim(s.substr(1, s.size() - 2));
+        auto col = inner.find(':');
+        if (col != std::string::npos) {
+            std::string key = trim(inner.substr(0, col));
+            if (key == "text" || key == "type") {
+                text = unquoteAndUnescape(inner.substr(col + 1));
+                return true;
+            }
+        }
+    }
+
+    // Explicit prefix: text: "..." or type: "..."
+    if (s.rfind("text:", 0) == 0 || s.rfind("type:", 0) == 0) {
+        auto col = s.find(':');
+        text = unquoteAndUnescape(s.substr(col + 1));
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace
 
 bool parseDurationMicros(const std::string& str, int64_t& out_us) {
@@ -287,6 +394,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_tap_hold = false;
     std::string current_keys;
     std::string current_outkeys;
+    std::string current_text;
+    bool has_text = false;
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     size_t combos_base_indent = 0;
@@ -315,9 +424,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     };
 
     while (std::getline(iss, line)) {
-        // Strip inline comment if any
-        auto comment_pos = line.find('#');
-        std::string clean_line = (comment_pos != std::string::npos) ? line.substr(0, comment_pos) : line;
+        // Strip inline comment if any (preserving '#' inside quoted strings)
+        std::string clean_line = stripComment(line);
         std::string t = trim(clean_line);
         if (t.empty()) continue;
 
@@ -452,30 +560,64 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (!in_combos) continue;
 
         // 1. Classic verbose format
-        if (t.find("- keys:") != std::string::npos) {
-            if (!current_keys.empty() && current_outkeys.empty()) {
+        if (t.find("- keys:") != std::string::npos || t.find("- in:") != std::string::npos) {
+            if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
             auto colon = t.find(':');
             current_keys = trim(t.substr(colon + 1));
+            if (!current_keys.empty() && current_keys.front() == '[') {
+                if (current_keys.back() == ']') current_keys.pop_back();
+                current_keys = current_keys.substr(1);
+                for (char& ch : current_keys) {
+                    if (ch == ',') ch = ' ';
+                }
+                current_keys = trim(current_keys);
+            }
+            current_outkeys.clear();
+            current_text.clear();
+            has_text = false;
             continue;
-        } else if (t.find("- outKeys:") != std::string::npos) {
-            if (!current_keys.empty() && current_outkeys.empty()) {
+        } else if (t.find("- outKeys:") != std::string::npos || t.find("- out:") != std::string::npos) {
+            if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
             err_msg = "empty list in 'keys' is not allowed";
             return false;
-        } else if (t.find("outKeys:") != std::string::npos) {
+        } else if (t.find("outKeys:") != std::string::npos || t.rfind("out:", 0) == 0 ||
+                   t.rfind("text:", 0) == 0 || t.rfind("type:", 0) == 0) {
             auto colon = t.find(':');
-            current_outkeys = trim(t.substr(colon + 1));
+            std::string prop = trim(t.substr(0, colon));
+            std::string val_part = trim(t.substr(colon + 1));
+
+            if (prop == "text" || prop == "type") {
+                has_text = true;
+                current_text = unquoteAndUnescape(val_part);
+                if (current_text.empty()) {
+                    err_msg = "empty text snippet is not allowed";
+                    return false;
+                }
+            } else {
+                std::string snippet;
+                if (isTextSnippet(val_part, snippet)) {
+                    has_text = true;
+                    current_text = snippet;
+                    if (current_text.empty()) {
+                        err_msg = "empty text snippet is not allowed";
+                        return false;
+                    }
+                } else {
+                    current_outkeys = val_part;
+                }
+            }
 
             if (current_keys.empty()) {
                 err_msg = "empty list in 'keys' is not allowed";
                 return false;
             }
-            if (current_outkeys.empty()) {
+            if (current_outkeys.empty() && !has_text) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
@@ -514,18 +656,29 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 chord_codes.push_back(code);
             }
 
-            auto out_words = parseOutputWords(current_outkeys);
-            if (out_words.empty()) {
-                err_msg = "empty list in 'outKeys' is not allowed";
-                return false;
-            }
             std::vector<KeyCode> out_codes;
-            for (const auto& w : out_words) {
-                KeyCode code = 0;
-                if (!wordToKeyCode(w, code, err_msg)) {
+            if (has_text) {
+                for (char ch : current_text) {
+                    KeyCode kc = 0;
+                    bool shift = false;
+                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        return false;
+                    }
+                }
+            } else {
+                auto out_words = parseOutputWords(current_outkeys);
+                if (out_words.empty()) {
+                    err_msg = "empty list in 'outKeys' is not allowed";
                     return false;
                 }
-                out_codes.push_back(code);
+                for (const auto& w : out_words) {
+                    KeyCode code = 0;
+                    if (!wordToKeyCode(w, code, err_msg)) {
+                        return false;
+                    }
+                    out_codes.push_back(code);
+                }
             }
 
             if (is_symmetric) {
@@ -542,18 +695,28 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 do {
                     Combo c;
                     c.keys = perm;
-                    c.out_keys = out_codes;
+                    if (has_text) {
+                        c.text = current_text;
+                    } else {
+                        c.out_keys = out_codes;
+                    }
                     config.combos.push_back(c);
                 } while (std::next_permutation(perm.begin(), perm.end()));
             } else {
                 Combo c;
                 c.keys = chord_codes;
-                c.out_keys = out_codes;
+                if (has_text) {
+                    c.text = current_text;
+                } else {
+                    c.out_keys = out_codes;
+                }
                 config.combos.push_back(c);
             }
 
             current_keys.clear();
             current_outkeys.clear();
+            current_text.clear();
+            has_text = false;
             continue;
         }
 
@@ -622,18 +785,36 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
 
-            auto out_words = parseOutputWords(val_part);
-            if (out_words.empty()) {
-                err_msg = "empty list in 'outKeys' is not allowed";
+            std::string snippet;
+            bool snippet_mode = isTextSnippet(val_part, snippet);
+            if (snippet_mode && snippet.empty()) {
+                err_msg = "empty text snippet is not allowed";
                 return false;
             }
+
             std::vector<KeyCode> out_codes;
-            for (const auto& w : out_words) {
-                KeyCode code = 0;
-                if (!wordToKeyCode(w, code, err_msg)) {
+            if (snippet_mode) {
+                for (char ch : snippet) {
+                    KeyCode kc = 0;
+                    bool shift = false;
+                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        return false;
+                    }
+                }
+            } else {
+                auto out_words = parseOutputWords(val_part);
+                if (out_words.empty()) {
+                    err_msg = "empty list in 'outKeys' is not allowed";
                     return false;
                 }
-                out_codes.push_back(code);
+                for (const auto& w : out_words) {
+                    KeyCode code = 0;
+                    if (!wordToKeyCode(w, code, err_msg)) {
+                        return false;
+                    }
+                    out_codes.push_back(code);
+                }
             }
 
             if (is_symmetric) {
@@ -659,14 +840,22 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     Combo c;
                     c.keys = leader_codes;
                     c.keys.insert(c.keys.end(), perm.begin(), perm.end());
-                    c.out_keys = out_codes;
+                    if (snippet_mode) {
+                        c.text = snippet;
+                    } else {
+                        c.out_keys = out_codes;
+                    }
                     config.combos.push_back(c);
                 } while (std::next_permutation(perm.begin(), perm.end()));
             } else {
                 Combo c;
                 c.keys = leader_codes;
                 c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
-                c.out_keys = out_codes;
+                if (snippet_mode) {
+                    c.text = snippet;
+                } else {
+                    c.out_keys = out_codes;
+                }
                 config.combos.push_back(c);
             }
         }
@@ -674,7 +863,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
     if (!flush_pending_th()) return false;
 
-    if (!current_keys.empty() && current_outkeys.empty()) {
+    if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }

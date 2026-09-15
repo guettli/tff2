@@ -90,6 +90,66 @@ combos:
     outKeys: delete
 ```
 
+## Text Snippets & Multi-Character Macro Expansion
+
+TFF supports expanding multi-character text strings and code snippets directly from chords without needing external clipboard tools or third-party macro software.
+
+### Syntax Options
+
+#### 1. Compact Direct Quotes (Recommended)
+Simply enclose the desired string in double (`"..."`) or single (`'...'`) quotes:
+
+```yaml
+combos:
+  f n: "println!(\"\");"
+  j k: 'Hello World'
+  g s: "git status"
+```
+
+#### 2. Inline Dictionary or Explicit Attribute
+Use `{ text: "..." }` or `{ type: "..." }`:
+
+```yaml
+combos:
+  p y: { text: "import sys\nimport os" }
+  c m: { type: "cargo test" }
+```
+
+#### 3. Symmetric Chording (`+`) and Leader Key Grouping
+Snippets seamlessly compose with symmetric chords and leader key blocks:
+
+```yaml
+combos:
+  # Symmetric chord: pressing d and f together in any order
+  d + f: "alice@example.com"
+
+  # Leader prefix: Space followed by a single key
+  space:
+    e: "alice@example.com"
+    g: "git commit -m \"\""
+    p: "println!(\"{}\", val);"
+```
+
+#### 4. Classic List Format
+```yaml
+combos:
+  - in: [f, n]
+    text: "println!(\"\");"
+  - keys: c m
+    type: "#include <iostream>"
+```
+
+### Supported Characters and Modifiers
+
+TFF translates text strings directly into synthesized Linux kernel `evdev` input events:
+- **Letters & Digits**: `a`-`z`, `A`-`Z` (automatically activates and releases `KEY_LEFTSHIFT`), `0`-`9`.
+- **Whitespace & Control**: Space, `\t` (Tab), `\n` (Enter).
+- **Punctuation & Symbols**: All standard ASCII symbols (`,`, `.`, `;`, `:`, `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`, `(`, `)`, `_`, `+`, `-`, `=`, `{`, `}`, `[`, `]`, `|`, `\`, `"`, `'`, `<`, `>`, `?`, `~`, `` ` ``).
+- **Clean Chord Release**: When chord keys are released after triggering a text snippet, they are swallowed cleanly so that no physical chord keys leak into your text buffer or editor.
+
+> [!NOTE]
+> **Keyboard Layout Baseline**: Because TFF operates at the kernel `evdev` level before desktop environment layout translation, synthesized punctuation symbols assume standard US QWERTY keycode locations. If your desktop session uses a non-US keymap (e.g. German QWERTZ or French AZERTY), the desktop environment will translate those scancodes according to your active layout.
+
 ## Tap-vs-Hold Keys (Dual-Role Keys)
 
 Tap-vs-Hold allows a physical key to perform two completely different functions based on how it is pressed:

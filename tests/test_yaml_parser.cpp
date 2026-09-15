@@ -281,6 +281,32 @@ combos:
         std::cout << "✓ Test 11 passed: friendly key name aliases\n";
     }
 
+    // Test 12: Text snippets and macros in YAML
+    {
+        std::string snippet_yaml = R"(
+combos:
+  f n: "println!(\"\");"
+  j k: 'single quotes'
+  space:
+    e: "user@example.com"
+  - keys: d f
+    text: "macro_test"
+  - in: [a, b]
+    type: "inline_in"
+)";
+        std::vector<tff::Combo> combos;
+        std::string err_msg;
+        bool ok = tff::loadYamlCombos(snippet_yaml, combos, err_msg);
+        assert(ok);
+        assert(combos.size() == 5);
+        assert(combos[0].text == "println!(\"\");");
+        assert(combos[1].text == "single quotes");
+        assert(combos[2].text == "user@example.com");
+        assert(combos[3].text == "macro_test");
+        assert(combos[4].text == "inline_in");
+        std::cout << "✓ Test 12 passed: text snippets and macro expansions\n";
+    }
+
     std::cout << "\nAll YAML parser tests passed!\n";
     return 0;
 }

@@ -35,6 +35,8 @@ namespace Keys {
     constexpr KeyCode KEY_I          = 23;
     constexpr KeyCode KEY_O          = 24;
     constexpr KeyCode KEY_P          = 25;
+    constexpr KeyCode KEY_LEFTBRACE  = 26;
+    constexpr KeyCode KEY_RIGHTBRACE = 27;
     constexpr KeyCode KEY_ENTER      = 28;
     constexpr KeyCode KEY_LEFTCTRL   = 29;
     constexpr KeyCode KEY_A          = 30;
@@ -115,6 +117,15 @@ bool parseTypeName(const std::string& name, uint16_t& out_type);
  * @brief Parses code name string ("KEY_F", "SYN_REPORT", "MSC_SCAN") to EvCode integer.
  */
 bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code);
+
+/**
+ * @brief Translates a printable ASCII character (or \t, \n) into an evdev KeyCode and Shift flag.
+ * @param c The input ASCII character.
+ * @param code Output evdev keycode.
+ * @param shift Output boolean set to true if LeftShift modifier is required.
+ * @return True if character was successfully mapped, false if unsupported.
+ */
+bool asciiToKeyStroke(char c, KeyCode& code, bool& shift);
 
 } // namespace tff
 
