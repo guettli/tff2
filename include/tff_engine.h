@@ -4,6 +4,7 @@
 #include "tff_types.h"
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 namespace tff {
 
@@ -25,6 +26,14 @@ public:
 
     void setTapHoldKeys(const std::vector<TapHoldKey>& keys);
     const std::vector<TapHoldKey>& getTapHoldKeys() const { return tap_hold_keys_; }
+
+    void setLayers(const std::vector<Layer>& layers);
+    const std::vector<Layer>& getLayers() const { return layers_; }
+    const std::vector<std::string>& getActiveLayers() const { return active_layer_stack_; }
+
+    void activateLayer(const std::string& name);
+    void deactivateLayer(const std::string& name);
+    void toggleLayer(const std::string& name);
 
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
 
@@ -57,9 +66,18 @@ private:
         bool hold_emitted = false;
     };
 
+    struct HeldLayerRemap {
+        KeyCode input_key = 0;
+        std::vector<KeyCode> out_keys;
+        bool is_text = false;
+    };
+
     EventWriter* out_dev_ = nullptr;
     std::vector<Combo> all_combos_;
     std::vector<TapHoldKey> tap_hold_keys_;
+    std::vector<Layer> layers_;
+    std::vector<std::string> active_layer_stack_;
+    std::unordered_map<KeyCode, HeldLayerRemap> held_layer_remaps_;
     std::vector<ActiveTapHold> active_tap_holds_;
     std::vector<Event> buf_;
     std::vector<Combo> down_keys_written_;
@@ -88,6 +106,9 @@ private:
     void writeEvent(const Event& ev, const std::string& reason);
 
     void flushBuffer(const std::string& reason);
+
+    const LayerAction* findLayerAction(KeyCode code) const;
+    void releaseHeldLayerRemaps(TimeVal time);
 };
 
 } // namespace tff

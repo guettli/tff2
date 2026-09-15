@@ -19,6 +19,63 @@ void TFFEngine::setTapHoldKeys(const std::vector<TapHoldKey>& keys) {
     tap_hold_keys_ = keys;
 }
 
+void TFFEngine::setLayers(const std::vector<Layer>& layers) {
+    layers_ = layers;
+}
+
+void TFFEngine::activateLayer(const std::string& name) {
+    if (active_layer_stack_.empty() || active_layer_stack_.back() != name) {
+        active_layer_stack_.push_back(name);
+    }
+}
+
+void TFFEngine::deactivateLayer(const std::string& name) {
+    for (auto it = active_layer_stack_.rbegin(); it != active_layer_stack_.rend(); ++it) {
+        if (*it == name) {
+            active_layer_stack_.erase(std::next(it).base());
+            break;
+        }
+    }
+}
+
+void TFFEngine::toggleLayer(const std::string& name) {
+    auto it = std::find(active_layer_stack_.begin(), active_layer_stack_.end(), name);
+    if (it != active_layer_stack_.end()) {
+        active_layer_stack_.erase(it);
+    } else {
+        active_layer_stack_.push_back(name);
+    }
+}
+
+const LayerAction* TFFEngine::findLayerAction(KeyCode code) const {
+    for (auto it = active_layer_stack_.rbegin(); it != active_layer_stack_.rend(); ++it) {
+        const std::string& layer_name = *it;
+        for (const auto& layer : layers_) {
+            if (layer.name == layer_name) {
+                auto m_it = layer.mappings.find(code);
+                if (m_it != layer.mappings.end()) {
+                    return &m_it->second;
+                }
+                break;
+            }
+        }
+    }
+    return nullptr;
+}
+
+void TFFEngine::releaseHeldLayerRemaps(TimeVal time) {
+    if (out_dev_) {
+        for (const auto& kv : held_layer_remaps_) {
+            if (!kv.second.is_text) {
+                for (auto it = kv.second.out_keys.rbegin(); it != kv.second.out_keys.rend(); ++it) {
+                    writeKey(*it, KEY_VAL_UP, time);
+                }
+            }
+        }
+    }
+    held_layer_remaps_.clear();
+}
+
 bool TFFEngine::hasActiveTimer() const {
     if (fake_active_timer_next_time_ < TimeVal::maxTime()) {
         return true;
@@ -47,10 +104,14 @@ TimeVal TFFEngine::getActiveTimerTime() const {
 void TFFEngine::reset() {
     for (const auto& ath : active_tap_holds_) {
         if (ath.hold_emitted && out_dev_) {
-            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
+            if (ath.config.hold_key != 0) {
+                writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
+            }
         }
     }
     active_tap_holds_.clear();
+    releaseHeldLayerRemaps(TimeVal{});
+    active_layer_stack_.clear();
     buf_.clear();
     down_keys_written_.clear();
     swallow_keys_.clear();
@@ -101,7 +162,11 @@ bool TFFEngine::processEvent(const Event& ev) {
         // Any other key going DOWN while a tap-hold key is pending immediately promotes it to HOLD
         for (auto& ath : active_tap_holds_) {
             if (!ath.hold_emitted && ath.config.key != ev.code) {
-                writeKey(ath.config.hold_key, KEY_VAL_DOWN, ev.time);
+                if (!ath.config.hold_layer.empty()) {
+                    activateLayer(ath.config.hold_layer);
+                } else if (ath.config.hold_key != 0) {
+                    writeKey(ath.config.hold_key, KEY_VAL_DOWN, ev.time);
+                }
                 ath.hold_down_time = ev.time;
                 ath.hold_emitted = true;
             }
@@ -118,11 +183,48 @@ bool TFFEngine::processEvent(const Event& ev) {
             return true;
         }
 
+        // Check active layers
+        if (!active_layer_stack_.empty()) {
+            const LayerAction* action = findLayerAction(ev.code);
+            if (action != nullptr) {
+                HeldLayerRemap remap;
+                remap.input_key = ev.code;
+                if (!action->text.empty()) {
+                    remap.is_text = true;
+                    emitText(action->text, ev.time);
+                } else {
+                    remap.is_text = false;
+                    remap.out_keys = action->out_keys;
+                    for (KeyCode out_k : action->out_keys) {
+                        writeKey(out_k, KEY_VAL_DOWN, ev.time);
+                    }
+                }
+                held_layer_remaps_[ev.code] = remap;
+                return true;
+            }
+        }
+
         return handleDownChar(ev);
     } else if (ev.value == KEY_VAL_UP) {
+        // Check if this key was remapped by an active layer when pressed
+        auto remap_it = held_layer_remaps_.find(ev.code);
+        if (remap_it != held_layer_remaps_.end()) {
+            if (!remap_it->second.is_text) {
+                for (auto it = remap_it->second.out_keys.rbegin(); it != remap_it->second.out_keys.rend(); ++it) {
+                    writeKey(*it, KEY_VAL_UP, ev.time);
+                }
+            }
+            held_layer_remaps_.erase(remap_it);
+            return true;
+        }
+
         if (ath_it != active_tap_holds_.end()) {
             if (ath_it->hold_emitted) {
-                writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
+                if (!ath_it->config.hold_layer.empty()) {
+                    deactivateLayer(ath_it->config.hold_layer);
+                } else if (ath_it->config.hold_key != 0) {
+                    writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
+                }
             } else {
                 writeKey(ath_it->config.tap_key, KEY_VAL_DOWN, ev.time);
                 writeKey(ath_it->config.tap_key, KEY_VAL_UP, ev.time);
@@ -140,13 +242,17 @@ bool TFFEngine::processEvent(const Event& ev) {
 void TFFEngine::finish() {
     for (const auto& ath : active_tap_holds_) {
         if (ath.hold_emitted) {
-            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
+            if (ath.config.hold_key != 0) {
+                writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
+            }
         } else {
             writeKey(ath.config.tap_key, KEY_VAL_DOWN, ath.down_time);
             writeKey(ath.config.tap_key, KEY_VAL_UP, ath.down_time);
         }
     }
     active_tap_holds_.clear();
+    releaseHeldLayerRemaps(TimeVal{});
+    active_layer_stack_.clear();
     flushBuffer("EOF");
 }
 
@@ -169,7 +275,11 @@ void TFFEngine::onTimer(TimeVal time) {
             int64_t expire_us = ath.down_time.toMicros() + ath.config.timeout_us;
             if (expire_us <= time.toMicros()) {
                 TimeVal expire_tv = TimeVal::fromMicros(expire_us);
-                writeKey(ath.config.hold_key, KEY_VAL_DOWN, expire_tv);
+                if (!ath.config.hold_layer.empty()) {
+                    activateLayer(ath.config.hold_layer);
+                } else if (ath.config.hold_key != 0) {
+                    writeKey(ath.config.hold_key, KEY_VAL_DOWN, expire_tv);
+                }
                 ath.hold_down_time = expire_tv;
                 ath.hold_emitted = true;
             }

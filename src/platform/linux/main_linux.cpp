@@ -161,8 +161,9 @@ int main(int argc, char* argv[]) {
             std::cerr << "Validation error: " << err_msg << "\n";
             return 1;
         }
-        std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s) and "
-                  << config.tap_hold_keys.size() << " tap-hold key(s) from " << config_file << "\n";
+        std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s), "
+                  << config.tap_hold_keys.size() << " tap-hold key(s), and "
+                  << config.layers.size() << " layer(s) from " << config_file << "\n";
         return 0;
     }
 
