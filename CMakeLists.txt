@@ -50,6 +50,7 @@ set(CORE_SOURCES
     src/core/tff_key_codes.cpp
     src/core/tff_engine.cpp
     src/core/tff_parser.cpp
+    src/core/tff_cheatsheet.cpp
 )
 
 # RP2040 platform source files
@@ -162,6 +163,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_modal_layers tff_core)
 
+    add_executable(test_cheatsheet
+        tests/test_cheatsheet.cpp
+    )
+    target_link_libraries(test_cheatsheet tff_core)
+
     add_executable(test_tff_mappings
         tests/test_tff_mappings.cpp
     )
@@ -208,6 +214,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_triple_combos COMMAND test_triple_combos)
     add_test(NAME test_text_snippets COMMAND test_text_snippets)
     add_test(NAME test_modal_layers COMMAND test_modal_layers)
+    add_test(NAME test_cheatsheet COMMAND test_cheatsheet)
     add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
@@ -223,6 +230,7 @@ if(NOT PICO_BUILD)
         test_triple_combos
         test_text_snippets
         test_modal_layers
+        test_cheatsheet
         test_tff_mappings
         test_tff_go_suite
         test_linux_platform

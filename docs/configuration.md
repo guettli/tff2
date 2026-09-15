@@ -262,6 +262,26 @@ Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to 
 - **Control & Modifiers**: `esc` (or `escape`), `enter` (or `return`), `tab`, `space`, `capslock` (or `caps`), `leftctrl` (or `ctrl`), `leftshift` (or `shift`), `leftalt` (or `alt`), `leftmeta` (or `super`, `win`, `windows`, `meta`)
 - **Function Keys**: `f1` through `f12`
 
+## CLI Cheat Sheet & Visualizer
+
+You can visualize all active combos, tap-hold dual-role bindings, and modal layers directly in your terminal without opening the YAML file:
+
+```bash
+# Print formatted terminal cheat sheet (with ANSI colors):
+tff cheatsheet
+
+# Specify a custom config file:
+tff cheatsheet /etc/tff/tff-combos.yaml
+
+# Generate GitHub-flavored Markdown tables (great for documentation or note taking):
+tff cheatsheet --markdown
+
+# Plain text output without ANSI colors (safe for pipes and logs):
+tff cheatsheet --plain
+```
+
+When piped or when the `NO_COLOR` environment variable is present, color codes are disabled automatically.
+
 ## CLI Validation
 
 You can validate any configuration file before running the daemon:
