@@ -75,6 +75,16 @@ public:
     void setCombos(const std::vector<tff::Combo>& combos);
 
     /**
+     * @brief Set tap-hold keys directly
+     */
+    void setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys);
+
+    /**
+     * @brief Set full configuration (combos and tap-hold keys)
+     */
+    void setConfig(const tff::Config& config);
+
+    /**
      * @brief Set verbose debug logging
      */
     void setVerbose(bool verbose);

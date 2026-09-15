@@ -23,6 +23,9 @@ public:
     void setCombos(const std::vector<Combo>& combos);
     const std::vector<Combo>& getCombos() const { return all_combos_; }
 
+    void setTapHoldKeys(const std::vector<TapHoldKey>& keys);
+    const std::vector<TapHoldKey>& getTapHoldKeys() const { return tap_hold_keys_; }
+
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
 
     void setFakeActiveTimer(bool fake) { fake_active_timer_ = fake; }
@@ -40,19 +43,24 @@ public:
     void onTimer(TimeVal time);
 
     // Check if an active timer is pending and get its expiration time
-    bool hasActiveTimer() const {
-        return fake_active_timer_next_time_ < TimeVal::maxTime();
-    }
-    TimeVal getActiveTimerTime() const {
-        return fake_active_timer_next_time_;
-    }
+    bool hasActiveTimer() const;
+    TimeVal getActiveTimerTime() const;
 
     // Get string representation of buffer and state (matching Go state.String())
     std::string toString() const;
 
 private:
+    struct ActiveTapHold {
+        TapHoldKey config;
+        TimeVal down_time;
+        TimeVal hold_down_time;
+        bool hold_emitted = false;
+    };
+
     EventWriter* out_dev_ = nullptr;
     std::vector<Combo> all_combos_;
+    std::vector<TapHoldKey> tap_hold_keys_;
+    std::vector<ActiveTapHold> active_tap_holds_;
     std::vector<Event> buf_;
     std::vector<Combo> down_keys_written_;
     std::vector<KeyCode> swallow_keys_;
@@ -75,6 +83,7 @@ private:
     void writeComboDownKeys(const Combo& combo);
     void writeComboUpKeys(const Combo& combo);
     void writeCombo(const Combo& combo, TimeVal time, int32_t value);
+    void writeKey(KeyCode code, int32_t value, TimeVal time);
     void writeEvent(const Event& ev, const std::string& reason);
 
     void flushBuffer(const std::string& reason);

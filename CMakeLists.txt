@@ -142,6 +142,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_yaml_parser tff_core)
 
+    add_executable(test_tap_hold
+        tests/test_tap_hold.cpp
+    )
+    target_link_libraries(test_tap_hold tff_core)
+
     add_executable(test_tff_mappings
         tests/test_tff_mappings.cpp
     )
@@ -184,6 +189,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_tff_app COMMAND test_tff_app)
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
     add_test(NAME test_yaml_parser COMMAND test_yaml_parser)
+    add_test(NAME test_tap_hold COMMAND test_tap_hold)
     add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
@@ -195,6 +201,7 @@ if(NOT PICO_BUILD)
         test_tff_app
         test_rp2040_platform
         test_yaml_parser
+        test_tap_hold
         test_tff_mappings
         test_tff_go_suite
         test_linux_platform

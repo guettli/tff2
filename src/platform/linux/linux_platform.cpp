@@ -117,6 +117,20 @@ void LinuxPlatform::setCombos(const std::vector<tff::Combo>& combos) {
     }
 }
 
+void LinuxPlatform::setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys) {
+    if (!initialized_) {
+        initialize();
+    }
+    if (engine_) {
+        engine_->setTapHoldKeys(keys);
+    }
+}
+
+void LinuxPlatform::setConfig(const tff::Config& config) {
+    setCombos(config.combos);
+    setTapHoldKeys(config.tap_hold_keys);
+}
+
 bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
     if (!initialized_) {
         initialize();
@@ -138,14 +152,14 @@ bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string err_msg;
-    std::vector<tff::Combo> combos;
-    if (!tff::loadYamlCombos(buffer.str(), combos, err_msg)) {
+    tff::Config config;
+    if (!tff::loadYamlConfig(buffer.str(), config, err_msg)) {
         std::cerr << "Failed to parse YAML config (" << resolved << "): " << err_msg << "\n";
         return false;
     }
 
     config_file_ = resolved;
-    setCombos(combos);
+    setConfig(config);
     return true;
 }
 
@@ -176,8 +190,8 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string err_msg;
-    std::vector<tff::Combo> combos;
-    if (!tff::loadYamlCombos(buffer.str(), combos, err_msg)) {
+    tff::Config config;
+    if (!tff::loadYamlConfig(buffer.str(), config, err_msg)) {
         std::cerr << "Error reloading config (" << resolved << "): " << err_msg << "\n";
         std::cerr << "Keeping current configuration ("
                   << (engine_ ? engine_->getCombos().size() : 0) << " combo(s) active)\n";
@@ -185,9 +199,10 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
     }
 
     config_file_ = resolved;
-    setCombos(combos);
+    setConfig(config);
     std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved
-              << " (" << combos.size() << " combo(s) active)\n";
+              << " (" << config.combos.size() << " combo(s), "
+              << config.tap_hold_keys.size() << " tap-hold key(s) active)\n";
     return true;
 }
 
@@ -385,6 +400,10 @@ bool LinuxPlatform::detachInputDevice(int fd) {
 
     devices_.erase(it);
     evdev_fd_ = devices_.empty() ? -1 : devices_[0].fd;
+
+    if (engine_) {
+        engine_->reset();
+    }
 
     std::cout << "[TFF Hotplug] Detached keyboard: " << path;
     if (!name.empty()) {

@@ -15,7 +15,42 @@ void TFFEngine::setCombos(const std::vector<Combo>& combos) {
     all_combos_ = combos;
 }
 
+void TFFEngine::setTapHoldKeys(const std::vector<TapHoldKey>& keys) {
+    tap_hold_keys_ = keys;
+}
+
+bool TFFEngine::hasActiveTimer() const {
+    if (fake_active_timer_next_time_ < TimeVal::maxTime()) {
+        return true;
+    }
+    for (const auto& ath : active_tap_holds_) {
+        if (!ath.hold_emitted) {
+            return true;
+        }
+    }
+    return false;
+}
+
+TimeVal TFFEngine::getActiveTimerTime() const {
+    TimeVal earliest = fake_active_timer_next_time_;
+    for (const auto& ath : active_tap_holds_) {
+        if (!ath.hold_emitted) {
+            TimeVal th_time = TimeVal::fromMicros(ath.down_time.toMicros() + ath.config.timeout_us);
+            if (th_time < earliest) {
+                earliest = th_time;
+            }
+        }
+    }
+    return earliest;
+}
+
 void TFFEngine::reset() {
+    for (const auto& ath : active_tap_holds_) {
+        if (ath.hold_emitted && out_dev_) {
+            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
+        }
+    }
+    active_tap_holds_.clear();
     buf_.clear();
     down_keys_written_.clear();
     swallow_keys_.clear();
@@ -28,9 +63,14 @@ bool TFFEngine::processEvent(const Event& ev) {
         return false;
     }
 
-    if (fake_active_timer_ && fake_active_timer_next_time_ < ev.time) {
-        onTimer(fake_active_timer_next_time_);
-        fake_active_timer_next_time_ = TimeVal::maxTime();
+    if (fake_active_timer_) {
+        while (hasActiveTimer() && getActiveTimerTime() <= ev.time) {
+            TimeVal t = getActiveTimerTime();
+            onTimer(t);
+            if (hasActiveTimer() && getActiveTimerTime() <= t) {
+                break;
+            }
+        }
     }
 
     if (ev.type != EV_KEY) {
@@ -40,20 +80,73 @@ bool TFFEngine::processEvent(const Event& ev) {
         return true;
     }
 
-    switch (ev.value) {
-    case KEY_VAL_UP:
-        return handleUpChar(ev);
-    case KEY_VAL_DOWN:
-        return handleDownChar(ev);
-    case KEY_VAL_REPEAT:
+    if (ev.value == KEY_VAL_REPEAT) {
         // skip repeats
         return true;
-    default:
-        return false;
     }
+
+    // Check if this key is configured as a tap-hold key
+    const TapHoldKey* thk = nullptr;
+    for (const auto& k : tap_hold_keys_) {
+        if (k.key == ev.code) {
+            thk = &k;
+            break;
+        }
+    }
+
+    auto ath_it = std::find_if(active_tap_holds_.begin(), active_tap_holds_.end(),
+        [&](const ActiveTapHold& a) { return a.config.key == ev.code; });
+
+    if (ev.value == KEY_VAL_DOWN) {
+        // Any other key going DOWN while a tap-hold key is pending immediately promotes it to HOLD
+        for (auto& ath : active_tap_holds_) {
+            if (!ath.hold_emitted && ath.config.key != ev.code) {
+                writeKey(ath.config.hold_key, KEY_VAL_DOWN, ev.time);
+                ath.hold_down_time = ev.time;
+                ath.hold_emitted = true;
+            }
+        }
+
+        if (thk != nullptr) {
+            if (ath_it == active_tap_holds_.end()) {
+                ActiveTapHold ath;
+                ath.config = *thk;
+                ath.down_time = ev.time;
+                ath.hold_emitted = false;
+                active_tap_holds_.push_back(ath);
+            }
+            return true;
+        }
+
+        return handleDownChar(ev);
+    } else if (ev.value == KEY_VAL_UP) {
+        if (ath_it != active_tap_holds_.end()) {
+            if (ath_it->hold_emitted) {
+                writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
+            } else {
+                writeKey(ath_it->config.tap_key, KEY_VAL_DOWN, ev.time);
+                writeKey(ath_it->config.tap_key, KEY_VAL_UP, ev.time);
+            }
+            active_tap_holds_.erase(ath_it);
+            return true;
+        }
+
+        return handleUpChar(ev);
+    }
+
+    return false;
 }
 
 void TFFEngine::finish() {
+    for (const auto& ath : active_tap_holds_) {
+        if (ath.hold_emitted) {
+            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
+        } else {
+            writeKey(ath.config.tap_key, KEY_VAL_DOWN, ath.down_time);
+            writeKey(ath.config.tap_key, KEY_VAL_UP, ath.down_time);
+        }
+    }
+    active_tap_holds_.clear();
     flushBuffer("EOF");
 }
 
@@ -71,8 +164,22 @@ bool TFFEngine::handleUpChar(const Event& ev) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
-    fake_active_timer_next_time_ = TimeVal::maxTime();
-    eval(time, "timer");
+    for (auto& ath : active_tap_holds_) {
+        if (!ath.hold_emitted) {
+            int64_t expire_us = ath.down_time.toMicros() + ath.config.timeout_us;
+            if (expire_us <= time.toMicros()) {
+                TimeVal expire_tv = TimeVal::fromMicros(expire_us);
+                writeKey(ath.config.hold_key, KEY_VAL_DOWN, expire_tv);
+                ath.hold_down_time = expire_tv;
+                ath.hold_emitted = true;
+            }
+        }
+    }
+
+    if (fake_active_timer_next_time_ <= time) {
+        fake_active_timer_next_time_ = TimeVal::maxTime();
+        eval(time, "timer");
+    }
 }
 
 bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
@@ -331,6 +438,15 @@ void TFFEngine::writeCombo(const Combo& combo, TimeVal time, int32_t value) {
         ev.value = value;
         writeEvent(ev, "WriteCombo");
     }
+}
+
+void TFFEngine::writeKey(KeyCode code, int32_t value, TimeVal time) {
+    Event ev;
+    ev.time = time;
+    ev.type = EV_KEY;
+    ev.code = code;
+    ev.value = value;
+    writeEvent(ev, "TapHold");
 }
 
 void TFFEngine::writeEvent(const Event& ev, const std::string& /*reason*/) {

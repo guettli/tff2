@@ -97,6 +97,22 @@ struct Combo {
     }
 };
 
+struct TapHoldKey {
+    KeyCode key = 0;               // Key to intercept (e.g. KEY_CAPSLOCK)
+    KeyCode tap_key = 0;           // Emitted on short tap (e.g. KEY_ESC)
+    KeyCode hold_key = 0;          // Emitted on long press / hold (e.g. KEY_LEFTMETA / Super / Win)
+    int64_t timeout_us = 200000LL; // Overlap timeout in microseconds (default 200ms)
+
+    bool operator==(const TapHoldKey& o) const {
+        return key == o.key && tap_key == o.tap_key && hold_key == o.hold_key && timeout_us == o.timeout_us;
+    }
+};
+
+struct Config {
+    std::vector<Combo> combos;
+    std::vector<TapHoldKey> tap_hold_keys;
+};
+
 class EventWriter {
 public:
     virtual ~EventWriter() = default;
