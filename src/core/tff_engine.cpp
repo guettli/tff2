@@ -47,7 +47,7 @@ TimeVal TFFEngine::getActiveTimerTime() const {
 void TFFEngine::reset() {
     for (const auto& ath : active_tap_holds_) {
         if (ath.hold_emitted && out_dev_) {
-            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.down_time);
+            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
         }
     }
     active_tap_holds_.clear();
@@ -102,6 +102,7 @@ bool TFFEngine::processEvent(const Event& ev) {
         for (auto& ath : active_tap_holds_) {
             if (!ath.hold_emitted && ath.config.key != ev.code) {
                 writeKey(ath.config.hold_key, KEY_VAL_DOWN, ev.time);
+                ath.hold_down_time = ev.time;
                 ath.hold_emitted = true;
             }
         }
@@ -139,7 +140,7 @@ bool TFFEngine::processEvent(const Event& ev) {
 void TFFEngine::finish() {
     for (const auto& ath : active_tap_holds_) {
         if (ath.hold_emitted) {
-            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.down_time);
+            writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
         } else {
             writeKey(ath.config.tap_key, KEY_VAL_DOWN, ath.down_time);
             writeKey(ath.config.tap_key, KEY_VAL_UP, ath.down_time);
@@ -167,7 +168,9 @@ void TFFEngine::onTimer(TimeVal time) {
         if (!ath.hold_emitted) {
             int64_t expire_us = ath.down_time.toMicros() + ath.config.timeout_us;
             if (expire_us <= time.toMicros()) {
-                writeKey(ath.config.hold_key, KEY_VAL_DOWN, TimeVal::fromMicros(expire_us));
+                TimeVal expire_tv = TimeVal::fromMicros(expire_us);
+                writeKey(ath.config.hold_key, KEY_VAL_DOWN, expire_tv);
+                ath.hold_down_time = expire_tv;
                 ath.hold_emitted = true;
             }
         }

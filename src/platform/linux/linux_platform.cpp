@@ -401,6 +401,10 @@ bool LinuxPlatform::detachInputDevice(int fd) {
     devices_.erase(it);
     evdev_fd_ = devices_.empty() ? -1 : devices_[0].fd;
 
+    if (engine_) {
+        engine_->reset();
+    }
+
     std::cout << "[TFF Hotplug] Detached keyboard: " << path;
     if (!name.empty()) {
         std::cout << " (" << name << ")";

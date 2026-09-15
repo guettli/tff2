@@ -108,6 +108,14 @@ tap_hold:
 ### Chording and Permissive Hold
 When a tap-hold key is pressed and another key is tapped (e.g., CapsLock + `c`), TFF immediately promotes CapsLock to Super/Windows key without waiting for the timeout to elapse. This ensures instantaneous responsiveness for modifier combinations like Win+D, Win+Tab, or Win+Arrow.
 
+> [!NOTE]
+> **Key Rollover**: Because chords immediately promote to hold, typists rolling keys very rapidly when tapping Escape in modal editors (e.g. Vim) should release CapsLock before pressing the next key to ensure it registers as a tap rather than a chord modifier.
+
+### Validation Rules
+- `tap_hold` definitions require both `tap` and `hold` targets.
+- `timeout_ms` must be a positive integer (default: 200 ms).
+- A key configured under `tap_hold` cannot also be part of a `combos:` chord to prevent ambiguous overlapping triggers.
+
 ## Supported Key Names and Symbols
 
 Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to standard Linux input event codes:

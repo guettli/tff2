@@ -53,6 +53,7 @@ private:
     struct ActiveTapHold {
         TapHoldKey config;
         TimeVal down_time;
+        TimeVal hold_down_time;
         bool hold_emitted = false;
     };
 

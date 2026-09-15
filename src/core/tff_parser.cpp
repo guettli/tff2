@@ -374,11 +374,19 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                 } else if (key_part == "timeout_ms" || key_part == "timeout") {
                     try {
-                        pending_th.timeout_us = std::stoll(val_part) * 1000LL;
+                        long long val = std::stoll(val_part);
+                        if (val <= 0) {
+                            err_msg = "timeout_ms must be positive: " + val_part;
+                            return false;
+                        }
+                        pending_th.timeout_us = val * 1000LL;
                     } catch (...) {
                         err_msg = "invalid timeout value: " + val_part;
                         return false;
                     }
+                } else {
+                    err_msg = "unknown tap_hold property: " + key_part;
+                    return false;
                 }
                 continue;
             }
@@ -425,7 +433,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 if (!wordToKeyCode(parts[1], thk.hold_key, err_msg)) return false;
                 if (parts.size() >= 3) {
                     try {
-                        thk.timeout_us = std::stoll(parts[2]) * 1000LL;
+                        long long val = std::stoll(parts[2]);
+                        if (val <= 0) {
+                            err_msg = "timeout_ms must be positive: " + parts[2];
+                            return false;
+                        }
+                        thk.timeout_us = val * 1000LL;
                     } catch (...) {
                         err_msg = "invalid timeout value: " + parts[2];
                         return false;
@@ -609,6 +622,17 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     if (!has_combos_tag && !has_tap_hold_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
+    }
+
+    for (const auto& th : config.tap_hold_keys) {
+        for (const auto& combo : config.combos) {
+            for (KeyCode k : combo.keys) {
+                if (k == th.key) {
+                    err_msg = "key '" + keyCodeToWord(th.key) + "' cannot be used in both combos and tap_hold";
+                    return false;
+                }
+            }
+        }
     }
 
     return true;

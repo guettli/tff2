@@ -359,7 +359,75 @@ tap_hold:
     assert(!loadYamlConfig(yaml_bad_timeout, config, err));
     assert(!err.empty());
 
+    // Non-positive timeout (zero or negative)
+    std::string yaml_zero_timeout = R"(
+tap_hold:
+  capslock: [esc, super, 0]
+)";
+    assert(!loadYamlConfig(yaml_zero_timeout, config, err));
+    assert(!err.empty());
+
+    std::string yaml_neg_timeout = R"(
+tap_hold:
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: -50
+)";
+    assert(!loadYamlConfig(yaml_neg_timeout, config, err));
+    assert(!err.empty());
+
+    // Unknown property typo in multi-line block
+    std::string yaml_typo = R"(
+tap_hold:
+  capslock:
+    tap: esc
+    hold: super
+    tiemout_ms: 200
+)";
+    assert(!loadYamlConfig(yaml_typo, config, err));
+    assert(!err.empty());
+
+    // Conflicting key in both tap_hold and combos
+    std::string yaml_conflict = R"(
+tap_hold:
+  capslock: [esc, super]
+combos:
+  capslock h: left
+)";
+    assert(!loadYamlConfig(yaml_conflict, config, err));
+    assert(err.find("cannot be used in both combos and tap_hold") != std::string::npos);
+
     std::cout << "test_parser_validation_errors: PASSED\n";
+}
+
+static void test_reset_timestamp_monotonic() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    TapHoldKey thk;
+    thk.key = Keys::KEY_CAPSLOCK;
+    thk.tap_key = Keys::KEY_ESC;
+    thk.hold_key = Keys::KEY_LEFTMETA;
+    thk.timeout_us = 200000LL;
+    engine.setTapHoldKeys({thk});
+
+    Event ev_down{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN};
+    engine.processEvent(ev_down);
+
+    // Timer expires at 210000us
+    engine.onTimer(TimeVal{0, 210000});
+    assert(writer.keyEvents().size() == 1);
+    TimeVal down_tv = writer.keyEvents()[0].time;
+
+    // Call reset
+    engine.reset();
+    assert(writer.keyEvents().size() == 2);
+    TimeVal up_tv = writer.keyEvents()[1].time;
+
+    // Verify timestamp monotonicity: up_tv >= down_tv
+    assert(up_tv >= down_tv);
+    std::cout << "test_reset_timestamp_monotonic: PASSED\n";
 }
 
 static void test_parser_combined_config() {
@@ -393,10 +461,11 @@ int main() {
     test_double_tap();
     test_multiple_keys_while_held();
     test_reset_releases_held_key();
+    test_reset_timestamp_monotonic();
     test_parser_multiline_tap_hold();
     test_parser_inline_bracket();
     test_parser_validation_errors();
     test_parser_combined_config();
-    std::cout << "All 10 Tap-vs-Hold tests passed successfully!\n";
+    std::cout << "All 11 Tap-vs-Hold tests passed successfully!\n";
     return 0;
 }
