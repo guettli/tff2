@@ -384,14 +384,11 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
         auto colon = t.find(':');
         if (colon != std::string::npos) {
             std::string key_part = trim(t.substr(0, colon));
-            if (key_part.rfind("- ", 0) == 0) {
-                key_part = trim(key_part.substr(2));
-            }
             std::string val_part = trim(t.substr(colon + 1));
 
             // Leader prefix case, e.g. "f:"
             if (val_part.empty()) {
-                current_leader = key_part + " ";
+                current_leader = key_part;
                 leader_indent = current_indent;
                 continue;
             }
@@ -401,31 +398,47 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
                 current_leader.clear();
             }
 
-            std::string full_input = current_leader + key_part;
-            bool is_symmetric = (full_input.find('+') != std::string::npos);
-            std::vector<std::string> in_words;
+            bool is_symmetric = (key_part.find('+') != std::string::npos);
+            std::vector<std::string> chord_words;
             if (is_symmetric) {
-                auto raw_parts = split(full_input, '+');
+                auto raw_parts = split(key_part, '+');
                 for (const auto& p : raw_parts) {
                     std::string word = trim(p);
-                    if (!word.empty()) in_words.push_back(word);
+                    if (!word.empty()) chord_words.push_back(word);
+                }
+                if (chord_words.size() != 2) {
+                    err_msg = "symmetric combos with '+' require exactly two keys";
+                    return false;
                 }
             } else {
-                in_words = fields(full_input);
+                chord_words = fields(key_part);
             }
 
-            if (in_words.empty()) {
+            if (chord_words.empty()) {
                 err_msg = "empty list in 'keys' is not allowed";
                 return false;
             }
 
-            std::vector<KeyCode> in_codes;
-            for (const auto& w : in_words) {
+            std::vector<KeyCode> chord_codes;
+            for (const auto& w : chord_words) {
                 KeyCode code = 0;
                 if (!wordToKeyCode(w, code, err_msg)) {
                     return false;
                 }
-                in_codes.push_back(code);
+                chord_codes.push_back(code);
+            }
+
+            // If a leader key is active, resolve it
+            std::vector<KeyCode> leader_codes;
+            if (!current_leader.empty()) {
+                auto leader_words = fields(current_leader);
+                for (const auto& lw : leader_words) {
+                    KeyCode lcode = 0;
+                    if (!wordToKeyCode(lw, lcode, err_msg)) {
+                        return false;
+                    }
+                    leader_codes.push_back(lcode);
+                }
             }
 
             auto out_words = parseOutputWords(val_part);
@@ -442,19 +455,24 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
                 out_codes.push_back(code);
             }
 
-            if (is_symmetric && in_codes.size() == 2) {
+            if (is_symmetric) {
                 Combo c1;
-                c1.keys = {in_codes[0], in_codes[1]};
+                c1.keys = leader_codes;
+                c1.keys.push_back(chord_codes[0]);
+                c1.keys.push_back(chord_codes[1]);
                 c1.out_keys = out_codes;
                 combos.push_back(c1);
 
                 Combo c2;
-                c2.keys = {in_codes[1], in_codes[0]};
+                c2.keys = leader_codes;
+                c2.keys.push_back(chord_codes[1]);
+                c2.keys.push_back(chord_codes[0]);
                 c2.out_keys = out_codes;
                 combos.push_back(c2);
             } else {
                 Combo c;
-                c.keys = in_codes;
+                c.keys = leader_codes;
+                c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
                 c.out_keys = out_codes;
                 combos.push_back(c);
             }

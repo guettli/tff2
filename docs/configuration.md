@@ -84,7 +84,7 @@ combos:
 
 ## Supported Key Names and Symbols
 
-Key names are case-insensitive and mapped to standard Linux input event codes:
+Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to standard Linux input event codes:
 
 - **Letters**: `a` through `z`
 - **Digits**: `0` through `9`
@@ -101,7 +101,7 @@ You can validate any configuration file before running the daemon:
 tff validate /etc/tff/tff-combos.yaml
 ```
 
-If any key name or syntax is invalid, the validator prints the exact line and error details and exits with code 1.
+If any key name or syntax is invalid, the validator prints the error details and exits with code 1.
 
 ## Dynamic Reloading
 
