@@ -157,6 +157,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_text_snippets tff_core)
 
+    add_executable(test_modal_layers
+        tests/test_modal_layers.cpp
+    )
+    target_link_libraries(test_modal_layers tff_core)
+
     add_executable(test_tff_mappings
         tests/test_tff_mappings.cpp
     )
@@ -202,6 +207,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_tap_hold COMMAND test_tap_hold)
     add_test(NAME test_triple_combos COMMAND test_triple_combos)
     add_test(NAME test_text_snippets COMMAND test_text_snippets)
+    add_test(NAME test_modal_layers COMMAND test_modal_layers)
     add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
@@ -216,6 +222,7 @@ if(NOT PICO_BUILD)
         test_tap_hold
         test_triple_combos
         test_text_snippets
+        test_modal_layers
         test_tff_mappings
         test_tff_go_suite
         test_linux_platform

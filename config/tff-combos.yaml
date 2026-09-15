@@ -68,6 +68,30 @@ tap_hold:
     hold: super
     timeout_ms: 200
 
-# Later it would be nice to have shortcuts for ctrl-a, ctrl-x, ctrl-c, ctrl-v. So that my fingers
-# can stay on the home row.
-# A numeric "layer" would be nice. I could use a "d f" on the right hand, and type numbers with the left hand....
+# Modal Keyboard Layers:
+# Hold a key to temporarily switch into a dedicated navigation or numeric layer.
+# Unmapped keys pass through to base typing.
+#
+# layers:
+#   nav:
+#     h: left
+#     j: down
+#     k: up
+#     l: right
+#     w: ctrl+right
+#     b: ctrl+left
+#     d: delete
+#   numpad:
+#     m: 0
+#     j: 1
+#     k: 2
+#     l: 3
+#     u: 4
+#     i: 5
+#     o: 6
+#
+# tap_hold:
+#   space:
+#     tap: space
+#     layer: nav
+#     timeout_ms: 200

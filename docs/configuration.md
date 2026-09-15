@@ -180,9 +180,76 @@ When a tap-hold key is pressed and another key is tapped (e.g., CapsLock + `c`),
 > **Key Rollover**: Because chords immediately promote to hold, typists rolling keys very rapidly when tapping Escape in modal editors (e.g. Vim) should release CapsLock before pressing the next key to ensure it registers as a tap rather than a chord modifier.
 
 ### Validation Rules
-- `tap_hold` definitions require both `tap` and `hold` targets.
+- `tap_hold` definitions require both `tap` and `hold` (or `layer`) targets.
 - `timeout_ms` must be a positive integer (default: 200 ms).
 - A key configured under `tap_hold` cannot also be part of a `combos:` chord to prevent ambiguous overlapping triggers.
+
+## Modal Keyboard Layers
+
+Modal layers allow you to temporarily remap keyboard keys into specialized layouts (such as navigation clusters, numeric keypads, or symbol sets) while a designated layer key is held, similar to advanced custom keyboard firmware (QMK, ZMK, KMonad).
+
+### Defining Layers
+
+Define one or more named layers under the `layers:` root key:
+
+```yaml
+layers:
+  nav:
+    h: left
+    j: down
+    k: up
+    l: right
+    w: ctrl+right
+    b: ctrl+left
+    d: delete
+    c: "println!();"
+  numpad:
+    m: 0
+    j: 1
+    k: 2
+    l: 3
+    u: 4
+    i: 5
+    o: 6
+```
+
+Each layer maps input keys to:
+- Single keys (e.g. `h: left`)
+- Hotkey combos and modifier chords (e.g. `w: ctrl+right`)
+- Text snippets (e.g. `c: "println!();"`)
+
+### Activating Layers with Tap-vs-Hold
+
+Connect any layer to a momentary trigger using `tap_hold:`:
+
+```yaml
+tap_hold:
+  space:
+    tap: space
+    layer: nav
+    timeout_ms: 200
+
+  # Or classic list syntax:
+  - key: rightalt
+    tap: rightalt
+    layer: numpad
+
+  # Or compact inline syntax:
+  tab: [tab, nav, 250]
+```
+
+### Key Behaviors
+
+- **Instant Permissive Chording**: When a tap-hold layer key (like Space) goes down and another key is tapped, the layer activates immediately with zero latency.
+- **Key Passthrough**: Any key not explicitly mapped within an active layer passes through transparently to base typing and combos.
+- **Stuck-Key Prevention**: If you press a key while a layer is active (e.g. holding Space and pressing `h` to send Left Arrow) and release Space before releasing `h`, TFF guarantees that Left Arrow UP is synthesized upon releasing `h`, preventing any stuck or hanging keys.
+- **Layer Stacking (LIFO)**: If multiple layers are active simultaneously, key lookup resolves from the top of the stack downwards (most recently activated layer has priority).
+- **Dual-Role Tapping**: Tapping Space quickly without pressing another key emits a normal Space keystroke.
+
+### Validation Rules
+- Any layer referenced by `layer:` in `tap_hold` must be defined in `layers:`.
+- Duplicate layer names and duplicate key mappings within a layer are rejected.
+- Keys inside layer mappings cannot have empty outputs.
 
 ## Supported Key Names and Symbols
 

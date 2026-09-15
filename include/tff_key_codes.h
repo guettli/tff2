@@ -67,6 +67,9 @@ namespace Keys {
     constexpr KeyCode KEY_LEFTALT    = 56;
     constexpr KeyCode KEY_SPACE      = 57;
     constexpr KeyCode KEY_CAPSLOCK   = 58;
+    constexpr KeyCode KEY_KP1        = 79;
+    constexpr KeyCode KEY_KP0        = 82;
+    constexpr KeyCode KEY_RIGHTALT   = 100;
     constexpr KeyCode KEY_HOME       = 102;
     constexpr KeyCode KEY_UP         = 103;
     constexpr KeyCode KEY_PAGEUP     = 104;

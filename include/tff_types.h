@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <limits>
+#include <unordered_map>
 
 namespace tff {
 
@@ -102,20 +103,45 @@ struct Combo {
     }
 };
 
+struct LayerAction {
+    std::vector<KeyCode> out_keys;
+    std::string text;
+
+    LayerAction() = default;
+    explicit LayerAction(std::vector<KeyCode> ok, std::string t = "")
+        : out_keys(std::move(ok)), text(std::move(t)) {}
+
+    bool operator==(const LayerAction& o) const {
+        return out_keys == o.out_keys && text == o.text;
+    }
+};
+
+struct Layer {
+    std::string name;
+    std::unordered_map<KeyCode, LayerAction> mappings;
+
+    bool operator==(const Layer& o) const {
+        return name == o.name && mappings == o.mappings;
+    }
+};
+
 struct TapHoldKey {
     KeyCode key = 0;               // Key to intercept (e.g. KEY_CAPSLOCK)
     KeyCode tap_key = 0;           // Emitted on short tap (e.g. KEY_ESC)
     KeyCode hold_key = 0;          // Emitted on long press / hold (e.g. KEY_LEFTMETA / Super / Win)
+    std::string hold_layer;        // Layer activated while held (e.g. "nav")
     int64_t timeout_us = 200000LL; // Overlap timeout in microseconds (default 200ms)
 
     bool operator==(const TapHoldKey& o) const {
-        return key == o.key && tap_key == o.tap_key && hold_key == o.hold_key && timeout_us == o.timeout_us;
+        return key == o.key && tap_key == o.tap_key && hold_key == o.hold_key &&
+               hold_layer == o.hold_layer && timeout_us == o.timeout_us;
     }
 };
 
 struct Config {
     std::vector<Combo> combos;
     std::vector<TapHoldKey> tap_hold_keys;
+    std::vector<Layer> layers;
 };
 
 class EventWriter {

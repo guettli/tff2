@@ -80,7 +80,12 @@ public:
     void setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys);
 
     /**
-     * @brief Set full configuration (combos and tap-hold keys)
+     * @brief Set modal layers directly
+     */
+    void setLayers(const std::vector<tff::Layer>& layers);
+
+    /**
+     * @brief Set full configuration (combos, tap-hold keys, and layers)
      */
     void setConfig(const tff::Config& config);
 

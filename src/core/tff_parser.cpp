@@ -388,20 +388,26 @@ std::string normalizeShortCsv(const std::string& input) {
 }
 
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg) {
+    config = Config{};
     std::istringstream iss(yaml_str);
     std::string line;
     bool in_combos = false;
     bool in_tap_hold = false;
+    bool in_layers = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
     bool has_text = false;
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
+    bool has_layers_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
+    size_t layers_base_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
+    std::string current_layer_name;
+    size_t current_layer_indent = 0;
 
     // For multi-line tap_hold definitions
     TapHoldKey pending_th;
@@ -411,7 +417,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     auto flush_pending_th = [&]() -> bool {
         if (has_pending_th) {
             if (pending_th.key != 0) {
-                if (pending_th.tap_key == 0 || pending_th.hold_key == 0) {
+                if (pending_th.tap_key == 0 || (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
                     err_msg = "tap_hold definition requires both 'tap' and 'hold'";
                     return false;
                 }
@@ -435,6 +441,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (!flush_pending_th()) return false;
             in_combos = true;
             in_tap_hold = false;
+            in_layers = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -448,9 +455,24 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (!flush_pending_th()) return false;
             in_tap_hold = true;
             in_combos = false;
+            in_layers = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
+        }
+
+        if (t.rfind("layers:", 0) == 0) {
+            if (!flush_pending_th()) return false;
+            in_layers = true;
+            in_combos = false;
+            in_tap_hold = false;
+            has_layers_tag = true;
+            layers_base_indent = current_indent;
+            current_layer_name.clear();
+            continue;
+        } else if (t.rfind("layers", 0) == 0 && t.find(':') == std::string::npos) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
         }
 
         if (in_combos && current_indent <= combos_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
@@ -458,28 +480,142 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             current_leader.clear();
         }
 
-        if (in_tap_hold && current_indent <= tap_hold_base_indent && t.find(':') != std::string::npos) {
+        if (in_tap_hold && current_indent <= tap_hold_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             if (!flush_pending_th()) return false;
             in_tap_hold = false;
         }
 
-        if (in_tap_hold) {
+        if (in_layers && current_indent <= layers_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            in_layers = false;
+            current_layer_name.clear();
+        }
+
+        if (in_layers) {
             auto colon = t.find(':');
             if (colon == std::string::npos) continue;
 
             std::string key_part = trim(t.substr(0, colon));
             std::string val_part = trim(t.substr(colon + 1));
 
-            // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "timeout_ms: 200")
+            if (current_layer_name.empty() || current_indent <= current_layer_indent) {
+                // Layer header, e.g. "nav:"
+                if (key_part.empty()) {
+                    err_msg = "empty layer name";
+                    return false;
+                }
+                for (const auto& lyr : config.layers) {
+                    if (lyr.name == key_part) {
+                        err_msg = "duplicate layer definition: " + key_part;
+                        return false;
+                    }
+                }
+                current_layer_name = key_part;
+                current_layer_indent = current_indent;
+                Layer new_layer;
+                new_layer.name = current_layer_name;
+                config.layers.push_back(new_layer);
+                continue;
+            }
+
+            // Key mapping inside current layer
+            KeyCode in_code = 0;
+            if (!wordToKeyCode(key_part, in_code, err_msg)) {
+                return false;
+            }
+
+            if (config.layers.back().mappings.find(in_code) != config.layers.back().mappings.end()) {
+                err_msg = "duplicate mapping for key '" + key_part + "' in layer '" + current_layer_name + "'";
+                return false;
+            }
+
+            if (val_part.empty()) {
+                err_msg = "empty mapping for key '" + key_part + "' in layer '" + current_layer_name + "'";
+                return false;
+            }
+
+            std::string snippet;
+            bool snippet_mode = isTextSnippet(val_part, snippet);
+            if (snippet_mode) {
+                if (snippet.empty()) {
+                    err_msg = "empty text snippet is not allowed";
+                    return false;
+                }
+                for (char ch : snippet) {
+                    KeyCode kc = 0;
+                    bool shift = false;
+                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        return false;
+                    }
+                }
+                LayerAction act;
+                act.text = snippet;
+                config.layers.back().mappings[in_code] = act;
+            } else {
+                auto out_words = parseOutputWords(val_part);
+                if (out_words.empty()) {
+                    err_msg = "empty list in 'outKeys' is not allowed";
+                    return false;
+                }
+                std::vector<KeyCode> out_codes;
+                for (const auto& w : out_words) {
+                    KeyCode code = 0;
+                    if (!wordToKeyCode(w, code, err_msg)) {
+                        return false;
+                    }
+                    out_codes.push_back(code);
+                }
+                LayerAction act;
+                act.out_keys = out_codes;
+                config.layers.back().mappings[in_code] = act;
+            }
+            continue;
+        }
+
+        if (in_tap_hold) {
+            std::string line_content = t;
+            if (line_content.rfind("- key:", 0) == 0) {
+                line_content = trim(line_content.substr(2)); // "key: ..."
+            } else if (line_content.rfind("- ", 0) == 0 && line_content.find(':') != std::string::npos) {
+                line_content = trim(line_content.substr(2));
+            }
+
+            auto colon = line_content.find(':');
+            if (colon == std::string::npos) continue;
+
+            std::string key_part = trim(line_content.substr(0, colon));
+            std::string val_part = trim(line_content.substr(colon + 1));
+
+            // Check if this is a new "- key: space" list item
+            if (key_part == "key") {
+                if (!flush_pending_th()) return false;
+                KeyCode th_code = 0;
+                if (!wordToKeyCode(val_part, th_code, err_msg)) {
+                    return false;
+                }
+                has_pending_th = true;
+                pending_th_indent = current_indent;
+                pending_th.key = th_code;
+                pending_th.timeout_us = 200000LL;
+                continue;
+            }
+
+            // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "layer: nav", "timeout_ms: 200")
             if (has_pending_th && current_indent > pending_th_indent) {
                 if (key_part == "tap") {
                     if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
                         return false;
                     }
                 } else if (key_part == "hold") {
-                    if (!wordToKeyCode(val_part, pending_th.hold_key, err_msg)) {
-                        return false;
+                    std::string dummy_err;
+                    if (wordToKeyCode(val_part, pending_th.hold_key, dummy_err)) {
+                        // valid key code
+                    } else {
+                        // layer name (validated at EOF)
+                        pending_th.hold_layer = val_part;
                     }
+                } else if (key_part == "layer" || key_part == "hold_layer") {
+                    pending_th.hold_layer = val_part;
                 } else if (key_part == "timeout_ms" || key_part == "timeout") {
                     try {
                         long long val = std::stoll(val_part);
@@ -514,7 +650,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 pending_th.key = th_code;
                 pending_th.timeout_us = 200000LL;
             } else {
-                // Inline compact format: "capslock: [esc, super]" or "capslock: esc super"
+                // Inline compact format: "capslock: [esc, super]" or "space: [space, nav, 200]"
                 std::string clean_val = val_part;
                 if (clean_val.front() == '[') clean_val = clean_val.substr(1);
                 if (!clean_val.empty() && clean_val.back() == ']') clean_val.pop_back();
@@ -538,7 +674,17 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 TapHoldKey thk;
                 thk.key = th_code;
                 if (!wordToKeyCode(parts[0], thk.tap_key, err_msg)) return false;
-                if (!wordToKeyCode(parts[1], thk.hold_key, err_msg)) return false;
+                std::string hold_target = parts[1];
+                if (hold_target.rfind("layer:", 0) == 0) {
+                    thk.hold_layer = hold_target.substr(6);
+                } else {
+                    std::string dummy_err;
+                    if (wordToKeyCode(hold_target, thk.hold_key, dummy_err)) {
+                        // hold_key set
+                    } else {
+                        thk.hold_layer = hold_target;
+                    }
+                }
                 if (parts.size() >= 3) {
                     try {
                         long long val = std::stoll(parts[2]);
@@ -868,12 +1014,25 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
 
     for (const auto& th : config.tap_hold_keys) {
+        if (!th.hold_layer.empty()) {
+            bool found_layer = false;
+            for (const auto& lyr : config.layers) {
+                if (lyr.name == th.hold_layer) {
+                    found_layer = true;
+                    break;
+                }
+            }
+            if (!found_layer) {
+                err_msg = "unknown layer '" + th.hold_layer + "' referenced in tap_hold";
+                return false;
+            }
+        }
         for (const auto& combo : config.combos) {
             for (KeyCode k : combo.keys) {
                 if (k == th.key) {

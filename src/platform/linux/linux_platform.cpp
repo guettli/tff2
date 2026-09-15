@@ -126,9 +126,19 @@ void LinuxPlatform::setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys) {
     }
 }
 
+void LinuxPlatform::setLayers(const std::vector<tff::Layer>& layers) {
+    if (!initialized_) {
+        initialize();
+    }
+    if (engine_) {
+        engine_->setLayers(layers);
+    }
+}
+
 void LinuxPlatform::setConfig(const tff::Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
+    setLayers(config.layers);
 }
 
 bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
@@ -202,7 +212,8 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
     setConfig(config);
     std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved
               << " (" << config.combos.size() << " combo(s), "
-              << config.tap_hold_keys.size() << " tap-hold key(s) active)\n";
+              << config.tap_hold_keys.size() << " tap-hold key(s), "
+              << config.layers.size() << " layer(s) active)\n";
     return true;
 }
 
