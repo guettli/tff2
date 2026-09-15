@@ -195,16 +195,38 @@ combos:
         std::cout << "✓ Test 8 passed: leader key grouping and un-indentation\n";
     }
 
-    // Test 9: Malformed symmetric combos properly rejected
+    // Test 9: Symmetric combos with 3+ keys, duplicate detection, and malformed rejection
     {
         std::vector<tff::Combo> combos;
         std::string err_msg;
-        assert(!tff::loadYamlCombos("combos:\n  a + b + c: esc\n", combos, err_msg));
-        assert(err_msg.find("require exactly two keys") != std::string::npos);
 
+        // 3-key symmetric combo generates 3! = 6 permutations
+        bool ok3 = tff::loadYamlCombos("combos:\n  d + f + j: esc\n", combos, err_msg);
+        assert(ok3);
+        assert(combos.size() == 6);
+
+        // Classic format with '+' also generates permutations
+        combos.clear();
+        bool ok_classic = tff::loadYamlCombos("combos:\n  - keys: d + f + j\n    outKeys: esc\n", combos, err_msg);
+        assert(ok_classic);
+        assert(combos.size() == 6);
+
+        // 4-key symmetric combo generates 4! = 24 permutations
+        combos.clear();
+        bool ok4 = tff::loadYamlCombos("combos:\n  a + s + d + f: mute\n", combos, err_msg);
+        assert(ok4);
+        assert(combos.size() == 24);
+
+        // Duplicate key in symmetric combo is rejected
+        combos.clear();
+        assert(!tff::loadYamlCombos("combos:\n  d + f + d: esc\n", combos, err_msg));
+        assert(err_msg.find("duplicate key") != std::string::npos);
+
+        // Incomplete combo with '+' is rejected
+        combos.clear();
         assert(!tff::loadYamlCombos("combos:\n  g +: esc\n", combos, err_msg));
-        assert(err_msg.find("require exactly two keys") != std::string::npos);
-        std::cout << "✓ Test 9 passed: invalid symmetric combos rejected with clear error\n";
+        assert(err_msg.find("require at least two keys") != std::string::npos);
+        std::cout << "✓ Test 9 passed: N-key symmetric combos (3-key, 4-key), duplicate detection, and validation\n";
     }
 
     // Test 10: Hotkey modifier output syntax (ctrl+s, alt+tab)

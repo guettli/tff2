@@ -147,6 +147,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_tap_hold tff_core)
 
+    add_executable(test_triple_combos
+        tests/test_triple_combos.cpp
+    )
+    target_link_libraries(test_triple_combos tff_core)
+
     add_executable(test_tff_mappings
         tests/test_tff_mappings.cpp
     )
@@ -190,6 +195,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
     add_test(NAME test_yaml_parser COMMAND test_yaml_parser)
     add_test(NAME test_tap_hold COMMAND test_tap_hold)
+    add_test(NAME test_triple_combos COMMAND test_triple_combos)
     add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
@@ -202,6 +208,7 @@ if(NOT PICO_BUILD)
         test_rp2040_platform
         test_yaml_parser
         test_tap_hold
+        test_triple_combos
         test_tff_mappings
         test_tff_go_suite
         test_linux_platform

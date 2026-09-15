@@ -55,9 +55,17 @@ combos:
   f j: delete
   ; a: home
   a ;: end
-  g + h: esc       # Symmetric: either g then h, or h then g
+  g + h: esc       # Symmetric 2-key chord: g and h in any order
+  d + f + j: esc   # Triple chord: d, f, and j pressed together in any order
   f space: ctrl+s  # Hotkey action
 ```
+
+##### Simultaneous & Symmetric Chords (`+`)
+When keys are joined with `+`, TFF treats them as an order-independent chord:
+- **2-key chords**: `g + h: esc` (matches `g h` or `h g`)
+- **3-key chords (Triple combos)**: `d + f + j: esc` (matches all 6 arrival permutations of `d`, `f`, and `j`)
+- **4-key chords**: `a + s + d + f: mute` (matches all 24 arrival permutations)
+- Supported in both compact (`d + f + j: esc`) and classic list format (`- keys: d + f + j \n outKeys: esc`).
 
 ##### Leader Key Grouping
 Group related chords sharing an anchor key (e.g., `f` for navigation):
