@@ -394,7 +394,11 @@ void TFFEngine::writeComboDownKeys(const Combo& combo) {
         }
     }
     if (!buf_.empty()) {
-        writeCombo(combo, buf_[0].time, KEY_VAL_DOWN);
+        if (!combo.text.empty()) {
+            emitText(combo.text, buf_[0].time);
+        } else {
+            writeCombo(combo, buf_[0].time, KEY_VAL_DOWN);
+        }
     }
 }
 
@@ -455,9 +459,48 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
     }
 
     if (!buf_.empty()) {
-        writeCombo(combo, buf_[0].time, KEY_VAL_UP);
+        if (combo.text.empty()) {
+            writeCombo(combo, buf_[0].time, KEY_VAL_UP);
+        }
     }
     buf_ = std::move(new_buf);
+}
+
+void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
+    TimeVal curr_time = base_time;
+    for (char c : text) {
+        KeyCode code = 0;
+        bool shift = false;
+        if (!asciiToKeyStroke(c, code, shift)) {
+            continue;
+        }
+
+        if (shift) {
+            Event s_down{curr_time, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN};
+            writeEvent(s_down, "TextSnippet");
+            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+
+            Event k_down{curr_time, EV_KEY, code, KEY_VAL_DOWN};
+            writeEvent(k_down, "TextSnippet");
+            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+
+            Event k_up{curr_time, EV_KEY, code, KEY_VAL_UP};
+            writeEvent(k_up, "TextSnippet");
+            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+
+            Event s_up{curr_time, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_UP};
+            writeEvent(s_up, "TextSnippet");
+            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+        } else {
+            Event k_down{curr_time, EV_KEY, code, KEY_VAL_DOWN};
+            writeEvent(k_down, "TextSnippet");
+            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+
+            Event k_up{curr_time, EV_KEY, code, KEY_VAL_UP};
+            writeEvent(k_up, "TextSnippet");
+            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+        }
+    }
 }
 
 void TFFEngine::writeCombo(const Combo& combo, TimeVal time, int32_t value) {
