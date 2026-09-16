@@ -95,3 +95,17 @@ tap_hold:
 #     tap: space
 #     layer: nav
 #     timeout_ms: 200
+
+# One-Shot / Sticky Modifiers and Layers (OSM & OSL):
+# Quick tap arms the modifier or layer for the next single keypress, then auto-disengages.
+# Holding or chording the key acts as a regular sustained modifier or momentary layer.
+#
+# one_shot:
+#   leftshift: 1500    # Tap Shift -> next key is capitalized, expires in 1.5s
+#   leftctrl: 1500     # Tap Ctrl -> next key has Ctrl modifier (e.g. tap Ctrl, press C -> Ctrl+C)
+#   space: [nav, 1500] # Tap Space -> next single key comes from 'nav' layer
+#
+# Tap-Hold can also arm one-shot actions:
+# tap_hold:
+#   capslock: [osm(shift), super, 200]  # Tap = Sticky Shift, Hold = Super
+#   space: [osl(nav), alt, 200]         # Tap = One-Shot Nav layer, Hold = Alt

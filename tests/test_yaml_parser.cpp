@@ -314,6 +314,61 @@ combos:
         std::cout << "✓ Test 12 passed: text snippets and macro expansions\n";
     }
 
+    // Test 13: One-shot modifiers and layers in YAML
+    {
+        std::string one_shot_yaml = R"(
+layers:
+  nav:
+    h: left
+    j: down
+    k: up
+    l: right
+
+one_shot:
+  leftshift: 1500
+  leftctrl: 1200
+  space: [nav, 2000]
+  - key: capslock
+    modifier: alt
+    timeout_ms: 1000
+
+tap_hold:
+  tab:
+    tap: osm(shift)
+    hold: super
+    timeout_ms: 200
+  backspace:
+    tap: osl(nav)
+    hold: alt
+    timeout_ms: 250
+)";
+        tff::Config config;
+        std::string err_msg;
+        bool ok = tff::loadYamlConfig(one_shot_yaml, config, err_msg);
+        assert(ok);
+        assert(config.one_shot_keys.size() == 4);
+        assert(config.one_shot_keys[0].key == tff::Keys::KEY_LEFTSHIFT);
+        assert(config.one_shot_keys[0].modifier == tff::Keys::KEY_LEFTSHIFT);
+        assert(config.one_shot_keys[0].timeout_us == 1500000LL);
+
+        assert(config.one_shot_keys[1].key == tff::Keys::KEY_LEFTCTRL);
+        assert(config.one_shot_keys[1].modifier == tff::Keys::KEY_LEFTCTRL);
+
+        assert(config.one_shot_keys[2].key == tff::Keys::KEY_SPACE);
+        assert(config.one_shot_keys[2].layer == "nav");
+        assert(config.one_shot_keys[2].timeout_us == 2000000LL);
+
+        assert(config.one_shot_keys[3].key == tff::Keys::KEY_CAPSLOCK);
+        assert(config.one_shot_keys[3].modifier == tff::Keys::KEY_LEFTALT);
+        assert(config.one_shot_keys[3].timeout_us == 1000000LL);
+
+        assert(config.tap_hold_keys.size() == 2);
+        assert(config.tap_hold_keys[0].tap_one_shot_modifier == tff::Keys::KEY_LEFTSHIFT);
+        assert(config.tap_hold_keys[1].tap_one_shot_layer == "nav");
+
+        std::cout << "✓ Test 13 passed: one-shot modifiers and layers\n";
+    }
+
     std::cout << "\nAll YAML parser tests passed!\n";
     return 0;
 }

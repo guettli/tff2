@@ -23,10 +23,71 @@ void TFFEngine::setLayers(const std::vector<Layer>& layers) {
     layers_ = layers;
 }
 
+void TFFEngine::setOneShotKeys(const std::vector<OneShotKey>& keys) {
+    one_shot_keys_ = keys;
+}
+
 void TFFEngine::setConfig(const Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
     setLayers(config.layers);
+    setOneShotKeys(config.one_shot_keys);
+}
+
+Config TFFEngine::getConfig() const {
+    return Config{all_combos_, tap_hold_keys_, layers_, one_shot_keys_};
+}
+
+void TFFEngine::armOneShotModifier(KeyCode mod, TimeVal time, int64_t timeout_us) {
+    TimeVal expire = TimeVal::fromMicros(time.toMicros() + timeout_us);
+    for (auto& armed : armed_one_shot_modifiers_) {
+        if (armed.modifier == mod) {
+            armed.expire_time = expire;
+            return;
+        }
+    }
+    armed_one_shot_modifiers_.push_back({mod, expire});
+}
+
+void TFFEngine::armOneShotLayer(const std::string& layer, TimeVal time, int64_t timeout_us) {
+    TimeVal expire = TimeVal::fromMicros(time.toMicros() + timeout_us);
+    for (auto& armed : armed_one_shot_layers_) {
+        if (armed.layer == layer) {
+            armed.expire_time = expire;
+            return;
+        }
+    }
+    armed_one_shot_layers_.push_back({layer, expire});
+    activateLayer(layer);
+}
+
+bool TFFEngine::isOneShotModifierArmed(KeyCode mod) const {
+    for (const auto& armed : armed_one_shot_modifiers_) {
+        if (armed.modifier == mod) return true;
+    }
+    return false;
+}
+
+bool TFFEngine::isOneShotLayerArmed(const std::string& layer) const {
+    for (const auto& armed : armed_one_shot_layers_) {
+        if (armed.layer == layer) return true;
+    }
+    return false;
+}
+
+void TFFEngine::disengageOneShots(TimeVal time) {
+    if (out_dev_) {
+        for (auto it = active_one_shot_modifiers_down_.rbegin(); it != active_one_shot_modifiers_down_.rend(); ++it) {
+            writeKey(*it, KEY_VAL_UP, time);
+        }
+    }
+    active_one_shot_modifiers_down_.clear();
+
+    for (const auto& lyr : active_one_shot_layers_deactivate_) {
+        deactivateLayer(lyr);
+    }
+    active_one_shot_layers_deactivate_.clear();
+    disengaging_trigger_key_ = 0;
 }
 
 void TFFEngine::activateLayer(const std::string& name) {
@@ -51,6 +112,10 @@ void TFFEngine::toggleLayer(const std::string& name) {
     } else {
         active_layer_stack_.push_back(name);
     }
+}
+
+bool TFFEngine::isLayerActive(const std::string& name) const {
+    return std::find(active_layer_stack_.begin(), active_layer_stack_.end(), name) != active_layer_stack_.end();
 }
 
 const LayerAction* TFFEngine::findLayerAction(KeyCode code) const {
@@ -91,6 +156,9 @@ bool TFFEngine::hasActiveTimer() const {
             return true;
         }
     }
+    if (!armed_one_shot_modifiers_.empty() || !armed_one_shot_layers_.empty()) {
+        return true;
+    }
     return false;
 }
 
@@ -102,6 +170,16 @@ TimeVal TFFEngine::getActiveTimerTime() const {
             if (th_time < earliest) {
                 earliest = th_time;
             }
+        }
+    }
+    for (const auto& armed : armed_one_shot_modifiers_) {
+        if (armed.expire_time < earliest) {
+            earliest = armed.expire_time;
+        }
+    }
+    for (const auto& armed : armed_one_shot_layers_) {
+        if (armed.expire_time < earliest) {
+            earliest = armed.expire_time;
         }
     }
     return earliest;
@@ -116,6 +194,12 @@ void TFFEngine::reset() {
         }
     }
     active_tap_holds_.clear();
+    disengageOneShots(TimeVal{});
+    for (const auto& armed : armed_one_shot_layers_) {
+        deactivateLayer(armed.layer);
+    }
+    armed_one_shot_layers_.clear();
+    armed_one_shot_modifiers_.clear();
     releaseHeldLayerRemaps(TimeVal{});
     active_layer_stack_.clear();
     buf_.clear();
@@ -152,12 +236,28 @@ bool TFFEngine::processEvent(const Event& ev) {
         return true;
     }
 
-    // Check if this key is configured as a tap-hold key
+    // Check if this key is configured as a tap-hold key or one-shot key
+    TapHoldKey synthesized_th;
     const TapHoldKey* thk = nullptr;
     for (const auto& k : tap_hold_keys_) {
         if (k.key == ev.code) {
             thk = &k;
             break;
+        }
+    }
+    if (thk == nullptr) {
+        for (const auto& osk : one_shot_keys_) {
+            if (osk.key == ev.code) {
+                synthesized_th.key = osk.key;
+                synthesized_th.tap_one_shot_modifier = osk.modifier != 0 ? osk.modifier : (osk.layer.empty() ? osk.key : 0);
+                synthesized_th.tap_one_shot_layer = osk.layer;
+                synthesized_th.tap_one_shot_timeout_us = osk.timeout_us;
+                synthesized_th.hold_key = osk.layer.empty() ? synthesized_th.tap_one_shot_modifier : 0;
+                synthesized_th.hold_layer = osk.layer;
+                synthesized_th.timeout_us = 200000LL;
+                thk = &synthesized_th;
+                break;
+            }
         }
     }
 
@@ -187,6 +287,21 @@ bool TFFEngine::processEvent(const Event& ev) {
                 active_tap_holds_.push_back(ath);
             }
             return true;
+        }
+
+        // Armed one-shots apply to this regular key
+        if (!armed_one_shot_modifiers_.empty() || !armed_one_shot_layers_.empty()) {
+            disengaging_trigger_key_ = ev.code;
+            for (const auto& armed : armed_one_shot_modifiers_) {
+                writeKey(armed.modifier, KEY_VAL_DOWN, ev.time);
+                active_one_shot_modifiers_down_.push_back(armed.modifier);
+            }
+            armed_one_shot_modifiers_.clear();
+
+            for (const auto& armed : armed_one_shot_layers_) {
+                active_one_shot_layers_deactivate_.push_back(armed.layer);
+            }
+            armed_one_shot_layers_.clear();
         }
 
         // Check active layers
@@ -221,6 +336,9 @@ bool TFFEngine::processEvent(const Event& ev) {
                 }
             }
             held_layer_remaps_.erase(remap_it);
+            if (disengaging_trigger_key_ == ev.code || disengaging_trigger_key_ == 0) {
+                disengageOneShots(ev.time);
+            }
             return true;
         }
 
@@ -232,14 +350,24 @@ bool TFFEngine::processEvent(const Event& ev) {
                     writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
                 }
             } else {
-                writeKey(ath_it->config.tap_key, KEY_VAL_DOWN, ev.time);
-                writeKey(ath_it->config.tap_key, KEY_VAL_UP, ev.time);
+                if (ath_it->config.tap_one_shot_modifier != 0) {
+                    armOneShotModifier(ath_it->config.tap_one_shot_modifier, ev.time, ath_it->config.tap_one_shot_timeout_us);
+                } else if (!ath_it->config.tap_one_shot_layer.empty()) {
+                    armOneShotLayer(ath_it->config.tap_one_shot_layer, ev.time, ath_it->config.tap_one_shot_timeout_us);
+                } else if (ath_it->config.tap_key != 0) {
+                    writeKey(ath_it->config.tap_key, KEY_VAL_DOWN, ev.time);
+                    writeKey(ath_it->config.tap_key, KEY_VAL_UP, ev.time);
+                }
             }
             active_tap_holds_.erase(ath_it);
             return true;
         }
 
-        return handleUpChar(ev);
+        bool res = handleUpChar(ev);
+        if (disengaging_trigger_key_ == ev.code || disengaging_trigger_key_ == 0) {
+            disengageOneShots(ev.time);
+        }
+        return res;
     }
 
     return false;
@@ -252,11 +380,23 @@ void TFFEngine::finish() {
                 writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
             }
         } else {
-            writeKey(ath.config.tap_key, KEY_VAL_DOWN, ath.down_time);
-            writeKey(ath.config.tap_key, KEY_VAL_UP, ath.down_time);
+            if (ath.config.tap_one_shot_modifier != 0) {
+                armOneShotModifier(ath.config.tap_one_shot_modifier, ath.down_time, ath.config.tap_one_shot_timeout_us);
+            } else if (!ath.config.tap_one_shot_layer.empty()) {
+                armOneShotLayer(ath.config.tap_one_shot_layer, ath.down_time, ath.config.tap_one_shot_timeout_us);
+            } else if (ath.config.tap_key != 0) {
+                writeKey(ath.config.tap_key, KEY_VAL_DOWN, ath.down_time);
+                writeKey(ath.config.tap_key, KEY_VAL_UP, ath.down_time);
+            }
         }
     }
     active_tap_holds_.clear();
+    disengageOneShots(TimeVal{});
+    for (const auto& armed : armed_one_shot_layers_) {
+        deactivateLayer(armed.layer);
+    }
+    armed_one_shot_layers_.clear();
+    armed_one_shot_modifiers_.clear();
     releaseHeldLayerRemaps(TimeVal{});
     active_layer_stack_.clear();
     flushBuffer("EOF");
@@ -289,6 +429,23 @@ void TFFEngine::onTimer(TimeVal time) {
                 ath.hold_down_time = expire_tv;
                 ath.hold_emitted = true;
             }
+        }
+    }
+
+    for (auto it = armed_one_shot_modifiers_.begin(); it != armed_one_shot_modifiers_.end(); ) {
+        if (time >= it->expire_time) {
+            it = armed_one_shot_modifiers_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    for (auto it = armed_one_shot_layers_.begin(); it != armed_one_shot_layers_.end(); ) {
+        if (time >= it->expire_time) {
+            deactivateLayer(it->layer);
+            it = armed_one_shot_layers_.erase(it);
+        } else {
+            ++it;
         }
     }
 
@@ -577,6 +734,9 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
     if (!buf_.empty()) {
         if (combo.text.empty()) {
             writeCombo(combo, buf_[0].time, KEY_VAL_UP);
+        }
+        if (disengaging_trigger_key_ != 0) {
+            disengageOneShots(buf_[0].time);
         }
     }
     buf_ = std::move(new_buf);

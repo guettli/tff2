@@ -358,6 +358,75 @@ static void test_unmapped_keys_and_auto_init() {
     std::cout << "PASSED\n";
 }
 
+static void test_one_shot_keys() {
+    std::cout << "Test 10: One-shot modifiers and layers on RP2040... ";
+    RP2040Platform platform;
+    std::string config_yaml = R"(
+one_shot:
+  leftshift: 1500
+  space: [nav, 1500]
+layers:
+  nav:
+    k: up
+)";
+    bool ok = platform.loadConfiguration(config_yaml);
+    assert(ok);
+    assert(platform.getConfig().one_shot_keys.size() == 2);
+
+    // Tap LeftShift (USB 0xE1)
+    platform.clearEmittedKeys();
+    platform.setTimestamp(8000);
+    platform.processHostKeyEvent(0xE1, true);
+    platform.setTimestamp(8040);
+    platform.processHostKeyEvent(0xE1, false);
+    // Shift is not emitted yet (it is armed as one-shot modifier)
+    assert(platform.getEmittedKeys().empty());
+
+    // Press Key A (USB 0x04)
+    platform.setTimestamp(8100);
+    platform.processHostKeyEvent(0x04, true);
+    // When Key A is pressed, LeftShift and Key A are emitted!
+    const auto& emitted1 = platform.getEmittedKeys();
+    assert(emitted1.size() == 2);
+    assert(emitted1[0] == tff::Keys::KEY_LEFTSHIFT);
+    assert(emitted1[1] == tff::Keys::KEY_A);
+
+    // Release Key A
+    platform.setTimestamp(8140);
+    platform.processHostKeyEvent(0x04, false);
+
+    // Tap Space (USB 0x2C) -> arms OSL "nav"
+    platform.clearEmittedKeys();
+    platform.setTimestamp(8200);
+    platform.processHostKeyEvent(0x2C, true);
+    platform.setTimestamp(8240);
+    platform.processHostKeyEvent(0x2C, false);
+    assert(platform.getEmittedKeys().empty());
+
+    // Press Key K (USB 0x0E) -> maps to KEY_UP!
+    platform.setTimestamp(8300);
+    platform.processHostKeyEvent(0x0E, true);
+    const auto& emitted2 = platform.getEmittedKeys();
+    assert(emitted2.size() == 1);
+    assert(emitted2[0] == tff::Keys::KEY_UP);
+
+    platform.setTimestamp(8340);
+    platform.processHostKeyEvent(0x0E, false);
+
+    // Next Key K is regular K
+    platform.clearEmittedKeys();
+    platform.setTimestamp(8400);
+    platform.processHostKeyEvent(0x0E, true);
+    const auto& emitted3 = platform.getEmittedKeys();
+    assert(emitted3.size() == 1);
+    assert(emitted3[0] == tff::Keys::KEY_K);
+
+    platform.setTimestamp(8440);
+    platform.processHostKeyEvent(0x0E, false);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
@@ -372,6 +441,7 @@ int main() {
     test_text_snippets();
     test_device_keys_and_cleanup();
     test_unmapped_keys_and_auto_init();
+    test_one_shot_keys();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;

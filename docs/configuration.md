@@ -251,6 +251,65 @@ tap_hold:
 - Duplicate layer names and duplicate key mappings within a layer are rejected.
 - Keys inside layer mappings cannot have empty outputs.
 
+## One-Shot / Sticky Modifiers and Layers (OSM & OSL)
+
+One-shot keys (also known as "sticky keys") eliminate finger contortions by letting you tap a modifier or layer switch *before* typing the key you want to modify, instead of having to hold both keys simultaneously.
+
+- **One-Shot Modifier (OSM)**: Quickly tap `shift` and release it. The next key you type (e.g. `a`) is automatically shifted (`A`). Once the key is released, `shift` automatically disengages.
+- **One-Shot Layer (OSL)**: Quickly tap `space` and release it. The next key you type is dispatched from the specified layer (e.g. `k` sends `up`), after which the layer automatically deactivates.
+- **Chaining**: You can chain multiple one-shot modifiers sequentially. For example, tap `ctrl`, then tap `shift`, then press `t` -> emits `Ctrl + Shift + T`.
+- **Hold & Fast Chording**: If you press and hold a one-shot key, or chord it with another key while held, it acts immediately as a standard sustained modifier or momentary layer.
+- **Expiration Timeout**: If you tap a one-shot key but do not type another key within the configured timeout (default: 1500 ms), the one-shot state expires automatically without emitting phantom keystrokes or leaving modifier flags stuck.
+
+### Configuration Syntax
+
+#### 1. Top-Level `one_shot:` Section (Compact Dictionary)
+
+```yaml
+one_shot:
+  leftshift: 1500    # Tap Shift -> next key is capitalized (expires in 1500ms)
+  leftctrl: 1200     # Tap Ctrl -> next key has Ctrl modifier
+  space: [nav, 2000] # Tap Space -> next single key from 'nav' layer (expires in 2000ms)
+```
+
+#### 2. Top-Level `one_shot:` Section (List Format)
+
+```yaml
+one_shot:
+  - key: leftshift
+    modifier: shift
+    timeout_ms: 1500
+
+  - key: space
+    layer: nav
+    timeout_ms: 2000
+```
+
+#### 3. Dual-Role Tap-vs-Hold Integration (`osm` and `osl`)
+
+One-shot actions can also be combined with dual-role `tap_hold:` keys using `osm(<modifier>)` and `osl(<layer>)`:
+
+```yaml
+tap_hold:
+  # Tap CapsLock = Sticky Shift (next key capitalized); Hold CapsLock = Super/Win key
+  capslock: [osm(shift), super, 200]
+
+  # Tap Space = One-Shot Nav layer; Hold Space = Momentary Alt
+  space: [osl(nav), alt, 250]
+
+  # Or verbose property syntax:
+  tab:
+    tap: osm(ctrl)
+    hold: alt
+    timeout_ms: 200
+```
+
+### Validation Rules
+- One-shot keys cannot also be used as combo chords or standard `tap_hold` triggers to prevent ambiguous overlapping state machines.
+- `timeout_ms` must be a positive integer.
+- One-shot layers referenced in `one_shot` or `osl(...)` must be defined under `layers:`.
+- Modifiers in `one_shot` or `osm(...)` must be valid modifier keys (`shift`, `ctrl`, `alt`, `super`, etc.).
+
 ## Supported Key Names and Symbols
 
 Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to standard Linux input event codes:
