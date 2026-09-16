@@ -35,6 +35,13 @@ public:
     void setOneShotKeys(const std::vector<OneShotKey>& keys);
     const std::vector<OneShotKey>& getOneShotKeys() const { return one_shot_keys_; }
 
+    void setLeaderConfig(const LeaderConfig& config);
+    const LeaderConfig& getLeaderConfig() const { return leader_config_; }
+    void activateLeader(TimeVal time);
+    void cancelLeader(TimeVal time);
+    bool isLeaderActive() const { return leader_active_; }
+    const std::vector<KeyCode>& getLeaderBuffer() const { return leader_buffer_; }
+
     void armOneShotModifier(KeyCode mod, TimeVal time, int64_t timeout_us = 1500000LL);
     void armOneShotLayer(const std::string& layer, TimeVal time, int64_t timeout_us = 1500000LL);
     void disengageOneShots(TimeVal time);
@@ -108,6 +115,12 @@ private:
     std::vector<KeyCode> active_one_shot_modifiers_down_;
     std::vector<std::string> active_one_shot_layers_deactivate_;
     KeyCode disengaging_trigger_key_ = 0;
+    LeaderConfig leader_config_;
+    bool leader_active_ = false;
+    TimeVal leader_expire_time_;
+    std::vector<KeyCode> leader_buffer_;
+    std::vector<Event> leader_raw_events_;
+    std::vector<KeyCode> leader_pending_releases_;
     std::vector<Event> buf_;
     std::vector<Combo> down_keys_written_;
     std::vector<KeyCode> swallow_keys_;

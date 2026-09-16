@@ -2,6 +2,7 @@
 #include "tff_key_codes.h"
 #include <algorithm>
 #include <iostream>
+#include <map>
 
 namespace tff {
 
@@ -27,15 +28,53 @@ void TFFEngine::setOneShotKeys(const std::vector<OneShotKey>& keys) {
     one_shot_keys_ = keys;
 }
 
+void TFFEngine::setLeaderConfig(const LeaderConfig& config) {
+    leader_config_ = config;
+}
+
 void TFFEngine::setConfig(const Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
     setLayers(config.layers);
     setOneShotKeys(config.one_shot_keys);
+    setLeaderConfig(config.leader);
 }
 
 Config TFFEngine::getConfig() const {
-    return Config{all_combos_, tap_hold_keys_, layers_, one_shot_keys_};
+    Config cfg;
+    cfg.combos = all_combos_;
+    cfg.tap_hold_keys = tap_hold_keys_;
+    cfg.layers = layers_;
+    cfg.one_shot_keys = one_shot_keys_;
+    cfg.leader = leader_config_;
+    return cfg;
+}
+
+void TFFEngine::activateLeader(TimeVal time) {
+    leader_active_ = true;
+    int64_t timeout = (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
+    leader_expire_time_ = TimeVal::fromMicros(time.toMicros() + timeout);
+    leader_buffer_.clear();
+    leader_raw_events_.clear();
+}
+
+void TFFEngine::cancelLeader(TimeVal time) {
+    (void)time;
+    if (!leader_active_) return;
+    leader_active_ = false;
+    leader_buffer_.clear();
+    auto to_replay = std::move(leader_raw_events_);
+    leader_raw_events_.clear();
+
+    if (out_dev_) {
+        for (const auto& raw_ev : to_replay) {
+            out_dev_->writeOne(raw_ev);
+            if (raw_ev.type == EV_KEY) {
+                Event syn{raw_ev.time, EV_SYN, 0, 0};
+                out_dev_->writeOne(syn);
+            }
+        }
+    }
 }
 
 void TFFEngine::armOneShotModifier(KeyCode mod, TimeVal time, int64_t timeout_us) {
@@ -159,6 +198,9 @@ bool TFFEngine::hasActiveTimer() const {
     if (!armed_one_shot_modifiers_.empty() || !armed_one_shot_layers_.empty()) {
         return true;
     }
+    if (leader_active_) {
+        return true;
+    }
     return false;
 }
 
@@ -182,6 +224,9 @@ TimeVal TFFEngine::getActiveTimerTime() const {
             earliest = armed.expire_time;
         }
     }
+    if (leader_active_ && leader_expire_time_ < earliest) {
+        earliest = leader_expire_time_;
+    }
     return earliest;
 }
 
@@ -202,6 +247,10 @@ void TFFEngine::reset() {
     armed_one_shot_modifiers_.clear();
     releaseHeldLayerRemaps(TimeVal{});
     active_layer_stack_.clear();
+    leader_active_ = false;
+    leader_buffer_.clear();
+    leader_raw_events_.clear();
+    leader_pending_releases_.clear();
     buf_.clear();
     down_keys_written_.clear();
     swallow_keys_.clear();
@@ -236,6 +285,18 @@ bool TFFEngine::processEvent(const Event& ev) {
         return true;
     }
 
+    if (ev.value == KEY_VAL_UP) {
+        auto it = std::find(leader_pending_releases_.begin(), leader_pending_releases_.end(), ev.code);
+        if (it != leader_pending_releases_.end()) {
+            leader_pending_releases_.erase(it);
+            return true;
+        }
+    }
+
+    if (leader_active_ && ev.time >= leader_expire_time_) {
+        cancelLeader(ev.time);
+    }
+
     // Check if this key is configured as a tap-hold key or one-shot key
     TapHoldKey synthesized_th;
     const TapHoldKey* thk = nullptr;
@@ -261,6 +322,94 @@ bool TFFEngine::processEvent(const Event& ev) {
         }
     }
 
+    if (leader_active_) {
+        // Dedicated leader key pressed while leader is active -> cancel leader mode
+        if (leader_config_.key != 0 && ev.code == leader_config_.key && (thk == nullptr || !thk->tap_leader)) {
+            if (ev.value == KEY_VAL_DOWN) return true;
+            if (ev.value == KEY_VAL_UP) {
+                cancelLeader(ev.time);
+                return true;
+            }
+        }
+        if (thk != nullptr && thk->tap_leader) {
+            // Let tap-hold logic below process it (ath_it will cancel on tap or emit hold if held)
+        } else if (ev.value == KEY_VAL_DOWN) {
+            std::vector<KeyCode> candidate = leader_buffer_;
+            candidate.push_back(ev.code);
+
+            const LeaderSequence* matched_seq = nullptr;
+            for (const auto& seq : leader_config_.sequences) {
+                if (seq.keys == candidate) {
+                    matched_seq = &seq;
+                    break;
+                }
+            }
+
+            bool is_prefix = false;
+            for (const auto& seq : leader_config_.sequences) {
+                if (seq.keys.size() > candidate.size() &&
+                    std::equal(candidate.begin(), candidate.end(), seq.keys.begin())) {
+                    is_prefix = true;
+                    break;
+                }
+            }
+
+            if (matched_seq != nullptr) {
+                if (!matched_seq->text.empty()) {
+                    emitText(matched_seq->text, ev.time);
+                } else if (!matched_seq->out_keys.empty()) {
+                    for (KeyCode out_k : matched_seq->out_keys) {
+                        writeKey(out_k, KEY_VAL_DOWN, ev.time);
+                    }
+                    for (auto it = matched_seq->out_keys.rbegin(); it != matched_seq->out_keys.rend(); ++it) {
+                        writeKey(*it, KEY_VAL_UP, ev.time);
+                    }
+                }
+
+                std::map<KeyCode, int> press_counts;
+                for (const auto& raw_ev : leader_raw_events_) {
+                    if (raw_ev.value == KEY_VAL_DOWN) press_counts[raw_ev.code]++;
+                    else if (raw_ev.value == KEY_VAL_UP) press_counts[raw_ev.code]--;
+                }
+                press_counts[ev.code]++;
+                for (const auto& kv : press_counts) {
+                    if (kv.second > 0) {
+                        leader_pending_releases_.push_back(kv.first);
+                    }
+                }
+
+                leader_active_ = false;
+                leader_buffer_.clear();
+                leader_raw_events_.clear();
+                return true;
+            } else if (is_prefix) {
+                leader_buffer_.push_back(ev.code);
+                leader_raw_events_.push_back(ev);
+                int64_t timeout = (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
+                leader_expire_time_ = TimeVal::fromMicros(ev.time.toMicros() + timeout);
+                return true;
+            } else {
+                // Mismatch: cancel leader and replay buffered keys
+                cancelLeader(ev.time);
+                // Fall through to normal processing for ev!
+            }
+        } else if (ev.value == KEY_VAL_UP) {
+            bool was_down_in_leader = false;
+            for (const auto& raw : leader_raw_events_) {
+                if (raw.code == ev.code && raw.value == KEY_VAL_DOWN) {
+                    was_down_in_leader = true;
+                    break;
+                }
+            }
+            if (was_down_in_leader) {
+                leader_raw_events_.push_back(ev);
+                int64_t timeout = (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
+                leader_expire_time_ = TimeVal::fromMicros(ev.time.toMicros() + timeout);
+                return true;
+            }
+        }
+    }
+
     auto ath_it = std::find_if(active_tap_holds_.begin(), active_tap_holds_.end(),
         [&](const ActiveTapHold& a) { return a.config.key == ev.code; });
 
@@ -276,6 +425,11 @@ bool TFFEngine::processEvent(const Event& ev) {
                 ath.hold_down_time = ev.time;
                 ath.hold_emitted = true;
             }
+        }
+
+        // Dedicated leader key (not configured as tap_hold)
+        if (leader_config_.key != 0 && ev.code == leader_config_.key && (thk == nullptr || !thk->tap_leader)) {
+            return true;
         }
 
         if (thk != nullptr) {
@@ -327,6 +481,12 @@ bool TFFEngine::processEvent(const Event& ev) {
 
         return handleDownChar(ev);
     } else if (ev.value == KEY_VAL_UP) {
+        // Dedicated leader key (not configured as tap_hold)
+        if (leader_config_.key != 0 && ev.code == leader_config_.key && (thk == nullptr || !thk->tap_leader)) {
+            activateLeader(ev.time);
+            return true;
+        }
+
         // Check if this key was remapped by an active layer when pressed
         auto remap_it = held_layer_remaps_.find(ev.code);
         if (remap_it != held_layer_remaps_.end()) {
@@ -350,7 +510,13 @@ bool TFFEngine::processEvent(const Event& ev) {
                     writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
                 }
             } else {
-                if (ath_it->config.tap_one_shot_modifier != 0) {
+                if (ath_it->config.tap_leader) {
+                    if (leader_active_) {
+                        cancelLeader(ev.time);
+                    } else {
+                        activateLeader(ev.time);
+                    }
+                } else if (ath_it->config.tap_one_shot_modifier != 0) {
                     armOneShotModifier(ath_it->config.tap_one_shot_modifier, ev.time, ath_it->config.tap_one_shot_timeout_us);
                 } else if (!ath_it->config.tap_one_shot_layer.empty()) {
                     armOneShotLayer(ath_it->config.tap_one_shot_layer, ev.time, ath_it->config.tap_one_shot_timeout_us);
@@ -397,6 +563,10 @@ void TFFEngine::finish() {
     }
     armed_one_shot_layers_.clear();
     armed_one_shot_modifiers_.clear();
+    if (leader_active_) {
+        cancelLeader(TimeVal{});
+    }
+    leader_pending_releases_.clear();
     releaseHeldLayerRemaps(TimeVal{});
     active_layer_stack_.clear();
     flushBuffer("EOF");
@@ -447,6 +617,10 @@ void TFFEngine::onTimer(TimeVal time) {
         } else {
             ++it;
         }
+    }
+
+    if (leader_active_ && time >= leader_expire_time_) {
+        cancelLeader(time);
     }
 
     if (fake_active_timer_next_time_ <= time) {

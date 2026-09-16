@@ -89,7 +89,12 @@ public:
     void setLayers(const std::vector<tff::Layer>& layers);
 
     /**
-     * @brief Set full configuration (combos, tap-hold keys, and layers)
+     * @brief Set sequential leader config directly
+     */
+    void setLeaderConfig(const tff::LeaderConfig& config);
+
+    /**
+     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader)
      */
     void setConfig(const tff::Config& config);
 

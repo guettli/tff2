@@ -144,11 +144,21 @@ void LinuxPlatform::setLayers(const std::vector<tff::Layer>& layers) {
     }
 }
 
+void LinuxPlatform::setLeaderConfig(const tff::LeaderConfig& config) {
+    if (!initialized_) {
+        initialize();
+    }
+    if (engine_) {
+        engine_->setLeaderConfig(config);
+    }
+}
+
 void LinuxPlatform::setConfig(const tff::Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
     setOneShotKeys(config.one_shot_keys);
     setLayers(config.layers);
+    setLeaderConfig(config.leader);
 }
 
 bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
@@ -224,6 +234,7 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
               << " (" << config.combos.size() << " combo(s), "
               << config.tap_hold_keys.size() << " tap-hold key(s), "
               << config.one_shot_keys.size() << " one-shot key(s), "
+              << config.leader.sequences.size() << " leader sequence(s), "
               << config.layers.size() << " layer(s) active)\n";
     return true;
 }
