@@ -221,6 +221,46 @@ static void test_helpers() {
     std::cout << "test_helpers: PASSED\n";
 }
 
+static void test_toggle_layer_cheatsheet() {
+    const std::string yaml = R"(
+combos:
+  f + space: toggle_layer(numpad)
+
+tap_hold:
+  capslock: [toggle_layer(numpad), super, 200]
+
+layers:
+  numpad:
+    m: "1"
+    esc: toggle_layer(numpad)
+
+leader:
+  key: capslock
+  timeout_ms: 1000
+  sequences:
+    n p: toggle_layer(numpad)
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+
+    // Markdown
+    CheatsheetOptions md_opts;
+    md_opts.markdown = true;
+    std::string md = Cheatsheet::generate(config, md_opts);
+    assert(md.find("toggle_layer(numpad)") != std::string::npos);
+    assert(md.find("Toggle Layer") != std::string::npos);
+
+    // Terminal
+    CheatsheetOptions term_opts;
+    term_opts.color = false;
+    std::string term = Cheatsheet::generate(config, term_opts);
+    assert(term.find("toggle_layer(numpad)") != std::string::npos);
+    assert(term.find("Toggle Layer") != std::string::npos);
+
+    std::cout << "test_toggle_layer_cheatsheet: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Cheatsheet Visualizer tests...\n";
     test_empty_config();
@@ -228,6 +268,7 @@ int main() {
     test_markdown_cheatsheet();
     test_yaml_to_cheatsheet_integration();
     test_helpers();
-    std::cout << "All 5 Cheatsheet tests passed successfully!\n";
+    test_toggle_layer_cheatsheet();
+    std::cout << "All 6 Cheatsheet tests passed successfully!\n";
     return 0;
 }

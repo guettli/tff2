@@ -203,6 +203,76 @@ bool parseOneShotTarget(const std::string& str, KeyCode& out_mod, std::string& o
     return false;
 }
 
+bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std::string& err_msg) {
+    std::string s = trim(str);
+    if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+        s = trim(s.substr(1, s.size() - 2));
+    }
+    if (s.empty()) return false;
+
+    // { toggle_layer: numpad } or { tg: numpad }
+    if (s.front() == '{' && s.back() == '}') {
+        std::string inner = trim(s.substr(1, s.size() - 2));
+        auto col = inner.find(':');
+        if (col != std::string::npos) {
+            std::string key = trim(inner.substr(0, col));
+            std::string val = trim(inner.substr(col + 1));
+            if (val.size() >= 2 && ((val.front() == '"' && val.back() == '"') || (val.front() == '\'' && val.back() == '\''))) {
+                val = trim(val.substr(1, val.size() - 2));
+            }
+            if (key == "toggle_layer" || key == "tg") {
+                if (val.empty()) {
+                    err_msg = "empty layer name in toggle_layer";
+                    return false;
+                }
+                out_layer = val;
+                return true;
+            }
+        }
+    }
+
+    if (s.back() == ')') {
+        if (s.rfind("toggle_layer(", 0) == 0) {
+            std::string inner = trim(s.substr(13, s.size() - 14));
+            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') || (inner.front() == '\'' && inner.back() == '\''))) {
+                inner = trim(inner.substr(1, inner.size() - 2));
+            }
+            if (inner.empty()) {
+                err_msg = "empty layer name in toggle_layer()";
+                return false;
+            }
+            out_layer = inner;
+            return true;
+        }
+        if (s.rfind("tg(", 0) == 0) {
+            std::string inner = trim(s.substr(3, s.size() - 4));
+            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') || (inner.front() == '\'' && inner.back() == '\''))) {
+                inner = trim(inner.substr(1, inner.size() - 2));
+            }
+            if (inner.empty()) {
+                err_msg = "empty layer name in tg()";
+                return false;
+            }
+            out_layer = inner;
+            return true;
+        }
+    }
+
+    if (s.rfind("toggle_layer:", 0) == 0) {
+        std::string inner = trim(s.substr(13));
+        if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') || (inner.front() == '\'' && inner.back() == '\''))) {
+            inner = trim(inner.substr(1, inner.size() - 2));
+        }
+        if (inner.empty()) {
+            err_msg = "empty layer name in toggle_layer";
+            return false;
+        }
+        out_layer = inner;
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 bool parseDurationMicros(const std::string& str, int64_t& out_us) {
@@ -444,6 +514,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     std::string current_outkeys;
     std::string current_text;
     bool has_text = false;
+    std::string current_toggle_layer;
+    bool has_toggle_layer = false;
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
@@ -516,8 +588,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 err_msg = "leader sequence missing keys";
                 return false;
             }
-            if (pending_lseq.out_keys.empty() && pending_lseq.text.empty()) {
-                err_msg = "leader sequence requires an action (text or keys)";
+            if (pending_lseq.out_keys.empty() && pending_lseq.text.empty() && pending_lseq.toggle_layer.empty()) {
+                err_msg = "leader sequence requires an action (text, keys, or toggle_layer)";
                 return false;
             }
             config.leader.sequences.push_back(pending_lseq);
@@ -693,41 +765,52 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
-            std::string snippet;
-            bool snippet_mode = isTextSnippet(val_part, snippet);
-            if (snippet_mode) {
-                if (snippet.empty()) {
-                    err_msg = "empty text snippet is not allowed";
-                    return false;
-                }
-                for (char ch : snippet) {
-                    KeyCode kc = 0;
-                    bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift)) {
-                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
-                        return false;
-                    }
-                }
+            std::string toggle_layer_name;
+            std::string toggle_err;
+            if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
                 LayerAction act;
-                act.text = snippet;
+                act.toggle_layer = toggle_layer_name;
                 config.layers.back().mappings[in_code] = act;
+            } else if (!toggle_err.empty()) {
+                err_msg = toggle_err;
+                return false;
             } else {
-                auto out_words = parseOutputWords(val_part);
-                if (out_words.empty()) {
-                    err_msg = "empty list in 'outKeys' is not allowed";
-                    return false;
-                }
-                std::vector<KeyCode> out_codes;
-                for (const auto& w : out_words) {
-                    KeyCode code = 0;
-                    if (!wordToKeyCode(w, code, err_msg)) {
+                std::string snippet;
+                bool snippet_mode = isTextSnippet(val_part, snippet);
+                if (snippet_mode) {
+                    if (snippet.empty()) {
+                        err_msg = "empty text snippet is not allowed";
                         return false;
                     }
-                    out_codes.push_back(code);
+                    for (char ch : snippet) {
+                        KeyCode kc = 0;
+                        bool shift = false;
+                        if (!asciiToKeyStroke(ch, kc, shift)) {
+                            err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                            return false;
+                        }
+                    }
+                    LayerAction act;
+                    act.text = snippet;
+                    config.layers.back().mappings[in_code] = act;
+                } else {
+                    auto out_words = parseOutputWords(val_part);
+                    if (out_words.empty()) {
+                        err_msg = "empty list in 'outKeys' is not allowed";
+                        return false;
+                    }
+                    std::vector<KeyCode> out_codes;
+                    for (const auto& w : out_words) {
+                        KeyCode code = 0;
+                        if (!wordToKeyCode(w, code, err_msg)) {
+                            return false;
+                        }
+                        out_codes.push_back(code);
+                    }
+                    LayerAction act;
+                    act.out_keys = out_codes;
+                    config.layers.back().mappings[in_code] = act;
                 }
-                LayerAction act;
-                act.out_keys = out_codes;
-                config.layers.back().mappings[in_code] = act;
             }
             continue;
         }
@@ -763,7 +846,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "layer: nav", "timeout_ms: 200")
             if (has_pending_th && current_indent > pending_th_indent) {
                 if (key_part == "tap") {
-                    if (val_part == "leader") {
+                    std::string toggle_layer_name;
+                    std::string toggle_err;
+                    if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
+                        pending_th.tap_toggle_layer = toggle_layer_name;
+                    } else if (!toggle_err.empty()) {
+                        err_msg = toggle_err;
+                        return false;
+                    } else if (val_part == "leader") {
                         pending_th.tap_leader = true;
                     } else if (isOneShotPattern(val_part)) {
                         if (!parseOneShotTarget(val_part, pending_th.tap_one_shot_modifier, pending_th.tap_one_shot_layer, err_msg)) {
@@ -772,6 +862,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     } else if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
                         return false;
                     }
+                } else if (key_part == "toggle_layer" || key_part == "tap_toggle_layer" || key_part == "tg") {
+                    pending_th.tap_toggle_layer = val_part;
                 } else if (key_part == "hold") {
                     std::string dummy_err;
                     if (wordToKeyCode(val_part, pending_th.hold_key, dummy_err)) {
@@ -839,7 +931,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
                 TapHoldKey thk;
                 thk.key = th_code;
-                if (parts[0] == "leader") {
+                std::string toggle_layer_name;
+                std::string toggle_err;
+                if (parseToggleLayerTarget(parts[0], toggle_layer_name, toggle_err)) {
+                    thk.tap_toggle_layer = toggle_layer_name;
+                } else if (!toggle_err.empty()) {
+                    err_msg = toggle_err;
+                    return false;
+                } else if (parts[0] == "leader") {
                     thk.tap_leader = true;
                 } else if (isOneShotPattern(parts[0])) {
                     if (!parseOneShotTarget(parts[0], thk.tap_one_shot_modifier, thk.tap_one_shot_layer, err_msg)) {
@@ -1120,14 +1219,25 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             };
 
             if (has_pending_lseq && current_indent > pending_lseq_indent) {
-                if (key_part == "text" || key_part == "type") {
+                if (key_part == "toggle_layer" || key_part == "tg") {
+                    pending_lseq.toggle_layer = val_part;
+                } else if (key_part == "text" || key_part == "type") {
                     pending_lseq.text = unquoteAndUnescape(val_part);
                 } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out") {
-                    auto words = parseOutputWords(val_part);
-                    for (const auto& w : words) {
-                        KeyCode kc = 0;
-                        if (!wordToKeyCode(w, kc, err_msg)) return false;
-                        pending_lseq.out_keys.push_back(kc);
+                    std::string toggle_layer_name;
+                    std::string toggle_err;
+                    if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
+                        pending_lseq.toggle_layer = toggle_layer_name;
+                    } else if (!toggle_err.empty()) {
+                        err_msg = toggle_err;
+                        return false;
+                    } else {
+                        auto words = parseOutputWords(val_part);
+                        for (const auto& w : words) {
+                            KeyCode kc = 0;
+                            if (!wordToKeyCode(w, kc, err_msg)) return false;
+                            pending_lseq.out_keys.push_back(kc);
+                        }
                     }
                 } else {
                     err_msg = "unknown leader sequence property: " + key_part;
@@ -1156,15 +1266,24 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
-            std::string snippet;
-            if (isTextSnippet(val_part, snippet)) {
-                seq.text = snippet;
+            std::string toggle_layer_name;
+            std::string toggle_err;
+            if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
+                seq.toggle_layer = toggle_layer_name;
+            } else if (!toggle_err.empty()) {
+                err_msg = toggle_err;
+                return false;
             } else {
-                auto words = parseOutputWords(val_part);
-                for (const auto& w : words) {
-                    KeyCode kc = 0;
-                    if (!wordToKeyCode(w, kc, err_msg)) return false;
-                    seq.out_keys.push_back(kc);
+                std::string snippet;
+                if (isTextSnippet(val_part, snippet)) {
+                    seq.text = snippet;
+                } else {
+                    auto words = parseOutputWords(val_part);
+                    for (const auto& w : words) {
+                        KeyCode kc = 0;
+                        if (!wordToKeyCode(w, kc, err_msg)) return false;
+                        seq.out_keys.push_back(kc);
+                    }
                 }
             }
             config.leader.sequences.push_back(seq);
@@ -1175,7 +1294,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         // 1. Classic verbose format
         if (t.find("- keys:") != std::string::npos || t.find("- in:") != std::string::npos) {
-            if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
+            if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
@@ -1191,28 +1310,46 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
             current_outkeys.clear();
             current_text.clear();
+            current_toggle_layer.clear();
             has_text = false;
+            has_toggle_layer = false;
             continue;
         } else if (t.find("- outKeys:") != std::string::npos || t.find("- out:") != std::string::npos) {
-            if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
+            if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
             err_msg = "empty list in 'keys' is not allowed";
             return false;
         } else if (t.find("outKeys:") != std::string::npos || t.rfind("out:", 0) == 0 ||
-                   t.rfind("text:", 0) == 0 || t.rfind("type:", 0) == 0) {
+                   t.rfind("text:", 0) == 0 || t.rfind("type:", 0) == 0 ||
+                   t.rfind("toggle_layer:", 0) == 0 || t.rfind("tg:", 0) == 0) {
             auto colon = t.find(':');
             std::string prop = trim(t.substr(0, colon));
             std::string val_part = trim(t.substr(colon + 1));
 
-            if (prop == "text" || prop == "type") {
+            std::string toggle_layer_name;
+            std::string toggle_err;
+            if (prop == "toggle_layer" || prop == "tg") {
+                has_toggle_layer = true;
+                current_toggle_layer = val_part;
+                if (current_toggle_layer.empty()) {
+                    err_msg = "empty layer name in toggle_layer";
+                    return false;
+                }
+            } else if (prop == "text" || prop == "type") {
                 has_text = true;
                 current_text = unquoteAndUnescape(val_part);
                 if (current_text.empty()) {
                     err_msg = "empty text snippet is not allowed";
                     return false;
                 }
+            } else if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
+                has_toggle_layer = true;
+                current_toggle_layer = toggle_layer_name;
+            } else if (!toggle_err.empty()) {
+                err_msg = toggle_err;
+                return false;
             } else {
                 std::string snippet;
                 if (isTextSnippet(val_part, snippet)) {
@@ -1231,7 +1368,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 err_msg = "empty list in 'keys' is not allowed";
                 return false;
             }
-            if (current_outkeys.empty() && !has_text) {
+            if (current_outkeys.empty() && !has_text && !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
@@ -1271,7 +1408,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
 
             std::vector<KeyCode> out_codes;
-            if (has_text) {
+            if (has_toggle_layer) {
+                // No out codes needed
+            } else if (has_text) {
                 for (char ch : current_text) {
                     KeyCode kc = 0;
                     bool shift = false;
@@ -1309,7 +1448,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 do {
                     Combo c;
                     c.keys = perm;
-                    if (has_text) {
+                    if (has_toggle_layer) {
+                        c.toggle_layer = current_toggle_layer;
+                    } else if (has_text) {
                         c.text = current_text;
                     } else {
                         c.out_keys = out_codes;
@@ -1319,7 +1460,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             } else {
                 Combo c;
                 c.keys = chord_codes;
-                if (has_text) {
+                if (has_toggle_layer) {
+                    c.toggle_layer = current_toggle_layer;
+                } else if (has_text) {
                     c.text = current_text;
                 } else {
                     c.out_keys = out_codes;
@@ -1330,7 +1473,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             current_keys.clear();
             current_outkeys.clear();
             current_text.clear();
+            current_toggle_layer.clear();
             has_text = false;
+            has_toggle_layer = false;
             continue;
         }
 
@@ -1399,15 +1544,25 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
 
+            std::string toggle_layer_name;
+            std::string toggle_err;
+            bool toggle_mode = parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err);
+            if (!toggle_err.empty()) {
+                err_msg = toggle_err;
+                return false;
+            }
+
             std::string snippet;
-            bool snippet_mode = isTextSnippet(val_part, snippet);
+            bool snippet_mode = !toggle_mode && isTextSnippet(val_part, snippet);
             if (snippet_mode && snippet.empty()) {
                 err_msg = "empty text snippet is not allowed";
                 return false;
             }
 
             std::vector<KeyCode> out_codes;
-            if (snippet_mode) {
+            if (toggle_mode) {
+                // No out codes needed
+            } else if (snippet_mode) {
                 for (char ch : snippet) {
                     KeyCode kc = 0;
                     bool shift = false;
@@ -1454,7 +1609,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     Combo c;
                     c.keys = leader_codes;
                     c.keys.insert(c.keys.end(), perm.begin(), perm.end());
-                    if (snippet_mode) {
+                    if (toggle_mode) {
+                        c.toggle_layer = toggle_layer_name;
+                    } else if (snippet_mode) {
                         c.text = snippet;
                     } else {
                         c.out_keys = out_codes;
@@ -1465,7 +1622,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 Combo c;
                 c.keys = leader_codes;
                 c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
-                if (snippet_mode) {
+                if (toggle_mode) {
+                    c.toggle_layer = toggle_layer_name;
+                } else if (snippet_mode) {
                     c.text = snippet;
                 } else {
                     c.out_keys = out_codes;
@@ -1479,7 +1638,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     if (!flush_pending_os()) return false;
     if (!flush_pending_lseq()) return false;
 
-    if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
+    if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }
@@ -1516,6 +1675,19 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
         }
+        if (!th.tap_toggle_layer.empty()) {
+            bool found_layer = false;
+            for (const auto& lyr : config.layers) {
+                if (lyr.name == th.tap_toggle_layer) {
+                    found_layer = true;
+                    break;
+                }
+            }
+            if (!found_layer) {
+                err_msg = "unknown layer '" + th.tap_toggle_layer + "' referenced in tap_hold toggle_layer";
+                return false;
+            }
+        }
         if (th.tap_one_shot_modifier != 0 && !isModifier(th.tap_one_shot_modifier)) {
             err_msg = "invalid modifier key '" + keyCodeToWord(th.tap_one_shot_modifier) + "' in tap_hold osm";
             return false;
@@ -1524,6 +1696,40 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             for (KeyCode k : combo.keys) {
                 if (k == th.key) {
                     err_msg = "key '" + keyCodeToWord(th.key) + "' cannot be used in both combos and tap_hold";
+                    return false;
+                }
+            }
+        }
+    }
+
+    for (const auto& combo : config.combos) {
+        if (!combo.toggle_layer.empty()) {
+            bool found_layer = false;
+            for (const auto& lyr : config.layers) {
+                if (lyr.name == combo.toggle_layer) {
+                    found_layer = true;
+                    break;
+                }
+            }
+            if (!found_layer) {
+                err_msg = "unknown layer '" + combo.toggle_layer + "' referenced in combo toggle_layer";
+                return false;
+            }
+        }
+    }
+
+    for (const auto& lyr : config.layers) {
+        for (const auto& kv : lyr.mappings) {
+            if (!kv.second.toggle_layer.empty()) {
+                bool found_layer = false;
+                for (const auto& l : config.layers) {
+                    if (l.name == kv.second.toggle_layer) {
+                        found_layer = true;
+                        break;
+                    }
+                }
+                if (!found_layer) {
+                    err_msg = "unknown layer '" + kv.second.toggle_layer + "' referenced in layer '" + lyr.name + "' toggle_layer";
                     return false;
                 }
             }
@@ -1587,9 +1793,22 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 err_msg = "leader sequence cannot have empty keys";
                 return false;
             }
-            if (seq.out_keys.empty() && seq.text.empty()) {
-                err_msg = "leader sequence requires an output action (keys or text)";
+            if (seq.out_keys.empty() && seq.text.empty() && seq.toggle_layer.empty()) {
+                err_msg = "leader sequence requires an output action (keys, text, or toggle_layer)";
                 return false;
+            }
+            if (!seq.toggle_layer.empty()) {
+                bool found_layer = false;
+                for (const auto& lyr : config.layers) {
+                    if (lyr.name == seq.toggle_layer) {
+                        found_layer = true;
+                        break;
+                    }
+                }
+                if (!found_layer) {
+                    err_msg = "unknown layer '" + seq.toggle_layer + "' referenced in leader toggle_layer";
+                    return false;
+                }
             }
             if (!seq.text.empty()) {
                 for (char ch : seq.text) {

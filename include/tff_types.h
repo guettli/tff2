@@ -93,26 +93,28 @@ struct Combo {
     std::vector<KeyCode> keys;
     std::vector<KeyCode> out_keys;
     std::string text; // Multi-character text snippet / macro expansion
+    std::string toggle_layer; // Layer to toggle on/off when combo triggered
 
     Combo() = default;
-    Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "")
-        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)) {}
+    Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "")
+        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)) {}
 
     bool operator==(const Combo& o) const {
-        return keys == o.keys && out_keys == o.out_keys && text == o.text;
+        return keys == o.keys && out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer;
     }
 };
 
 struct LayerAction {
     std::vector<KeyCode> out_keys;
     std::string text;
+    std::string toggle_layer;
 
     LayerAction() = default;
-    explicit LayerAction(std::vector<KeyCode> ok, std::string t = "")
-        : out_keys(std::move(ok)), text(std::move(t)) {}
+    explicit LayerAction(std::vector<KeyCode> ok, std::string t = "", std::string tl = "")
+        : out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)) {}
 
     bool operator==(const LayerAction& o) const {
-        return out_keys == o.out_keys && text == o.text;
+        return out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer;
     }
 };
 
@@ -135,6 +137,7 @@ struct TapHoldKey {
     std::string tap_one_shot_layer;     // If set, short tap arms one-shot layer (OSL)
     int64_t tap_one_shot_timeout_us = 1500000LL; // One-shot expiration timeout in us (default 1500ms)
     bool tap_leader = false;                     // If true, short tap activates sequential Leader mode
+    std::string tap_toggle_layer;                // If set, short tap toggles layer on/off
 
     bool operator==(const TapHoldKey& o) const {
         return key == o.key && tap_key == o.tap_key && hold_key == o.hold_key &&
@@ -142,7 +145,8 @@ struct TapHoldKey {
                tap_one_shot_modifier == o.tap_one_shot_modifier &&
                tap_one_shot_layer == o.tap_one_shot_layer &&
                tap_one_shot_timeout_us == o.tap_one_shot_timeout_us &&
-               tap_leader == o.tap_leader;
+               tap_leader == o.tap_leader &&
+               tap_toggle_layer == o.tap_toggle_layer;
     }
 };
 
@@ -162,13 +166,14 @@ struct LeaderSequence {
     std::vector<KeyCode> keys;      // Sequential keys (e.g. [KEY_W, KEY_Q])
     std::vector<KeyCode> out_keys;  // Output key combination
     std::string text;               // Output text snippet (e.g. ":wq\n")
+    std::string toggle_layer;       // Layer to toggle on/off when sequence triggered
 
     LeaderSequence() = default;
-    LeaderSequence(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "")
-        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)) {}
+    LeaderSequence(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "")
+        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)) {}
 
     bool operator==(const LeaderSequence& o) const {
-        return keys == o.keys && out_keys == o.out_keys && text == o.text;
+        return keys == o.keys && out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer;
     }
 };
 

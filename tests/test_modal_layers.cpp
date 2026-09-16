@@ -584,6 +584,351 @@ layers:
     std::cout << "test_yaml_parser_validation_errors: PASSED\n";
 }
 
+static void test_toggle_layer_combo_and_locked_typing() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    const std::string yaml = R"(
+combos:
+  f + space: toggle_layer(numpad)
+
+layers:
+  numpad:
+    m: "1"
+    comma: "2"
+    dot: "3"
+    j: "4"
+    k: "5"
+    l: "6"
+    u: "7"
+    i: "8"
+    o: "9"
+    space: "0"
+    esc: toggle_layer(numpad)
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    engine.setConfig(config);
+
+    assert(!engine.isLayerActive("numpad"));
+
+    // 1. Press f + space (combo to toggle numpad on)
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_F, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_F, KEY_VAL_UP});
+
+    // Numpad layer must now be locked ON!
+    assert(engine.isLayerActive("numpad"));
+    assert(writer.events.empty()); // Both keys swallowed cleanly on release
+
+    // 2. Type while locked in numpad without holding any key down!
+    // Press 'm' -> emits text "1"
+    engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_M, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 120000}, EV_KEY, Keys::KEY_M, KEY_VAL_UP});
+
+    auto k1 = writer.keyEvents();
+    assert(k1.size() == 2);
+    assert(k1[0].code == Keys::KEY_1 && k1[0].value == KEY_VAL_DOWN);
+    assert(k1[1].code == Keys::KEY_1 && k1[1].value == KEY_VAL_UP);
+    writer.clear();
+
+    // Press 'j' -> emits text "4"
+    engine.processEvent(Event{TimeVal{0, 130000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 150000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    auto k2 = writer.keyEvents();
+    assert(k2.size() == 2);
+    assert(k2[0].code == Keys::KEY_4 && k2[0].value == KEY_VAL_DOWN);
+    assert(k2[1].code == Keys::KEY_4 && k2[1].value == KEY_VAL_UP);
+    writer.clear();
+
+    // Press 'space' -> emits text "0"
+    engine.processEvent(Event{TimeVal{0, 160000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 180000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    auto k3 = writer.keyEvents();
+    assert(k3.size() == 2);
+    assert(k3[0].code == Keys::KEY_0 && k3[0].value == KEY_VAL_DOWN);
+    assert(k3[1].code == Keys::KEY_0 && k3[1].value == KEY_VAL_UP);
+    writer.clear();
+
+    // 3. Exit numpad by pressing 'esc' (mapped to toggle_layer(numpad))
+    engine.processEvent(Event{TimeVal{0, 200000}, EV_KEY, Keys::KEY_ESC, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 220000}, EV_KEY, Keys::KEY_ESC, KEY_VAL_UP});
+
+    // Layer is toggled off!
+    assert(!engine.isLayerActive("numpad"));
+    // 'esc' was swallowed, not leaked to output!
+    assert(writer.events.empty());
+
+    // 4. Type 'm' after deactivation -> emits regular 'm'
+    engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_M, KEY_VAL_DOWN});
+    engine.onTimer(TimeVal{0, 460000});
+    engine.processEvent(Event{TimeVal{0, 470000}, EV_KEY, Keys::KEY_M, KEY_VAL_UP});
+    engine.onTimer(TimeVal{0, 630000});
+
+    auto k4 = writer.keyEvents();
+    bool saw_m_down = false;
+    bool saw_m_up = false;
+    for (const auto& ev : k4) {
+        if (ev.code == Keys::KEY_M && ev.value == KEY_VAL_DOWN) saw_m_down = true;
+        if (ev.code == Keys::KEY_M && ev.value == KEY_VAL_UP) saw_m_up = true;
+        assert(ev.code != Keys::KEY_1);
+    }
+    assert(saw_m_down && saw_m_up);
+
+    std::cout << "test_toggle_layer_combo_and_locked_typing: PASSED\n";
+}
+
+static void test_toggle_layer_key_release_safety() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    Layer numpad;
+    numpad.name = "numpad";
+    numpad.mappings[Keys::KEY_K] = LayerAction({Keys::KEY_UP}); // 'k' maps to UP arrow
+    numpad.mappings[Keys::KEY_ESC] = LayerAction({}, "", "numpad"); // 'esc' toggles numpad
+    engine.setLayers({numpad});
+
+    // Toggle on
+    engine.toggleLayer("numpad");
+    assert(engine.isLayerActive("numpad"));
+
+    // Press and HOLD 'k' at t=10ms
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_K, KEY_VAL_DOWN});
+    assert(writer.keyEvents().size() == 1);
+    assert(writer.keyEvents()[0].code == Keys::KEY_UP && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    writer.clear();
+
+    // While 'k' is physically held down, toggle layer OFF via 'esc'
+    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_ESC, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_ESC, KEY_VAL_UP});
+    assert(!engine.isLayerActive("numpad"));
+    assert(writer.keyEvents().empty()); // 'esc' swallowed cleanly
+
+    // Now release 'k' at t=60ms
+    engine.processEvent(Event{TimeVal{0, 60000}, EV_KEY, Keys::KEY_K, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 1);
+    assert(writer.keyEvents()[0].code == Keys::KEY_UP && writer.keyEvents()[0].value == KEY_VAL_UP);
+
+    std::cout << "test_toggle_layer_key_release_safety: PASSED\n";
+}
+
+static void test_toggle_layer_tap_hold() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    const std::string yaml = R"(
+tap_hold:
+  capslock: [toggle_layer(numpad), super, 200]
+
+layers:
+  numpad:
+    j: "4"
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    engine.setConfig(config);
+
+    // 1. Short tap on CapsLock (<200ms) -> toggles numpad ON
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+
+    assert(engine.isLayerActive("numpad"));
+    assert(writer.keyEvents().empty()); // No raw capslock output
+
+    // 2. Type 'j' in numpad -> "4"
+    engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 120000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_4);
+    writer.clear();
+
+    // 3. Short tap on CapsLock (<200ms) -> toggles numpad OFF
+    engine.processEvent(Event{TimeVal{0, 200000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+
+    assert(!engine.isLayerActive("numpad"));
+    assert(writer.keyEvents().empty());
+
+    // 4. Long hold on CapsLock (>200ms) -> emits Super
+    engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.onTimer(TimeVal{0, 510000}); // Hold timeout triggers
+    assert(writer.keyEvents().size() == 1);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTMETA && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+
+    engine.processEvent(Event{TimeVal{0, 550000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[1].code == Keys::KEY_LEFTMETA && writer.keyEvents()[1].value == KEY_VAL_UP);
+
+    std::cout << "test_toggle_layer_tap_hold: PASSED\n";
+}
+
+static void test_toggle_layer_leader_sequence() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    const std::string yaml = R"(
+leader:
+  key: capslock
+  timeout_ms: 1000
+  sequences:
+    n p: toggle_layer(numpad)
+
+layers:
+  numpad:
+    j: "4"
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    engine.setConfig(config);
+
+    // Tap CapsLock (dedicated leader)
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    assert(engine.isLeaderActive());
+
+    // Press 'n', then 'p'
+    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_N, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_N, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 90000}, EV_KEY, Keys::KEY_P, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 110000}, EV_KEY, Keys::KEY_P, KEY_VAL_UP});
+
+    assert(!engine.isLeaderActive());
+    assert(engine.isLayerActive("numpad"));
+    assert(writer.keyEvents().empty()); // Sequence swallowed, no stray keys
+
+    // Press 'j' -> emits "4"
+    engine.processEvent(Event{TimeVal{0, 200000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 220000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_4);
+
+    std::cout << "test_toggle_layer_leader_sequence: PASSED\n";
+}
+
+static void test_toggle_layer_nested_with_momentary_layers() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    const std::string yaml = R"(
+tap_hold:
+  space: [space, nav, 200]
+  capslock: [toggle_layer(numpad), super, 200]
+
+layers:
+  nav:
+    h: left
+    j: down
+  numpad:
+    j: "4"
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    engine.setConfig(config);
+
+    // Toggle on numpad via capslock tap
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    assert(engine.isLayerActive("numpad"));
+
+    // Type 'j' in numpad -> "4"
+    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_4);
+    writer.clear();
+
+    // Now momentarily hold Space (nav layer) while numpad is locked on
+    engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
+    // Fast chord 'j' -> nav layer has 'j: down', taking LIFO precedence over numpad!
+    engine.processEvent(Event{TimeVal{0, 120000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    assert(writer.keyEvents().size() == 1);
+    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+
+    engine.processEvent(Event{TimeVal{0, 140000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[1].code == Keys::KEY_DOWN && writer.keyEvents()[1].value == KEY_VAL_UP);
+    writer.clear();
+
+    // Release Space -> nav layer deactivates, numpad remains active!
+    engine.processEvent(Event{TimeVal{0, 160000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    assert(engine.isLayerActive("numpad"));
+    assert(!engine.isLayerActive("nav"));
+
+    // Type 'j' again -> "4" from numpad
+    engine.processEvent(Event{TimeVal{0, 200000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 220000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_4);
+
+    std::cout << "test_toggle_layer_nested_with_momentary_layers: PASSED\n";
+}
+
+static void test_toggle_layer_validation_errors() {
+    Config config;
+    std::string err;
+
+    // 1. Unknown layer in combo toggle_layer
+    const std::string bad_combo = R"(
+combos:
+  f + space: toggle_layer(nonexistent)
+layers:
+  numpad:
+    j: "4"
+)";
+    assert(!loadYamlConfig(bad_combo, config, err));
+    assert(err.find("unknown layer 'nonexistent' referenced in combo toggle_layer") != std::string::npos);
+
+    // 2. Unknown layer in layer mapping
+    const std::string bad_map = R"(
+layers:
+  numpad:
+    esc: toggle_layer(nonexistent)
+)";
+    assert(!loadYamlConfig(bad_map, config, err));
+    assert(err.find("unknown layer 'nonexistent' referenced in layer 'numpad' toggle_layer") != std::string::npos);
+
+    // 3. Unknown layer in tap_hold
+    const std::string bad_th = R"(
+tap_hold:
+  capslock: [toggle_layer(nonexistent), super, 200]
+layers:
+  numpad:
+    j: "4"
+)";
+    assert(!loadYamlConfig(bad_th, config, err));
+    assert(err.find("unknown layer 'nonexistent' referenced in tap_hold toggle_layer") != std::string::npos);
+
+    // 4. Unknown layer in leader
+    const std::string bad_leader = R"(
+leader:
+  sequences:
+    n p: toggle_layer(nonexistent)
+layers:
+  numpad:
+    j: "4"
+)";
+    assert(!loadYamlConfig(bad_leader, config, err));
+    assert(err.find("unknown layer 'nonexistent' referenced in leader toggle_layer") != std::string::npos);
+
+    // 5. Empty layer name in toggle_layer()
+    const std::string empty_tl = R"(
+combos:
+  f + space: toggle_layer()
+layers:
+  numpad:
+    j: "4"
+)";
+    assert(!loadYamlConfig(empty_tl, config, err));
+    assert(err.find("empty layer name in toggle_layer()") != std::string::npos);
+
+    std::cout << "test_toggle_layer_validation_errors: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Modal Layers unit tests...\n";
     test_momentary_layer_activation();
@@ -598,6 +943,12 @@ int main() {
     test_layer_stack_management_api();
     test_yaml_parser_layers_and_tap_hold();
     test_yaml_parser_validation_errors();
-    std::cout << "All 12 Modal Layers unit tests passed successfully!\n";
+    test_toggle_layer_combo_and_locked_typing();
+    test_toggle_layer_key_release_safety();
+    test_toggle_layer_tap_hold();
+    test_toggle_layer_leader_sequence();
+    test_toggle_layer_nested_with_momentary_layers();
+    test_toggle_layer_validation_errors();
+    std::cout << "All 18 Modal Layers unit tests passed successfully!\n";
     return 0;
 }

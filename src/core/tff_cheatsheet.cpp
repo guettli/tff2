@@ -37,7 +37,10 @@ std::string formatMarkdownCode(const std::string& s) {
     return "`" + res + "`";
 }
 
-std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::string& text) {
+std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::string& text, const std::string& toggle_layer = "") {
+    if (!toggle_layer.empty()) {
+        return "toggle_layer(" + toggle_layer + ")";
+    }
     if (!text.empty()) {
         std::string escaped;
         for (char c : text) {
@@ -108,7 +111,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "|:---|:---|:---|:---|\n";
             for (const auto& th : config.tap_hold_keys) {
                 std::string tap_act = formatKey(th.tap_key);
-                if (th.tap_leader) {
+                if (!th.tap_toggle_layer.empty()) {
+                    tap_act = "toggle_layer(" + th.tap_toggle_layer + ")";
+                } else if (th.tap_leader) {
                     tap_act = "leader";
                 } else if (th.tap_one_shot_modifier != 0) {
                     tap_act = "osm(" + formatKey(th.tap_one_shot_modifier) + ")";
@@ -148,9 +153,10 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "|:---|:---|:---|\n";
             for (const auto& c : config.combos) {
                 std::string in_keys = formatKeys(c.keys);
-                std::string out_act = formatOutputAction(c.out_keys, c.text);
-                std::string type = !c.text.empty() ? "Text Snippet" :
-                                   (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+                std::string out_act = formatOutputAction(c.out_keys, c.text, c.toggle_layer);
+                std::string type = !c.toggle_layer.empty() ? "Toggle Layer" :
+                                   (!c.text.empty() ? "Text Snippet" :
+                                   (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"));
                 ss << "| " << formatMarkdownCode(in_keys) << " | "
                    << formatMarkdownCode(out_act) << " | " << type << " |\n";
             }
@@ -172,9 +178,10 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 std::sort(sorted_keys.begin(), sorted_keys.end());
                 for (KeyCode k : sorted_keys) {
                     const auto& act = lyr.mappings.at(k);
-                    std::string out_act = formatOutputAction(act.out_keys, act.text);
-                    std::string type = !act.text.empty() ? "Text Snippet" :
-                                       (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+                    std::string out_act = formatOutputAction(act.out_keys, act.text, act.toggle_layer);
+                    std::string type = !act.toggle_layer.empty() ? "Toggle Layer" :
+                                       (!act.text.empty() ? "Text Snippet" :
+                                       (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"));
                     ss << "| " << formatMarkdownCode(formatKey(k)) << " | "
                        << formatMarkdownCode(out_act) << " | " << type << " |\n";
                 }
@@ -191,9 +198,10 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "|:---|:---|:---|\n";
             for (const auto& seq : config.leader.sequences) {
                 std::string in_keys = formatKeys(seq.keys);
-                std::string out_act = formatOutputAction(seq.out_keys, seq.text);
-                std::string type = !seq.text.empty() ? "Text Snippet" :
-                                   (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+                std::string out_act = formatOutputAction(seq.out_keys, seq.text, seq.toggle_layer);
+                std::string type = !seq.toggle_layer.empty() ? "Toggle Layer" :
+                                   (!seq.text.empty() ? "Text Snippet" :
+                                   (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"));
                 ss << "| " << formatMarkdownCode(in_keys) << " | "
                    << formatMarkdownCode(out_act) << " | " << type << " |\n";
             }
@@ -226,7 +234,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         for (const auto& th : config.tap_hold_keys) {
             std::string plain_key = formatKey(th.key);
             std::string plain_tap = formatKey(th.tap_key);
-            if (th.tap_leader) {
+            if (!th.tap_toggle_layer.empty()) {
+                plain_tap = "toggle_layer(" + th.tap_toggle_layer + ")";
+            } else if (th.tap_leader) {
                 plain_tap = "leader";
             } else if (th.tap_one_shot_modifier != 0) {
                 plain_tap = "osm(" + formatKey(th.tap_one_shot_modifier) + ")";
@@ -278,11 +288,13 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
         for (const auto& c : config.combos) {
             std::string plain_in = formatKeys(c.keys);
-            std::string plain_out = formatOutputAction(c.out_keys, c.text);
-            std::string type_plain = !c.text.empty() ? "Text Snippet" :
-                               (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+            std::string plain_out = formatOutputAction(c.out_keys, c.text, c.toggle_layer);
+            std::string type_plain = !c.toggle_layer.empty() ? "Toggle Layer" :
+                               (!c.text.empty() ? "Text Snippet" :
+                               (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"));
 
-            std::string out_col = !c.text.empty() ? yellow(plain_out, col) : green(plain_out, col);
+            std::string out_col = !c.toggle_layer.empty() ? magenta(plain_out, col) :
+                                  (!c.text.empty() ? yellow(plain_out, col) : green(plain_out, col));
 
             printRow(ss, "  ",
                 {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
@@ -310,11 +322,13 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             for (KeyCode k : sorted_keys) {
                 const auto& act = lyr.mappings.at(k);
                 std::string plain_k = formatKey(k);
-                std::string plain_out = formatOutputAction(act.out_keys, act.text);
-                std::string type_plain = !act.text.empty() ? "Text Snippet" :
-                                   (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+                std::string plain_out = formatOutputAction(act.out_keys, act.text, act.toggle_layer);
+                std::string type_plain = !act.toggle_layer.empty() ? "Toggle Layer" :
+                                   (!act.text.empty() ? "Text Snippet" :
+                                   (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"));
 
-                std::string out_col = !act.text.empty() ? yellow(plain_out, col) : green(plain_out, col);
+                std::string out_col = !act.toggle_layer.empty() ? magenta(plain_out, col) :
+                                      (!act.text.empty() ? yellow(plain_out, col) : green(plain_out, col));
 
                 printRow(ss, "    ",
                     {{plain_k, 16}, {plain_out, 34}, {type_plain, 14}},
@@ -337,11 +351,13 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
         for (const auto& seq : config.leader.sequences) {
             std::string plain_in = formatKeys(seq.keys);
-            std::string plain_out = formatOutputAction(seq.out_keys, seq.text);
-            std::string type_plain = !seq.text.empty() ? "Text Snippet" :
-                               (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+            std::string plain_out = formatOutputAction(seq.out_keys, seq.text, seq.toggle_layer);
+            std::string type_plain = !seq.toggle_layer.empty() ? "Toggle Layer" :
+                               (!seq.text.empty() ? "Text Snippet" :
+                               (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"));
 
-            std::string out_col = !seq.text.empty() ? yellow(plain_out, col) : green(plain_out, col);
+            std::string out_col = !seq.toggle_layer.empty() ? magenta(plain_out, col) :
+                                  (!seq.text.empty() ? yellow(plain_out, col) : green(plain_out, col));
 
             printRow(ss, "  ",
                 {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
