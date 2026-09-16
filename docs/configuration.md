@@ -246,8 +246,61 @@ tap_hold:
 - **Layer Stacking (LIFO)**: If multiple layers are active simultaneously, key lookup resolves from the top of the stack downwards (most recently activated layer has priority).
 - **Dual-Role Tapping**: Tapping Space quickly without pressing another key emits a normal Space keystroke.
 
+### Toggle / Locking Layers (`toggle_layer` / `tg`)
+
+Toggle (or locking) layers allow you to lock a layer in an active state persistently without having to keep any physical key held down. This is ideal for:
+- Entering large amounts of numeric data using a **Numpad** layer.
+- Switching to a dedicated **Gaming** layer where standard combos or navigation layers should be replaced.
+- Enabling an alternative **Symbol** layout during code editing sessions.
+
+Toggling a layer on pushes it onto the active layer stack; toggling it again pops it off.
+
+#### Toggle Layer Syntax
+
+You can trigger `toggle_layer(name)` (or shorthand `tg(name)`) from combos, layer key mappings, tap-hold dual-role keys, and sequential leader shortcuts:
+
+##### 1. Combos
+```yaml
+combos:
+  # Press F and Space simultaneously to toggle numpad layer on/off
+  f + space: toggle_layer(numpad)
+  # Or using shorthand tg():
+  j + space: tg(nav)
+```
+
+##### 2. Layer Remaps (Unlocking / Exiting)
+A key inside a layer can toggle the layer off (e.g. Escape to exit Numpad mode):
+```yaml
+layers:
+  numpad:
+    esc: toggle_layer(numpad)   # Pressing Escape exits numpad mode
+    j: "1"
+    k: "2"
+    l: "3"
+```
+
+##### 3. Tap-Hold Dual-Role Keys
+Tap to toggle the layer on/off, hold for a modifier:
+```yaml
+tap_hold:
+  capslock: [toggle_layer(numpad), super, 200]
+```
+
+##### 4. Leader Key Sequences
+Type a mnemonic sequence to toggle the layer:
+```yaml
+leader:
+  key: capslock
+  sequences:
+    "n p": toggle_layer(numpad)
+```
+
+#### Layer Stacking & Safety
+- **LIFO Layer Stacking**: If you lock a layer on (e.g. `numpad`) and then momentarily hold another layer key (e.g. `space` for `nav`), the momentary layer takes precedence. When you release `space`, the `numpad` layer remains locked on.
+- **Key Release Safety**: If a physical key is pressed while a layer is toggled and released after the layer is toggled off, TFF safely swallows or cleanly releases the mapped scancode so no modifier or layer keys become stuck.
+
 ### Validation Rules
-- Any layer referenced by `layer:` in `tap_hold` must be defined in `layers:`.
+- Any layer referenced by `layer:` in `tap_hold` or `toggle_layer(...)` in combos, layers, tap-hold, or leader sequences must be defined in `layers:`.
 - Duplicate layer names and duplicate key mappings within a layer are rejected.
 - Keys inside layer mappings cannot have empty outputs.
 

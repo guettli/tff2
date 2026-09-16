@@ -355,7 +355,9 @@ bool TFFEngine::processEvent(const Event& ev) {
             }
 
             if (matched_seq != nullptr) {
-                if (!matched_seq->text.empty()) {
+                if (!matched_seq->toggle_layer.empty()) {
+                    toggleLayer(matched_seq->toggle_layer);
+                } else if (!matched_seq->text.empty()) {
                     emitText(matched_seq->text, ev.time);
                 } else if (!matched_seq->out_keys.empty()) {
                     for (KeyCode out_k : matched_seq->out_keys) {
@@ -464,7 +466,10 @@ bool TFFEngine::processEvent(const Event& ev) {
             if (action != nullptr) {
                 HeldLayerRemap remap;
                 remap.input_key = ev.code;
-                if (!action->text.empty()) {
+                if (!action->toggle_layer.empty()) {
+                    toggleLayer(action->toggle_layer);
+                    remap.is_text = true;
+                } else if (!action->text.empty()) {
                     remap.is_text = true;
                     emitText(action->text, ev.time);
                 } else {
@@ -510,7 +515,9 @@ bool TFFEngine::processEvent(const Event& ev) {
                     writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
                 }
             } else {
-                if (ath_it->config.tap_leader) {
+                if (!ath_it->config.tap_toggle_layer.empty()) {
+                    toggleLayer(ath_it->config.tap_toggle_layer);
+                } else if (ath_it->config.tap_leader) {
                     if (leader_active_) {
                         cancelLeader(ev.time);
                     } else {
@@ -546,7 +553,9 @@ void TFFEngine::finish() {
                 writeKey(ath.config.hold_key, KEY_VAL_UP, ath.hold_down_time);
             }
         } else {
-            if (ath.config.tap_one_shot_modifier != 0) {
+            if (!ath.config.tap_toggle_layer.empty()) {
+                toggleLayer(ath.config.tap_toggle_layer);
+            } else if (ath.config.tap_one_shot_modifier != 0) {
                 armOneShotModifier(ath.config.tap_one_shot_modifier, ath.down_time, ath.config.tap_one_shot_timeout_us);
             } else if (!ath.config.tap_one_shot_layer.empty()) {
                 armOneShotLayer(ath.config.tap_one_shot_layer, ath.down_time, ath.config.tap_one_shot_timeout_us);
@@ -840,7 +849,9 @@ void TFFEngine::writeComboDownKeys(const Combo& combo) {
             return;
         }
     }
-    if (!buf_.empty()) {
+    if (!combo.toggle_layer.empty()) {
+        toggleLayer(combo.toggle_layer);
+    } else if (!buf_.empty()) {
         if (!combo.text.empty()) {
             emitText(combo.text, buf_[0].time);
         } else {
@@ -906,7 +917,7 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
     }
 
     if (!buf_.empty()) {
-        if (combo.text.empty()) {
+        if (combo.toggle_layer.empty() && combo.text.empty()) {
             writeCombo(combo, buf_[0].time, KEY_VAL_UP);
         }
         if (disengaging_trigger_key_ != 0) {

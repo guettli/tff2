@@ -121,3 +121,22 @@ tap_hold:
 #     "w q": ":wq\n"
 #     "g s": "git status\n"
 #     "b": ctrl+b
+#     "n p": toggle_layer(numpad)  # Mnemonic shortcut to toggle numpad layer on/off
+
+# Toggle / Locking Layers (tg / toggle_layer):
+# Persistently lock a layer on without holding any keys.
+# Useful for dedicated numpad data entry, gaming, or symbol layers.
+#
+# combos:
+#   f + space: toggle_layer(numpad)  # Combo to toggle numpad on/off
+#
+# tap_hold:
+#   capslock: [toggle_layer(numpad), super, 200]  # Tap = Toggle Numpad, Hold = Super
+#
+# layers:
+#   numpad:
+#     esc: toggle_layer(numpad)      # Pressing Escape exits numpad mode
+#     m: 0
+#     j: 1
+#     k: 2
+#     l: 3
