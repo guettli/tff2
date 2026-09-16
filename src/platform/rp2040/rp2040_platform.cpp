@@ -105,7 +105,7 @@ bool RP2040Platform::initialize() {
     }
 
     // If no config has been set, load default TFF configuration
-    if (config_.combos.empty() && config_.tap_hold_keys.empty() && config_.layers.empty()) {
+    if (config_.combos.empty() && config_.tap_hold_keys.empty() && config_.layers.empty() && config_.one_shot_keys.empty()) {
         std::string err_msg;
         if (!tff::loadYamlConfig(DEFAULT_YAML_CONFIG, config_, err_msg)) {
             std::fprintf(stderr, "RP2040Platform: Failed to load default config: %s\n", err_msg.c_str());
@@ -142,6 +142,9 @@ bool RP2040Platform::initialize() {
 }
 
 bool RP2040Platform::loadConfiguration(const std::string& yaml_str) {
+    if (!initialized_) {
+        initialize();
+    }
     tff::Config new_config;
     std::string err_msg;
     if (!tff::loadYamlConfig(yaml_str, new_config, err_msg)) {

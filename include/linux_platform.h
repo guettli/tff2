@@ -79,6 +79,11 @@ public:
     void setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys);
 
     /**
+     * @brief Set one-shot keys directly
+     */
+    void setOneShotKeys(const std::vector<tff::OneShotKey>& keys);
+
+    /**
      * @brief Set modal layers directly
      */
     void setLayers(const std::vector<tff::Layer>& layers);

@@ -30,9 +30,19 @@ public:
     void setLayers(const std::vector<Layer>& layers);
     const std::vector<Layer>& getLayers() const { return layers_; }
     const std::vector<std::string>& getActiveLayers() const { return active_layer_stack_; }
+    bool isLayerActive(const std::string& name) const;
+
+    void setOneShotKeys(const std::vector<OneShotKey>& keys);
+    const std::vector<OneShotKey>& getOneShotKeys() const { return one_shot_keys_; }
+
+    void armOneShotModifier(KeyCode mod, TimeVal time, int64_t timeout_us = 1500000LL);
+    void armOneShotLayer(const std::string& layer, TimeVal time, int64_t timeout_us = 1500000LL);
+    void disengageOneShots(TimeVal time);
+    bool isOneShotModifierArmed(KeyCode mod) const;
+    bool isOneShotLayerArmed(const std::string& layer) const;
 
     void setConfig(const Config& config);
-    Config getConfig() const { return Config{all_combos_, tap_hold_keys_, layers_}; }
+    Config getConfig() const;
 
     void activateLayer(const std::string& name);
     void deactivateLayer(const std::string& name);
@@ -75,13 +85,29 @@ private:
         bool is_text = false;
     };
 
+    struct ArmedOneShotModifier {
+        KeyCode modifier = 0;
+        TimeVal expire_time;
+    };
+
+    struct ArmedOneShotLayer {
+        std::string layer;
+        TimeVal expire_time;
+    };
+
     EventWriter* out_dev_ = nullptr;
     std::vector<Combo> all_combos_;
     std::vector<TapHoldKey> tap_hold_keys_;
     std::vector<Layer> layers_;
+    std::vector<OneShotKey> one_shot_keys_;
     std::vector<std::string> active_layer_stack_;
     std::unordered_map<KeyCode, HeldLayerRemap> held_layer_remaps_;
     std::vector<ActiveTapHold> active_tap_holds_;
+    std::vector<ArmedOneShotModifier> armed_one_shot_modifiers_;
+    std::vector<ArmedOneShotLayer> armed_one_shot_layers_;
+    std::vector<KeyCode> active_one_shot_modifiers_down_;
+    std::vector<std::string> active_one_shot_layers_deactivate_;
+    KeyCode disengaging_trigger_key_ = 0;
     std::vector<Event> buf_;
     std::vector<Combo> down_keys_written_;
     std::vector<KeyCode> swallow_keys_;

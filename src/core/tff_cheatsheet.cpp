@@ -107,13 +107,34 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "| Key | Tap Action | Hold Action / Layer | Timeout |\n"
                << "|:---|:---|:---|:---|\n";
             for (const auto& th : config.tap_hold_keys) {
+                std::string tap_act = formatKey(th.tap_key);
+                if (th.tap_one_shot_modifier != 0) {
+                    tap_act = "osm(" + formatKey(th.tap_one_shot_modifier) + ")";
+                } else if (!th.tap_one_shot_layer.empty()) {
+                    tap_act = "osl(" + th.tap_one_shot_layer + ")";
+                }
                 std::string hold_target = !th.hold_layer.empty()
                     ? ("Layer: `" + th.hold_layer + "`")
                     : (formatMarkdownCode(formatKey(th.hold_key)));
                 ss << "| " << formatMarkdownCode(formatKey(th.key)) << " | "
-                   << formatMarkdownCode(formatKey(th.tap_key)) << " | "
+                   << formatMarkdownCode(tap_act) << " | "
                    << hold_target << " | "
                    << (th.timeout_us / 1000) << "ms |\n";
+            }
+            ss << "\n";
+        }
+
+        // One-Shot Keys (OSM / OSL)
+        if (!config.one_shot_keys.empty()) {
+            ss << "## One-Shot / Sticky Keys (OSM & OSL)\n\n"
+               << "| Key | Modifier / Layer | Type | Timeout |\n"
+               << "|:---|:---|:---|:---|\n";
+            for (const auto& osk : config.one_shot_keys) {
+                std::string target = !osk.layer.empty() ? ("Layer: `" + osk.layer + "`") : formatMarkdownCode(formatKey(osk.modifier));
+                std::string type = !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
+                ss << "| " << formatMarkdownCode(formatKey(osk.key)) << " | "
+                   << target << " | " << type << " | "
+                   << (osk.timeout_us / 1000) << "ms |\n";
             }
             ss << "\n";
         }
@@ -159,8 +180,8 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             }
         }
 
-        if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty()) {
-            ss << "_No combos, tap-hold keys, or layers configured._\n\n";
+        if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() && config.one_shot_keys.empty()) {
+            ss << "_No combos, tap-hold keys, one-shot keys, or layers configured._\n\n";
         }
 
         return ss.str();
@@ -184,6 +205,11 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         for (const auto& th : config.tap_hold_keys) {
             std::string plain_key = formatKey(th.key);
             std::string plain_tap = formatKey(th.tap_key);
+            if (th.tap_one_shot_modifier != 0) {
+                plain_tap = "osm(" + formatKey(th.tap_one_shot_modifier) + ")";
+            } else if (!th.tap_one_shot_layer.empty()) {
+                plain_tap = "osl(" + th.tap_one_shot_layer + ")";
+            }
             std::string plain_hold = !th.hold_layer.empty() ? ("[layer: " + th.hold_layer + "]") : formatKey(th.hold_key);
             std::string plain_timeout = std::to_string(th.timeout_us / 1000) + "ms";
 
@@ -192,6 +218,29 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             printRow(ss, "  ",
                 {{plain_key, 16}, {plain_tap, 18}, {plain_hold, 28}, {plain_timeout, 10}},
                 {cyan(plain_key, col), green(plain_tap, col), hold_col, dim(plain_timeout, col)});
+        }
+        ss << "\n";
+    }
+
+    // One-Shot Keys (OSM / OSL)
+    if (!config.one_shot_keys.empty()) {
+        ss << bold(blue("[ One-Shot / Sticky Keys (OSM / OSL) ] (" + std::to_string(config.one_shot_keys.size()) + " active)", col), col) << "\n\n";
+        printRow(ss, "  ",
+            {{"Key", 16}, {"Target", 20}, {"Type", 26}, {"Timeout", 10}},
+            {bold("Key", col), bold("Target", col), bold("Type", col), bold("Timeout", col)});
+        ss << "  " << dim(std::string(72, '-'), col) << "\n";
+
+        for (const auto& osk : config.one_shot_keys) {
+            std::string plain_key = formatKey(osk.key);
+            std::string plain_target = !osk.layer.empty() ? ("[layer: " + osk.layer + "]") : formatKey(osk.modifier);
+            std::string plain_type = !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
+            std::string plain_timeout = std::to_string(osk.timeout_us / 1000) + "ms";
+
+            std::string target_col = !osk.layer.empty() ? magenta(plain_target, col) : green(plain_target, col);
+
+            printRow(ss, "  ",
+                {{plain_key, 16}, {plain_target, 20}, {plain_type, 26}, {plain_timeout, 10}},
+                {cyan(plain_key, col), target_col, dim(plain_type, col), dim(plain_timeout, col)});
         }
         ss << "\n";
     }
@@ -252,8 +301,8 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         }
     }
 
-    if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty()) {
-        ss << dim("  (No combos, tap-hold keys, or layers configured)", col) << "\n\n";
+    if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() && config.one_shot_keys.empty()) {
+        ss << dim("  (No combos, tap-hold keys, one-shot keys, or layers configured)", col) << "\n\n";
     }
 
     return ss.str();

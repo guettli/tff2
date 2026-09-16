@@ -160,6 +160,49 @@ bool isTextSnippet(const std::string& val, std::string& text) {
     return false;
 }
 
+bool isOneShotPattern(const std::string& str) {
+    std::string s = trim(str);
+    return !s.empty() && s.back() == ')' &&
+        (s.rfind("osm(", 0) == 0 || s.rfind("osl(", 0) == 0 || s.rfind("one_shot(", 0) == 0);
+}
+
+bool parseOneShotTarget(const std::string& str, KeyCode& out_mod, std::string& out_layer, std::string& err_msg) {
+    std::string s = trim(str);
+    if (!s.empty() && s.back() == ')') {
+        if (s.rfind("osm(", 0) == 0) {
+            std::string inner = trim(s.substr(4, s.size() - 5));
+            if (!wordToKeyCode(inner, out_mod, err_msg)) {
+                return false;
+            }
+            if (!isModifier(out_mod)) {
+                err_msg = "invalid modifier key '" + inner + "' in osm";
+                return false;
+            }
+            out_layer.clear();
+            return true;
+        }
+        if (s.rfind("osl(", 0) == 0) {
+            std::string inner = trim(s.substr(4, s.size() - 5));
+            out_layer = inner;
+            out_mod = 0;
+            return true;
+        }
+        if (s.rfind("one_shot(", 0) == 0) {
+            std::string inner = trim(s.substr(9, s.size() - 10));
+            std::string dummy_err;
+            if (wordToKeyCode(inner, out_mod, dummy_err) && isModifier(out_mod)) {
+                out_layer.clear();
+                return true;
+            } else {
+                out_layer = inner;
+                out_mod = 0;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 bool parseDurationMicros(const std::string& str, int64_t& out_us) {
@@ -394,6 +437,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_combos = false;
     bool in_tap_hold = false;
     bool in_layers = false;
+    bool in_one_shot = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
@@ -401,9 +445,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
+    bool has_one_shot_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
     size_t layers_base_indent = 0;
+    size_t one_shot_base_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
     std::string current_layer_name;
@@ -417,7 +463,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     auto flush_pending_th = [&]() -> bool {
         if (has_pending_th) {
             if (pending_th.key != 0) {
-                if (pending_th.tap_key == 0 || (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
+                if ((pending_th.tap_key == 0 && pending_th.tap_one_shot_modifier == 0 && pending_th.tap_one_shot_layer.empty()) ||
+                    (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
                     err_msg = "tap_hold definition requires both 'tap' and 'hold'";
                     return false;
                 }
@@ -425,6 +472,30 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
             pending_th = TapHoldKey{};
             has_pending_th = false;
+        }
+        return true;
+    };
+
+    // For multi-line one_shot definitions
+    OneShotKey pending_os;
+    bool has_pending_os = false;
+    size_t pending_os_indent = 0;
+
+    auto flush_pending_os = [&]() -> bool {
+        if (has_pending_os) {
+            if (pending_os.key != 0) {
+                if (pending_os.modifier == 0 && pending_os.layer.empty()) {
+                    if (isModifier(pending_os.key)) {
+                        pending_os.modifier = pending_os.key;
+                    } else {
+                        err_msg = "one_shot key '" + keyCodeToWord(pending_os.key) + "' requires a modifier or layer";
+                        return false;
+                    }
+                }
+                config.one_shot_keys.push_back(pending_os);
+            }
+            pending_os = OneShotKey{};
+            has_pending_os = false;
         }
         return true;
     };
@@ -439,9 +510,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (t.rfind("combos:", 0) == 0) {
             if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
             in_combos = true;
             in_tap_hold = false;
             in_layers = false;
+            in_one_shot = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -453,9 +526,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (t.rfind("tap_hold:", 0) == 0) {
             if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
             in_tap_hold = true;
             in_combos = false;
             in_layers = false;
+            in_one_shot = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
@@ -463,14 +538,31 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (t.rfind("layers:", 0) == 0) {
             if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
             in_layers = true;
             in_combos = false;
             in_tap_hold = false;
+            in_one_shot = false;
             has_layers_tag = true;
             layers_base_indent = current_indent;
             current_layer_name.clear();
             continue;
         } else if (t.rfind("layers", 0) == 0 && t.find(':') == std::string::npos) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
+        }
+
+        if (t.rfind("one_shot:", 0) == 0) {
+            if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
+            in_one_shot = true;
+            in_combos = false;
+            in_tap_hold = false;
+            in_layers = false;
+            has_one_shot_tag = true;
+            one_shot_base_indent = current_indent;
+            continue;
+        } else if (t.rfind("one_shot", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
@@ -488,6 +580,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (in_layers && current_indent <= layers_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_layers = false;
             current_layer_name.clear();
+        }
+
+        if (in_one_shot && current_indent <= one_shot_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            if (!flush_pending_os()) return false;
+            in_one_shot = false;
         }
 
         if (in_layers) {
@@ -603,7 +700,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "layer: nav", "timeout_ms: 200")
             if (has_pending_th && current_indent > pending_th_indent) {
                 if (key_part == "tap") {
-                    if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
+                    if (isOneShotPattern(val_part)) {
+                        if (!parseOneShotTarget(val_part, pending_th.tap_one_shot_modifier, pending_th.tap_one_shot_layer, err_msg)) {
+                            return false;
+                        }
+                    } else if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
                         return false;
                     }
                 } else if (key_part == "hold") {
@@ -673,7 +774,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
                 TapHoldKey thk;
                 thk.key = th_code;
-                if (!wordToKeyCode(parts[0], thk.tap_key, err_msg)) return false;
+                if (isOneShotPattern(parts[0])) {
+                    if (!parseOneShotTarget(parts[0], thk.tap_one_shot_modifier, thk.tap_one_shot_layer, err_msg)) {
+                        return false;
+                    }
+                } else if (!wordToKeyCode(parts[0], thk.tap_key, err_msg)) {
+                    return false;
+                }
+
                 std::string hold_target = parts[1];
                 if (hold_target.rfind("layer:", 0) == 0) {
                     thk.hold_layer = hold_target.substr(6);
@@ -699,6 +807,154 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                 }
                 config.tap_hold_keys.push_back(thk);
+            }
+            continue;
+        }
+
+        if (in_one_shot) {
+            std::string line_content = t;
+            if (line_content.rfind("- key:", 0) == 0) {
+                line_content = trim(line_content.substr(2)); // "key: ..."
+            } else if (line_content.rfind("- ", 0) == 0 && line_content.find(':') != std::string::npos) {
+                line_content = trim(line_content.substr(2));
+            }
+
+            auto colon = line_content.find(':');
+            if (colon == std::string::npos) continue;
+
+            std::string key_part = trim(line_content.substr(0, colon));
+            std::string val_part = trim(line_content.substr(colon + 1));
+
+            // Check if this is a new "- key: space" list item
+            if (key_part == "key") {
+                if (!flush_pending_os()) return false;
+                KeyCode os_code = 0;
+                if (!wordToKeyCode(val_part, os_code, err_msg)) {
+                    return false;
+                }
+                has_pending_os = true;
+                pending_os_indent = current_indent;
+                pending_os.key = os_code;
+                pending_os.timeout_us = 1500000LL;
+                continue;
+            }
+
+            // Check if this is a sub-property of pending_os (e.g. "modifier: shift", "layer: nav", "timeout_ms: 1500")
+            if (has_pending_os && current_indent > pending_os_indent) {
+                if (key_part == "modifier" || key_part == "mod") {
+                    if (!wordToKeyCode(val_part, pending_os.modifier, err_msg)) {
+                        return false;
+                    }
+                    if (!isModifier(pending_os.modifier)) {
+                        err_msg = "invalid modifier key '" + val_part + "' in one_shot";
+                        return false;
+                    }
+                } else if (key_part == "layer") {
+                    pending_os.layer = val_part;
+                } else if (key_part == "timeout_ms" || key_part == "timeout") {
+                    try {
+                        long long val = std::stoll(val_part);
+                        if (val <= 0) {
+                            err_msg = "timeout_ms must be positive: " + val_part;
+                            return false;
+                        }
+                        pending_os.timeout_us = val * 1000LL;
+                    } catch (...) {
+                        err_msg = "invalid timeout value: " + val_part;
+                        return false;
+                    }
+                } else {
+                    err_msg = "unknown one_shot property: " + key_part;
+                    return false;
+                }
+                continue;
+            }
+
+            // New key under one_shot
+            if (!flush_pending_os()) return false;
+
+            KeyCode os_code = 0;
+            if (!wordToKeyCode(key_part, os_code, err_msg)) {
+                return false;
+            }
+
+            if (val_part.empty()) {
+                // Multi-line property block, e.g. "leftshift:"
+                has_pending_os = true;
+                pending_os_indent = current_indent;
+                pending_os.key = os_code;
+                pending_os.timeout_us = 1500000LL;
+            } else {
+                // Inline compact format: "leftshift: 1500", "space: [nav, 1500]", "capslock: [shift, 1500]"
+                std::string clean_val = val_part;
+                if (clean_val.front() == '[') clean_val = clean_val.substr(1);
+                if (!clean_val.empty() && clean_val.back() == ']') clean_val.pop_back();
+
+                std::vector<std::string> parts;
+                if (clean_val.find(',') != std::string::npos) {
+                    auto raw_parts = split(clean_val, ',');
+                    for (const auto& p : raw_parts) {
+                        std::string w = trim(p);
+                        if (!w.empty()) parts.push_back(w);
+                    }
+                } else {
+                    parts = fields(clean_val);
+                }
+
+                OneShotKey osk;
+                osk.key = os_code;
+                osk.timeout_us = 1500000LL;
+
+                if (parts.size() == 1) {
+                    try {
+                        long long val = std::stoll(parts[0]);
+                        if (val <= 0) {
+                            err_msg = "timeout_ms must be positive: " + parts[0];
+                            return false;
+                        }
+                        osk.timeout_us = val * 1000LL;
+                        if (isModifier(os_code)) {
+                            osk.modifier = os_code;
+                        }
+                    } catch (...) {
+                        std::string dummy_err;
+                        KeyCode parsed_mod = 0;
+                        if (wordToKeyCode(parts[0], parsed_mod, dummy_err) && isModifier(parsed_mod)) {
+                            osk.modifier = parsed_mod;
+                        } else {
+                            osk.layer = parts[0];
+                        }
+                    }
+                } else if (parts.size() >= 2) {
+                    std::string dummy_err;
+                    KeyCode parsed_mod = 0;
+                    if (wordToKeyCode(parts[0], parsed_mod, dummy_err) && isModifier(parsed_mod)) {
+                        osk.modifier = parsed_mod;
+                    } else {
+                        osk.layer = parts[0];
+                    }
+                    try {
+                        long long val = std::stoll(parts[1]);
+                        if (val <= 0) {
+                            err_msg = "timeout_ms must be positive: " + parts[1];
+                            return false;
+                        }
+                        osk.timeout_us = val * 1000LL;
+                    } catch (...) {
+                        err_msg = "invalid timeout value: " + parts[1];
+                        return false;
+                    }
+                }
+
+                if (osk.modifier == 0 && osk.layer.empty()) {
+                    if (isModifier(os_code)) {
+                        osk.modifier = os_code;
+                    } else {
+                        err_msg = "one_shot key '" + key_part + "' requires a modifier or layer";
+                        return false;
+                    }
+                }
+                config.one_shot_keys.push_back(osk);
             }
             continue;
         }
@@ -1008,13 +1264,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     }
 
     if (!flush_pending_th()) return false;
+    if (!flush_pending_os()) return false;
 
     if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
@@ -1033,10 +1290,67 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
         }
+        if (!th.tap_one_shot_layer.empty()) {
+            bool found_layer = false;
+            for (const auto& lyr : config.layers) {
+                if (lyr.name == th.tap_one_shot_layer) {
+                    found_layer = true;
+                    break;
+                }
+            }
+            if (!found_layer) {
+                err_msg = "unknown layer '" + th.tap_one_shot_layer + "' referenced in tap_hold";
+                return false;
+            }
+        }
+        if (th.tap_one_shot_modifier != 0 && !isModifier(th.tap_one_shot_modifier)) {
+            err_msg = "invalid modifier key '" + keyCodeToWord(th.tap_one_shot_modifier) + "' in tap_hold osm";
+            return false;
+        }
         for (const auto& combo : config.combos) {
             for (KeyCode k : combo.keys) {
                 if (k == th.key) {
                     err_msg = "key '" + keyCodeToWord(th.key) + "' cannot be used in both combos and tap_hold";
+                    return false;
+                }
+            }
+        }
+    }
+
+    std::vector<KeyCode> seen_one_shot;
+    for (const auto& osk : config.one_shot_keys) {
+        if (!osk.layer.empty()) {
+            bool found_layer = false;
+            for (const auto& lyr : config.layers) {
+                if (lyr.name == osk.layer) {
+                    found_layer = true;
+                    break;
+                }
+            }
+            if (!found_layer) {
+                err_msg = "unknown layer '" + osk.layer + "' referenced in one_shot";
+                return false;
+            }
+        }
+        if (osk.modifier != 0 && !isModifier(osk.modifier)) {
+            err_msg = "invalid modifier key '" + keyCodeToWord(osk.modifier) + "' in one_shot";
+            return false;
+        }
+        if (std::find(seen_one_shot.begin(), seen_one_shot.end(), osk.key) != seen_one_shot.end()) {
+            err_msg = "duplicate one_shot key: " + keyCodeToWord(osk.key);
+            return false;
+        }
+        seen_one_shot.push_back(osk.key);
+        for (const auto& th : config.tap_hold_keys) {
+            if (th.key == osk.key) {
+                err_msg = "key '" + keyCodeToWord(osk.key) + "' cannot be used in both tap_hold and one_shot";
+                return false;
+            }
+        }
+        for (const auto& combo : config.combos) {
+            for (KeyCode k : combo.keys) {
+                if (k == osk.key) {
+                    err_msg = "key '" + keyCodeToWord(osk.key) + "' cannot be used in both combos and one_shot";
                     return false;
                 }
             }

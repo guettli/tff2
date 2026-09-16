@@ -163,6 +163,16 @@ bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code);
  */
 bool asciiToKeyStroke(char c, KeyCode& code, bool& shift);
 
+/**
+ * @brief Checks if a KeyCode is a standard keyboard modifier (Ctrl, Shift, Alt, Super/Meta).
+ */
+inline bool isModifier(KeyCode code) {
+    return code == Keys::KEY_LEFTCTRL || code == Keys::KEY_RIGHTCTRL ||
+           code == Keys::KEY_LEFTSHIFT || code == Keys::KEY_RIGHTSHIFT ||
+           code == Keys::KEY_LEFTALT || code == Keys::KEY_RIGHTALT ||
+           code == Keys::KEY_LEFTMETA || code == Keys::KEY_RIGHTMETA;
+}
+
 } // namespace tff
 
 #endif // TFF_KEY_CODES_H

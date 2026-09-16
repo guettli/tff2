@@ -150,6 +150,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_cheatsheet tff_core)
 
+    add_executable(test_one_shot
+        tests/test_one_shot.cpp
+    )
+    target_link_libraries(test_one_shot tff_core)
+
     # Create Go-parity TFF test suite executable
     add_executable(test_tff_go_suite
         tests/test_tff_go_suite.cpp
@@ -189,6 +194,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_text_snippets COMMAND test_text_snippets)
     add_test(NAME test_modal_layers COMMAND test_modal_layers)
     add_test(NAME test_cheatsheet COMMAND test_cheatsheet)
+    add_test(NAME test_one_shot COMMAND test_one_shot)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
 
@@ -201,6 +207,7 @@ if(NOT PICO_BUILD)
         test_text_snippets
         test_modal_layers
         test_cheatsheet
+        test_one_shot
         test_tff_go_suite
         test_linux_platform
     )

@@ -182,7 +182,8 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s), "
-                  << config.tap_hold_keys.size() << " tap-hold key(s), and "
+                  << config.tap_hold_keys.size() << " tap-hold key(s), "
+                  << config.one_shot_keys.size() << " one-shot key(s), and "
                   << config.layers.size() << " layer(s) from " << config_file << "\n";
         return 0;
     }
@@ -250,7 +251,8 @@ int main(int argc, char* argv[]) {
 
     const auto& engine = platform.getEngine();
     std::cout << "Loaded " << engine.getCombos().size() << " combo(s), "
-              << engine.getTapHoldKeys().size() << " tap-hold key(s), and "
+              << engine.getTapHoldKeys().size() << " tap-hold key(s), "
+              << engine.getOneShotKeys().size() << " one-shot key(s), and "
               << engine.getLayers().size() << " layer(s)\n";
 
     platform.setGrab(grab);

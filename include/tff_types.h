@@ -131,10 +131,28 @@ struct TapHoldKey {
     KeyCode hold_key = 0;          // Emitted on long press / hold (e.g. KEY_LEFTMETA / Super / Win)
     std::string hold_layer;        // Layer activated while held (e.g. "nav")
     int64_t timeout_us = 200000LL; // Overlap timeout in microseconds (default 200ms)
+    KeyCode tap_one_shot_modifier = 0; // If set, short tap arms one-shot modifier (OSM)
+    std::string tap_one_shot_layer;     // If set, short tap arms one-shot layer (OSL)
+    int64_t tap_one_shot_timeout_us = 1500000LL; // One-shot expiration timeout in us (default 1500ms)
 
     bool operator==(const TapHoldKey& o) const {
         return key == o.key && tap_key == o.tap_key && hold_key == o.hold_key &&
-               hold_layer == o.hold_layer && timeout_us == o.timeout_us;
+               hold_layer == o.hold_layer && timeout_us == o.timeout_us &&
+               tap_one_shot_modifier == o.tap_one_shot_modifier &&
+               tap_one_shot_layer == o.tap_one_shot_layer &&
+               tap_one_shot_timeout_us == o.tap_one_shot_timeout_us;
+    }
+};
+
+struct OneShotKey {
+    KeyCode key = 0;               // Key to intercept (e.g. KEY_LEFTSHIFT)
+    KeyCode modifier = 0;          // Modifier applied to next key (defaults to key if key is modifier)
+    std::string layer;             // One-Shot Layer applied to next key (OSL)
+    int64_t timeout_us = 1500000LL; // Expiration timeout in microseconds (default 1500ms)
+
+    bool operator==(const OneShotKey& o) const {
+        return key == o.key && modifier == o.modifier &&
+               layer == o.layer && timeout_us == o.timeout_us;
     }
 };
 
@@ -142,6 +160,7 @@ struct Config {
     std::vector<Combo> combos;
     std::vector<TapHoldKey> tap_hold_keys;
     std::vector<Layer> layers;
+    std::vector<OneShotKey> one_shot_keys;
 };
 
 class EventWriter {

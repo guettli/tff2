@@ -15,12 +15,12 @@ static void test_empty_config() {
 
     std::string out = Cheatsheet::generate(config, opts);
     assert(out.find("TEN FLYING FINGERS — CHEAT SHEET") != std::string::npos);
-    assert(out.find("(No combos, tap-hold keys, or layers configured)") != std::string::npos);
+    assert(out.find("(No combos, tap-hold keys, one-shot keys, or layers configured)") != std::string::npos);
 
     opts.markdown = true;
     std::string md = Cheatsheet::generate(config, opts);
     assert(md.find("# Ten Flying Fingers — Cheat Sheet") != std::string::npos);
-    assert(md.find("_No combos, tap-hold keys, or layers configured._") != std::string::npos);
+    assert(md.find("_No combos, tap-hold keys, one-shot keys, or layers configured._") != std::string::npos);
 
     std::cout << "test_empty_config: PASSED\n";
 }
@@ -50,6 +50,18 @@ static void test_terminal_cheatsheet_with_and_without_colors() {
     c3.text = "println!();";
     config.combos.push_back(c3);
 
+    OneShotKey osk1;
+    osk1.key = Keys::KEY_LEFTSHIFT;
+    osk1.modifier = Keys::KEY_LEFTSHIFT;
+    osk1.timeout_us = 1500000LL;
+    config.one_shot_keys.push_back(osk1);
+
+    OneShotKey osk2;
+    osk2.key = Keys::KEY_SPACE;
+    osk2.layer = "nav";
+    osk2.timeout_us = 2000000LL;
+    config.one_shot_keys.push_back(osk2);
+
     // 1. Plain text (no colors)
     CheatsheetOptions opts_plain;
     opts_plain.color = false;
@@ -65,6 +77,11 @@ static void test_terminal_cheatsheet_with_and_without_colors() {
     assert(plain.find("f space") != std::string::npos);
     assert(plain.find("ctrl + s") != std::string::npos);
     assert(plain.find("\"println!();\"") != std::string::npos);
+    assert(plain.find("[ One-Shot / Sticky Keys (OSM / OSL) ] (2 active)") != std::string::npos);
+    assert(plain.find("shift") != std::string::npos);
+    assert(plain.find("[layer: nav]") != std::string::npos);
+    assert(plain.find("One-Shot Modifier (OSM)") != std::string::npos);
+    assert(plain.find("One-Shot Layer (OSL)") != std::string::npos);
 
     // 2. Colored text
     CheatsheetOptions opts_col;
@@ -72,6 +89,7 @@ static void test_terminal_cheatsheet_with_and_without_colors() {
     std::string colored = Cheatsheet::generate(config, opts_col);
     assert(colored.find("\033[") != std::string::npos); // Has ANSI escape codes
     assert(colored.find("capslock") != std::string::npos);
+    assert(colored.find("[ One-Shot / Sticky Keys (OSM / OSL) ]") != std::string::npos);
 
     std::cout << "test_terminal_cheatsheet_with_and_without_colors: PASSED\n";
 }
@@ -92,6 +110,12 @@ static void test_markdown_cheatsheet() {
     th2.hold_layer = "nav";
     th2.timeout_us = 180000LL;
     config.tap_hold_keys.push_back(th2);
+
+    OneShotKey osk;
+    osk.key = Keys::KEY_LEFTSHIFT;
+    osk.modifier = Keys::KEY_LEFTSHIFT;
+    osk.timeout_us = 1500000LL;
+    config.one_shot_keys.push_back(osk);
 
     Combo c1;
     c1.keys = {Keys::KEY_J, Keys::KEY_F};
@@ -118,6 +142,8 @@ static void test_markdown_cheatsheet() {
     assert(md.find("## Tap-vs-Hold Keys (Dual-Role)") != std::string::npos);
     assert(md.find("| `capslock` | `esc` | `super` | 200ms |") != std::string::npos);
     assert(md.find("| `space` | `space` | Layer: `nav` | 180ms |") != std::string::npos);
+    assert(md.find("## One-Shot / Sticky Keys (OSM & OSL)") != std::string::npos);
+    assert(md.find("| `shift` | `shift` | One-Shot Modifier (OSM) | 1500ms |") != std::string::npos);
     assert(md.find("## Home Row Combos & Chords") != std::string::npos);
     assert(md.find("| `j f` | `backspace` | Single Key |") != std::string::npos);
     assert(md.find("hello \\| world") != std::string::npos); // escaped pipe
@@ -151,6 +177,10 @@ tap_hold:
     layer: nav
     timeout_ms: 180
 
+one_shot:
+  leftshift: 1500
+  tab: [nav, 2000]
+
 combos:
   j f: backspace
   f j: delete
@@ -168,6 +198,9 @@ combos:
     assert(out.find("[ Tap-vs-Hold Keys (Dual-Role) ]") != std::string::npos);
     assert(out.find("capslock") != std::string::npos);
     assert(out.find("[layer: nav]") != std::string::npos);
+    assert(out.find("[ One-Shot / Sticky Keys (OSM / OSL) ] (2 active)") != std::string::npos);
+    assert(out.find("shift") != std::string::npos);
+    assert(out.find("tab") != std::string::npos);
     assert(out.find("[ Combos & Chords ] (3 active)") != std::string::npos);
     assert(out.find("j f") != std::string::npos);
     assert(out.find("backspace") != std::string::npos);
