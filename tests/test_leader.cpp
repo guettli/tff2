@@ -336,7 +336,7 @@ leader:
     assert(cfg1.leader.sequences[2].keys == std::vector<KeyCode>({Keys::KEY_B}));
     assert(cfg1.leader.sequences[2].out_keys == std::vector<KeyCode>({Keys::KEY_LEFTCTRL, Keys::KEY_B}));
 
-    // 2. Valid list format and compact tap_hold
+    // 2. Valid list format, quoted bracketed keys, and compact tap_hold
     const std::string valid_list_yaml = R"(
 tap_hold:
   capslock: [leader, super, 200]
@@ -344,7 +344,7 @@ tap_hold:
 leader:
   timeout_ms: 1200
   sequences:
-    - keys: [w, q]
+    - keys: "[w, q]"
       text: ":wq\n"
     - keys: "g s"
       out: ctrl+s
@@ -357,6 +357,7 @@ leader:
     assert(cfg2.leader.key == Keys::KEY_CAPSLOCK); // Auto-bound from tap_leader!
     assert(cfg2.leader.timeout_us == 1200000LL);
     assert(cfg2.leader.sequences.size() == 2);
+    assert(cfg2.leader.sequences[0].keys == std::vector<KeyCode>({Keys::KEY_W, Keys::KEY_Q}));
 
     // 3. Validation error: duplicate sequence
     const std::string dup_yaml = R"(

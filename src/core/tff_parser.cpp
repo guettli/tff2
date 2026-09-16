@@ -1097,14 +1097,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             std::string val_part = trim(line_content.substr(colon + 1));
 
             auto parse_seq_keys = [&](const std::string& str, std::vector<KeyCode>& out_keys) -> bool {
-                std::string s = str;
+                std::string s = trim(str);
+                if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+                    s = trim(s.substr(1, s.size() - 2));
+                }
                 if (!s.empty() && s.front() == '[') {
                     if (s.back() == ']') s.pop_back();
                     s = s.substr(1);
                     for (char& ch : s) if (ch == ',') ch = ' ';
-                }
-                if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
-                    s = s.substr(1, s.size() - 2);
                 }
                 auto key_tokens = fields(s);
                 if (key_tokens.empty()) {
