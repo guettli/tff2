@@ -438,6 +438,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_tap_hold = false;
     bool in_layers = false;
     bool in_one_shot = false;
+    bool in_leader = false;
+    bool in_leader_sequences = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
@@ -446,10 +448,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
     bool has_one_shot_tag = false;
+    bool has_leader_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
     size_t layers_base_indent = 0;
     size_t one_shot_base_indent = 0;
+    size_t leader_base_indent = 0;
+    size_t leader_sequences_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
     std::string current_layer_name;
@@ -463,7 +468,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     auto flush_pending_th = [&]() -> bool {
         if (has_pending_th) {
             if (pending_th.key != 0) {
-                if ((pending_th.tap_key == 0 && pending_th.tap_one_shot_modifier == 0 && pending_th.tap_one_shot_layer.empty()) ||
+                if ((pending_th.tap_key == 0 && pending_th.tap_one_shot_modifier == 0 && pending_th.tap_one_shot_layer.empty() && !pending_th.tap_leader) ||
                     (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
                     err_msg = "tap_hold definition requires both 'tap' and 'hold'";
                     return false;
@@ -500,6 +505,28 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return true;
     };
 
+    // For multi-line leader sequence definitions
+    LeaderSequence pending_lseq;
+    bool has_pending_lseq = false;
+    size_t pending_lseq_indent = 0;
+
+    auto flush_pending_lseq = [&]() -> bool {
+        if (has_pending_lseq) {
+            if (pending_lseq.keys.empty()) {
+                err_msg = "leader sequence missing keys";
+                return false;
+            }
+            if (pending_lseq.out_keys.empty() && pending_lseq.text.empty()) {
+                err_msg = "leader sequence requires an action (text or keys)";
+                return false;
+            }
+            config.leader.sequences.push_back(pending_lseq);
+            pending_lseq = LeaderSequence{};
+            has_pending_lseq = false;
+        }
+        return true;
+    };
+
     while (std::getline(iss, line)) {
         // Strip inline comment if any (preserving '#' inside quoted strings)
         std::string clean_line = stripComment(line);
@@ -511,10 +538,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (t.rfind("combos:", 0) == 0) {
             if (!flush_pending_th()) return false;
             if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
             in_combos = true;
             in_tap_hold = false;
             in_layers = false;
             in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -527,10 +557,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (t.rfind("tap_hold:", 0) == 0) {
             if (!flush_pending_th()) return false;
             if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
             in_tap_hold = true;
             in_combos = false;
             in_layers = false;
             in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
@@ -539,10 +572,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (t.rfind("layers:", 0) == 0) {
             if (!flush_pending_th()) return false;
             if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
             in_layers = true;
             in_combos = false;
             in_tap_hold = false;
             in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
             has_layers_tag = true;
             layers_base_indent = current_indent;
             current_layer_name.clear();
@@ -555,14 +591,35 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (t.rfind("one_shot:", 0) == 0) {
             if (!flush_pending_th()) return false;
             if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
             in_one_shot = true;
             in_combos = false;
             in_tap_hold = false;
             in_layers = false;
+            in_leader = false;
+            in_leader_sequences = false;
             has_one_shot_tag = true;
             one_shot_base_indent = current_indent;
             continue;
         } else if (t.rfind("one_shot", 0) == 0 && t.find(':') == std::string::npos) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
+        }
+
+        if (t.rfind("leader:", 0) == 0) {
+            if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
+            in_leader = true;
+            in_combos = false;
+            in_tap_hold = false;
+            in_layers = false;
+            in_one_shot = false;
+            in_leader_sequences = false;
+            has_leader_tag = true;
+            leader_base_indent = current_indent;
+            continue;
+        } else if (t.rfind("leader", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
@@ -585,6 +642,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (in_one_shot && current_indent <= one_shot_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             if (!flush_pending_os()) return false;
             in_one_shot = false;
+        }
+
+        if (in_leader && current_indent <= leader_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            if (!flush_pending_lseq()) return false;
+            in_leader = false;
+            in_leader_sequences = false;
         }
 
         if (in_layers) {
@@ -700,7 +763,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "layer: nav", "timeout_ms: 200")
             if (has_pending_th && current_indent > pending_th_indent) {
                 if (key_part == "tap") {
-                    if (isOneShotPattern(val_part)) {
+                    if (val_part == "leader") {
+                        pending_th.tap_leader = true;
+                    } else if (isOneShotPattern(val_part)) {
                         if (!parseOneShotTarget(val_part, pending_th.tap_one_shot_modifier, pending_th.tap_one_shot_layer, err_msg)) {
                             return false;
                         }
@@ -774,7 +839,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
                 TapHoldKey thk;
                 thk.key = th_code;
-                if (isOneShotPattern(parts[0])) {
+                if (parts[0] == "leader") {
+                    thk.tap_leader = true;
+                } else if (isOneShotPattern(parts[0])) {
                     if (!parseOneShotTarget(parts[0], thk.tap_one_shot_modifier, thk.tap_one_shot_layer, err_msg)) {
                         return false;
                     }
@@ -956,6 +1023,151 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
                 config.one_shot_keys.push_back(osk);
             }
+            continue;
+        }
+
+        if (in_leader) {
+            if (in_leader_sequences) {
+                if (current_indent <= leader_sequences_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+                    if (!flush_pending_lseq()) return false;
+                    in_leader_sequences = false;
+                }
+            }
+
+            if (!in_leader_sequences) {
+                auto colon = t.find(':');
+                if (colon == std::string::npos) continue;
+                std::string prop = trim(t.substr(0, colon));
+                std::string val = trim(t.substr(colon + 1));
+
+                if (prop == "key") {
+                    if (!flush_pending_lseq()) return false;
+                    KeyCode k = 0;
+                    if (!wordToKeyCode(val, k, err_msg)) return false;
+                    config.leader.key = k;
+                    continue;
+                } else if (prop == "timeout_ms" || prop == "timeout") {
+                    if (!flush_pending_lseq()) return false;
+                    try {
+                        long long v = std::stoll(val);
+                        if (v <= 0) {
+                            err_msg = "leader timeout_ms must be positive: " + val;
+                            return false;
+                        }
+                        config.leader.timeout_us = v * 1000LL;
+                    } catch (...) {
+                        err_msg = "invalid leader timeout value: " + val;
+                        return false;
+                    }
+                    continue;
+                } else if (prop == "sequences") {
+                    if (!flush_pending_lseq()) return false;
+                    in_leader_sequences = true;
+                    leader_sequences_indent = current_indent;
+                    continue;
+                } else {
+                    err_msg = "unknown leader property: " + prop;
+                    return false;
+                }
+            }
+
+            std::string line_content = t;
+            bool is_list_item = false;
+            if (line_content.rfind("-", 0) == 0) {
+                line_content = trim(line_content.substr(1));
+                is_list_item = true;
+            }
+
+            size_t colon = std::string::npos;
+            bool in_dquote = false;
+            bool in_squote = false;
+            for (size_t i = 0; i < line_content.size(); ++i) {
+                char c = line_content[i];
+                if (c == '"' && !in_squote) in_dquote = !in_dquote;
+                else if (c == '\'' && !in_dquote) in_squote = !in_squote;
+                else if (c == ':' && !in_dquote && !in_squote) {
+                    colon = i;
+                    break;
+                }
+            }
+
+            if (colon == std::string::npos) continue;
+
+            std::string key_part = trim(line_content.substr(0, colon));
+            std::string val_part = trim(line_content.substr(colon + 1));
+
+            auto parse_seq_keys = [&](const std::string& str, std::vector<KeyCode>& out_keys) -> bool {
+                std::string s = trim(str);
+                if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+                    s = trim(s.substr(1, s.size() - 2));
+                }
+                if (!s.empty() && s.front() == '[') {
+                    if (s.back() == ']') s.pop_back();
+                    s = s.substr(1);
+                    for (char& ch : s) if (ch == ',') ch = ' ';
+                }
+                auto key_tokens = fields(s);
+                if (key_tokens.empty()) {
+                    err_msg = "leader sequence keys cannot be empty";
+                    return false;
+                }
+                for (const auto& kt : key_tokens) {
+                    KeyCode kc = 0;
+                    if (!wordToKeyCode(kt, kc, err_msg)) return false;
+                    out_keys.push_back(kc);
+                }
+                return true;
+            };
+
+            if (has_pending_lseq && current_indent > pending_lseq_indent) {
+                if (key_part == "text" || key_part == "type") {
+                    pending_lseq.text = unquoteAndUnescape(val_part);
+                } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out") {
+                    auto words = parseOutputWords(val_part);
+                    for (const auto& w : words) {
+                        KeyCode kc = 0;
+                        if (!wordToKeyCode(w, kc, err_msg)) return false;
+                        pending_lseq.out_keys.push_back(kc);
+                    }
+                } else {
+                    err_msg = "unknown leader sequence property: " + key_part;
+                    return false;
+                }
+                continue;
+            }
+
+            if (is_list_item && (key_part == "keys" || key_part == "seq" || key_part == "in")) {
+                if (!flush_pending_lseq()) return false;
+                std::vector<KeyCode> sk;
+                if (!parse_seq_keys(val_part, sk)) return false;
+                pending_lseq.keys = sk;
+                has_pending_lseq = true;
+                pending_lseq_indent = current_indent;
+                continue;
+            }
+
+            if (!flush_pending_lseq()) return false;
+
+            LeaderSequence seq;
+            if (!parse_seq_keys(key_part, seq.keys)) return false;
+
+            if (val_part.empty()) {
+                err_msg = "leader sequence '" + key_part + "' requires an action";
+                return false;
+            }
+
+            std::string snippet;
+            if (isTextSnippet(val_part, snippet)) {
+                seq.text = snippet;
+            } else {
+                auto words = parseOutputWords(val_part);
+                for (const auto& w : words) {
+                    KeyCode kc = 0;
+                    if (!wordToKeyCode(w, kc, err_msg)) return false;
+                    seq.out_keys.push_back(kc);
+                }
+            }
+            config.leader.sequences.push_back(seq);
             continue;
         }
 
@@ -1265,13 +1477,14 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
     if (!flush_pending_th()) return false;
     if (!flush_pending_os()) return false;
+    if (!flush_pending_lseq()) return false;
 
     if (!current_keys.empty() && current_outkeys.empty() && !has_text) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
@@ -1352,6 +1565,68 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 if (k == osk.key) {
                     err_msg = "key '" + keyCodeToWord(osk.key) + "' cannot be used in both combos and one_shot";
                     return false;
+                }
+            }
+        }
+    }
+
+    for (const auto& th : config.tap_hold_keys) {
+        if (th.tap_leader && config.leader.key == 0) {
+            config.leader.key = th.key;
+        }
+    }
+
+    if (has_leader_tag || !config.leader.sequences.empty()) {
+        if (config.leader.timeout_us <= 0) {
+            err_msg = "leader timeout must be positive";
+            return false;
+        }
+        std::vector<std::vector<KeyCode>> seen_seqs;
+        for (const auto& seq : config.leader.sequences) {
+            if (seq.keys.empty()) {
+                err_msg = "leader sequence cannot have empty keys";
+                return false;
+            }
+            if (seq.out_keys.empty() && seq.text.empty()) {
+                err_msg = "leader sequence requires an output action (keys or text)";
+                return false;
+            }
+            if (!seq.text.empty()) {
+                for (char ch : seq.text) {
+                    KeyCode kc = 0;
+                    bool shift = false;
+                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                        err_msg = "unsupported character in leader text snippet: '" + std::string(1, ch) + "'";
+                        return false;
+                    }
+                }
+            }
+            for (const auto& prev : seen_seqs) {
+                if (seq.keys == prev) {
+                    err_msg = "duplicate leader sequence";
+                    return false;
+                }
+                if (prev.size() < seq.keys.size() &&
+                    std::equal(prev.begin(), prev.end(), seq.keys.begin())) {
+                    err_msg = "leader sequence is a prefix of another sequence";
+                    return false;
+                }
+                if (seq.keys.size() < prev.size() &&
+                    std::equal(seq.keys.begin(), seq.keys.end(), prev.begin())) {
+                    err_msg = "leader sequence is a prefix of another sequence";
+                    return false;
+                }
+            }
+            seen_seqs.push_back(seq.keys);
+        }
+
+        if (config.leader.key != 0) {
+            for (const auto& combo : config.combos) {
+                for (KeyCode k : combo.keys) {
+                    if (k == config.leader.key) {
+                        err_msg = "key '" + keyCodeToWord(config.leader.key) + "' cannot be used in both combos and leader";
+                        return false;
+                    }
                 }
             }
         }

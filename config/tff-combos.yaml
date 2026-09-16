@@ -109,3 +109,15 @@ tap_hold:
 # tap_hold:
 #   capslock: [osm(shift), super, 200]  # Tap = Sticky Shift, Hold = Super
 #   space: [osl(nav), alt, 200]         # Tap = One-Shot Nav layer, Hold = Alt
+
+# Sequential Leader Key Sequences (Mnemonic Shortcuts):
+# Tap leader key, then type mnemonic keys sequentially (Vim/Emacs style).
+# Buffered keys are automatically replayed on typo/mismatch or timeout!
+#
+# leader:
+#   key: capslock
+#   timeout_ms: 1000
+#   sequences:
+#     "w q": ":wq\n"
+#     "g s": "git status\n"
+#     "b": ctrl+b

@@ -108,7 +108,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "|:---|:---|:---|:---|\n";
             for (const auto& th : config.tap_hold_keys) {
                 std::string tap_act = formatKey(th.tap_key);
-                if (th.tap_one_shot_modifier != 0) {
+                if (th.tap_leader) {
+                    tap_act = "leader";
+                } else if (th.tap_one_shot_modifier != 0) {
                     tap_act = "osm(" + formatKey(th.tap_one_shot_modifier) + ")";
                 } else if (!th.tap_one_shot_layer.empty()) {
                     tap_act = "osl(" + th.tap_one_shot_layer + ")";
@@ -180,7 +182,26 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             }
         }
 
-        if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() && config.one_shot_keys.empty()) {
+        // 4. Sequential Leader Sequences
+        if (!config.leader.sequences.empty()) {
+            std::string trigger_str = config.leader.key != 0 ? formatKey(config.leader.key) : "(custom)";
+            ss << "## Sequential Leader Key Sequences\n\n"
+               << "Trigger: " << formatMarkdownCode(trigger_str) << " (Timeout: " << (config.leader.timeout_us / 1000) << "ms)\n\n"
+               << "| Sequence | Output Action | Type |\n"
+               << "|:---|:---|:---|\n";
+            for (const auto& seq : config.leader.sequences) {
+                std::string in_keys = formatKeys(seq.keys);
+                std::string out_act = formatOutputAction(seq.out_keys, seq.text);
+                std::string type = !seq.text.empty() ? "Text Snippet" :
+                                   (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+                ss << "| " << formatMarkdownCode(in_keys) << " | "
+                   << formatMarkdownCode(out_act) << " | " << type << " |\n";
+            }
+            ss << "\n";
+        }
+
+        if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
+            config.one_shot_keys.empty() && config.leader.sequences.empty()) {
             ss << "_No combos, tap-hold keys, one-shot keys, or layers configured._\n\n";
         }
 
@@ -205,7 +226,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         for (const auto& th : config.tap_hold_keys) {
             std::string plain_key = formatKey(th.key);
             std::string plain_tap = formatKey(th.tap_key);
-            if (th.tap_one_shot_modifier != 0) {
+            if (th.tap_leader) {
+                plain_tap = "leader";
+            } else if (th.tap_one_shot_modifier != 0) {
                 plain_tap = "osm(" + formatKey(th.tap_one_shot_modifier) + ")";
             } else if (!th.tap_one_shot_layer.empty()) {
                 plain_tap = "osl(" + th.tap_one_shot_layer + ")";
@@ -301,7 +324,34 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         }
     }
 
-    if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() && config.one_shot_keys.empty()) {
+    // 4. Sequential Leader Sequences
+    if (!config.leader.sequences.empty()) {
+        std::string trigger_str = config.leader.key != 0 ? formatKey(config.leader.key) : "(custom)";
+        ss << bold(blue("[ Sequential Leader Sequences ] (" + std::to_string(config.leader.sequences.size()) + " active)", col), col) << "\n";
+        ss << "  " << dim("Trigger: ", col) << cyan(trigger_str, col)
+           << dim(" | Timeout: " + std::to_string(config.leader.timeout_us / 1000) + "ms", col) << "\n\n";
+        printRow(ss, "  ",
+            {{"Sequence", 24}, {"Output Action", 34}, {"Type", 14}},
+            {bold("Sequence", col), bold("Output Action", col), bold("Type", col)});
+        ss << "  " << dim(std::string(72, '-'), col) << "\n";
+
+        for (const auto& seq : config.leader.sequences) {
+            std::string plain_in = formatKeys(seq.keys);
+            std::string plain_out = formatOutputAction(seq.out_keys, seq.text);
+            std::string type_plain = !seq.text.empty() ? "Text Snippet" :
+                               (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key");
+
+            std::string out_col = !seq.text.empty() ? yellow(plain_out, col) : green(plain_out, col);
+
+            printRow(ss, "  ",
+                {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
+                {cyan(plain_in, col), out_col, dim(type_plain, col)});
+        }
+        ss << "\n";
+    }
+
+    if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
+        config.one_shot_keys.empty() && config.leader.sequences.empty()) {
         ss << dim("  (No combos, tap-hold keys, one-shot keys, or layers configured)", col) << "\n\n";
     }
 

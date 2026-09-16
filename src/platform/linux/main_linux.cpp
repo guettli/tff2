@@ -183,7 +183,8 @@ int main(int argc, char* argv[]) {
         }
         std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s), "
                   << config.tap_hold_keys.size() << " tap-hold key(s), "
-                  << config.one_shot_keys.size() << " one-shot key(s), and "
+                  << config.one_shot_keys.size() << " one-shot key(s), "
+                  << config.leader.sequences.size() << " leader sequence(s), and "
                   << config.layers.size() << " layer(s) from " << config_file << "\n";
         return 0;
     }
@@ -252,7 +253,8 @@ int main(int argc, char* argv[]) {
     const auto& engine = platform.getEngine();
     std::cout << "Loaded " << engine.getCombos().size() << " combo(s), "
               << engine.getTapHoldKeys().size() << " tap-hold key(s), "
-              << engine.getOneShotKeys().size() << " one-shot key(s), and "
+              << engine.getOneShotKeys().size() << " one-shot key(s), "
+              << engine.getLeaderConfig().sequences.size() << " leader sequence(s), and "
               << engine.getLayers().size() << " layer(s)\n";
 
     platform.setGrab(grab);

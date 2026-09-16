@@ -310,6 +310,71 @@ tap_hold:
 - One-shot layers referenced in `one_shot` or `osl(...)` must be defined under `layers:`.
 - Modifiers in `one_shot` or `osm(...)` must be valid modifier keys (`shift`, `ctrl`, `alt`, `super`, etc.).
 
+## Sequential Leader Key Sequences (Mnemonic Shortcuts)
+
+Sequential Leader key sequences allow you to trigger complex commands, hotkeys, or multi-character text snippets by pressing a leader key, followed by a sequence of mnemonic keys typed one after another (Vim and Emacs style).
+
+Unlike chords that require pressing keys at the exact same moment, leader sequences are typed **sequentially**:
+- Tap Leader key (e.g. `capslock` or a dual-role key like `capslock: [leader, super, 200]`).
+- Type `w` then `q` -> emits `:wq\n`.
+- Type `g` then `s` -> emits `git status\n`.
+- Type `b` -> emits `Ctrl + B`.
+
+### Safe Typing Guarantee (Mismatch & Inactivity Replay)
+- **Automatic Replay on Mismatch**: If you accidentally press the leader key or mistype a sequence (e.g. typing `w` then `x` instead of `q`), TFF immediately cancels leader mode and **replays all buffered keys** to the system. You will never lose typed text or suffer stuck keys.
+- **Inactivity Timeout**: If you tap the leader key and pause without completing a sequence, the leader state expires automatically after the configured timeout (default: 1000 ms), and any buffered keystrokes are replayed cleanly.
+- **Cancel by Tapping Leader Again**: Pressing the leader key a second time cancels leader mode immediately.
+
+### Configuration Syntax
+
+#### 1. Dedicated Leader Key (Compact Dictionary)
+
+```yaml
+leader:
+  key: capslock
+  timeout_ms: 1000
+  sequences:
+    "w q": ":wq\n"
+    "g s": "git status\n"
+    "g c m": "git commit -m \"\"\n"
+    "b": ctrl+b
+```
+
+#### 2. Dual-Role Tap-vs-Hold Leader (`tap: leader` or `[leader, super, 200]`)
+
+You can also configure the leader key as the short tap action of a dual-role key:
+
+```yaml
+tap_hold:
+  capslock: [leader, super, 200]
+
+leader:
+  timeout_ms: 1000
+  sequences:
+    "w q": ":wq\n"
+    "g s": "git status\n"
+```
+
+#### 3. List Format
+
+```yaml
+leader:
+  key: capslock
+  timeout_ms: 1000
+  sequences:
+    - keys: [w, q]
+      text: ":wq\n"
+    - keys: "b"
+      out: ctrl+b
+```
+
+### Validation Rules
+- Leader sequence keys must be valid key names.
+- Duplicate leader sequences are rejected.
+- Sequences cannot be prefixes of another sequence (e.g. configuring both `"w"` and `"w q"` is rejected to eliminate ambiguity).
+- `timeout_ms` must be a positive integer.
+- A dedicated leader key cannot conflict with combo keys.
+
 ## Supported Key Names and Symbols
 
 Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to standard Linux input event codes:
