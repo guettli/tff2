@@ -443,6 +443,38 @@ static void test_rollover_safety() {
     std::cout << "test_rollover_safety passed\n";
 }
 
+static void test_modifier_key_with_one_shot_layer() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    Layer nav;
+    nav.name = "nav";
+    nav.mappings[Keys::KEY_K] = LayerAction({Keys::KEY_UP});
+    engine.setLayers({nav});
+
+    // LeftShift is physically a modifier key, but configured as One-Shot Layer "nav"!
+    OneShotKey osk;
+    osk.key = Keys::KEY_LEFTSHIFT;
+    osk.layer = "nav";
+    osk.modifier = 0;
+    osk.timeout_us = 1500000LL;
+    engine.setOneShotKeys({osk});
+
+    // Tap LeftShift
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_UP});
+    assert(engine.isOneShotLayerArmed("nav"));
+    assert(!engine.isOneShotModifierArmed(Keys::KEY_LEFTSHIFT));
+
+    // Press Key K -> emits KEY_UP, not Shift + K
+    engine.processEvent(Event{TimeVal{0, 80000}, EV_KEY, Keys::KEY_K, KEY_VAL_DOWN});
+    auto keys1 = writer.keyEvents();
+    assert(keys1.size() == 1);
+    assert(keys1[0].code == Keys::KEY_UP && keys1[0].value == KEY_VAL_DOWN);
+
+    std::cout << "test_modifier_key_with_one_shot_layer passed\n";
+}
+
 int main() {
     test_standalone_osm_shift();
     test_chained_osm();
@@ -453,6 +485,7 @@ int main() {
     test_tap_hold_with_one_shot_actions();
     test_yaml_parser_one_shot();
     test_rollover_safety();
+    test_modifier_key_with_one_shot_layer();
 
     std::cout << "All One-Shot tests passed successfully!\n";
     return 0;

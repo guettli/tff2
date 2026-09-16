@@ -366,6 +366,46 @@ tap_hold:
         assert(config.tap_hold_keys[0].tap_one_shot_modifier == tff::Keys::KEY_LEFTSHIFT);
         assert(config.tap_hold_keys[1].tap_one_shot_layer == "nav");
 
+        // Verify explicit layer overrides default modifier when key itself is a modifier
+        std::string layer_override_yaml = R"(
+layers:
+  nav:
+    h: left
+one_shot:
+  leftshift: [nav, 2000]
+  - key: rightshift
+    layer: nav
+)";
+        tff::Config cfg_override;
+        assert(tff::loadYamlConfig(layer_override_yaml, cfg_override, err_msg));
+        assert(cfg_override.one_shot_keys.size() == 2);
+        assert(cfg_override.one_shot_keys[0].key == tff::Keys::KEY_LEFTSHIFT);
+        assert(cfg_override.one_shot_keys[0].layer == "nav");
+        assert(cfg_override.one_shot_keys[0].modifier == 0);
+        assert(cfg_override.one_shot_keys[1].key == tff::Keys::KEY_RIGHTSHIFT);
+        assert(cfg_override.one_shot_keys[1].layer == "nav");
+        assert(cfg_override.one_shot_keys[1].modifier == 0);
+
+        // Validation rejection: non-modifier key in one_shot
+        std::string bad_osm_yaml = R"(
+one_shot:
+  - key: capslock
+    modifier: a
+    timeout_ms: 1000
+)";
+        tff::Config cfg_bad_osm;
+        assert(!tff::loadYamlConfig(bad_osm_yaml, cfg_bad_osm, err_msg));
+        assert(err_msg.find("invalid modifier key") != std::string::npos);
+
+        // Validation rejection: non-modifier key in tap_hold osm(...)
+        std::string bad_th_osm_yaml = R"(
+tap_hold:
+  capslock: [osm(a), super, 200]
+)";
+        tff::Config cfg_bad_th;
+        assert(!tff::loadYamlConfig(bad_th_osm_yaml, cfg_bad_th, err_msg));
+        assert(err_msg.find("invalid modifier key") != std::string::npos);
+
         std::cout << "✓ Test 13 passed: one-shot modifiers and layers\n";
     }
 
