@@ -31,6 +31,9 @@ public:
     const std::vector<Layer>& getLayers() const { return layers_; }
     const std::vector<std::string>& getActiveLayers() const { return active_layer_stack_; }
 
+    void setConfig(const Config& config);
+    Config getConfig() const { return Config{all_combos_, tap_hold_keys_, layers_}; }
+
     void activateLayer(const std::string& name);
     void deactivateLayer(const std::string& name);
     void toggleLayer(const std::string& name);

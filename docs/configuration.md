@@ -302,17 +302,22 @@ The Linux daemon (`tff_linux` / `tff`) monitors the configuration file using `in
 
 ## Programmatic C++ Usage
 
-### Loading via `KeyMapper`
+### Loading via `tff::loadYamlConfig`
 
 ```cpp
-#include "key_mapper.h"
+#include "tff_parser.h"
 #include <iostream>
 
-KeyMapper mapper;
-if (mapper.loadConfiguration("config/tff-combos.yaml")) {
-    std::cout << "Loaded " << mapper.getMappingCount() << " combos.\n";
+std::string yaml_content = "...";
+tff::Config config;
+std::string err_msg;
+
+if (tff::loadYamlConfig(yaml_content, config, err_msg)) {
+    std::cout << "Loaded " << config.combos.size() << " combos, "
+              << config.tap_hold_keys.size() << " tap-hold keys, and "
+              << config.layers.size() << " layers.\n";
 } else {
-    std::cerr << "Failed to load TFF configuration.\n";
+    std::cerr << "YAML error: " << err_msg << "\n";
 }
 ```
 
