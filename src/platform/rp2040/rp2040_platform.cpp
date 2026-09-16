@@ -30,6 +30,10 @@ tap_hold:
 class RP2040Platform::RP2040EventWriter : public tff::EventWriter {
 public:
     std::vector<uint32_t> emitted_down_keys;
+#ifdef PICO_BUILD
+    uint8_t active_modifiers_ = 0;
+    uint8_t active_keys_[6] = {0, 0, 0, 0, 0, 0};
+#endif
 
     void writeOne(const tff::Event& ev) override {
         if (ev.type == tff::EV_KEY) {
@@ -39,11 +43,40 @@ public:
 #ifdef PICO_BUILD
             uint8_t usb_code = convertKeyCodeToUsb(ev.code);
             if (usb_code != 0) {
-                if (ev.value == tff::KEY_VAL_DOWN) {
-                    tud_hid_keyboard_report(0, 0, &usb_code);
-                } else if (ev.value == tff::KEY_VAL_UP) {
-                    tud_hid_keyboard_report(0, 0, nullptr);
+                if (usb_code >= 0xE0 && usb_code <= 0xE7) {
+                    uint8_t mod_bit = static_cast<uint8_t>(1u << (usb_code - 0xE0));
+                    if (ev.value == tff::KEY_VAL_DOWN) {
+                        active_modifiers_ |= mod_bit;
+                    } else if (ev.value == tff::KEY_VAL_UP) {
+                        active_modifiers_ &= static_cast<uint8_t>(~mod_bit);
+                    }
+                } else {
+                    if (ev.value == tff::KEY_VAL_DOWN) {
+                        bool already_present = false;
+                        for (int i = 0; i < 6; ++i) {
+                            if (active_keys_[i] == usb_code) {
+                                already_present = true;
+                                break;
+                            }
+                        }
+                        if (!already_present) {
+                            for (int i = 0; i < 6; ++i) {
+                                if (active_keys_[i] == 0) {
+                                    active_keys_[i] = usb_code;
+                                    break;
+                                }
+                            }
+                        }
+                    } else if (ev.value == tff::KEY_VAL_UP) {
+                        for (int i = 0; i < 6; ++i) {
+                            if (active_keys_[i] == usb_code) {
+                                active_keys_[i] = 0;
+                                break;
+                            }
+                        }
+                    }
                 }
+                tud_hid_keyboard_report(0, active_modifiers_, active_keys_);
             }
 #endif
         }
@@ -127,6 +160,9 @@ void RP2040Platform::setConfig(const tff::Config& config) {
 }
 
 tff::TFFEngine& RP2040Platform::getEngine() {
+    if (!initialized_ || !engine_) {
+        initialize();
+    }
     return *engine_;
 }
 
@@ -158,16 +194,11 @@ void RP2040Platform::processHostKeyEvent(uint32_t keycode, bool pressed) {
         return;
     }
 
-    tff::KeyCode code;
-    if (keycode <= 0xFF) {
-        code = convertUsbToKeyCode(static_cast<uint8_t>(keycode));
-        if (code == 0) {
-            code = static_cast<tff::KeyCode>(keycode);
-        }
-    } else {
-        code = static_cast<tff::KeyCode>(keycode);
+    if (keycode > 0xFF) {
+        return;
     }
 
+    tff::KeyCode code = convertUsbToKeyCode(static_cast<uint8_t>(keycode));
     if (code == 0) {
         return;
     }
@@ -209,9 +240,17 @@ bool RP2040Platform::sendDeviceKeys(const std::vector<uint32_t>& key_codes) {
     for (uint32_t key_code : key_codes) {
         uint8_t usb_keycode = convertKeyCodeToUsb(static_cast<tff::KeyCode>(key_code));
         if (usb_keycode != 0) {
-            tud_hid_keyboard_report(0, 0, &usb_keycode);
+            uint8_t report_keys[6] = {0, 0, 0, 0, 0, 0};
+            uint8_t mod = 0;
+            if (usb_keycode >= 0xE0 && usb_keycode <= 0xE7) {
+                mod = static_cast<uint8_t>(1u << (usb_keycode - 0xE0));
+            } else {
+                report_keys[0] = usb_keycode;
+            }
+            tud_hid_keyboard_report(0, mod, report_keys);
             sleep_ms(10);
-            tud_hid_keyboard_report(0, 0, nullptr);
+            uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+            tud_hid_keyboard_report(0, 0, empty_keys);
         }
     }
     return true;
@@ -345,6 +384,23 @@ tff::KeyCode RP2040Platform::convertUsbToKeyCode(uint8_t usb_keycode) {
         case 0x38: return tff::Keys::KEY_SLASH;
         case 0x39: return tff::Keys::KEY_CAPSLOCK;
 
+        case 0x3A: return tff::Keys::KEY_F1;
+        case 0x3B: return tff::Keys::KEY_F2;
+        case 0x3C: return tff::Keys::KEY_F3;
+        case 0x3D: return tff::Keys::KEY_F4;
+        case 0x3E: return tff::Keys::KEY_F5;
+        case 0x3F: return tff::Keys::KEY_F6;
+        case 0x40: return tff::Keys::KEY_F7;
+        case 0x41: return tff::Keys::KEY_F8;
+        case 0x42: return tff::Keys::KEY_F9;
+        case 0x43: return tff::Keys::KEY_F10;
+        case 0x44: return tff::Keys::KEY_F11;
+        case 0x45: return tff::Keys::KEY_F12;
+
+        case 0x46: return tff::Keys::KEY_SYSRQ;
+        case 0x47: return tff::Keys::KEY_SCROLLLOCK;
+        case 0x48: return tff::Keys::KEY_PAUSE;
+        case 0x49: return tff::Keys::KEY_INSERT;
         case 0x4A: return tff::Keys::KEY_HOME;
         case 0x4B: return tff::Keys::KEY_PAGEUP;
         case 0x4C: return tff::Keys::KEY_DELETE;
@@ -355,17 +411,32 @@ tff::KeyCode RP2040Platform::convertUsbToKeyCode(uint8_t usb_keycode) {
         case 0x51: return tff::Keys::KEY_DOWN;
         case 0x52: return tff::Keys::KEY_UP;
 
+        case 0x53: return tff::Keys::KEY_NUMLOCK;
+        case 0x54: return tff::Keys::KEY_KPSLASH;
+        case 0x55: return tff::Keys::KEY_KPASTERISK;
+        case 0x56: return tff::Keys::KEY_KPMINUS;
+        case 0x57: return tff::Keys::KEY_KPPLUS;
+        case 0x58: return tff::Keys::KEY_KPENTER;
         case 0x59: return tff::Keys::KEY_KP1;
+        case 0x5A: return tff::Keys::KEY_KP2;
+        case 0x5B: return tff::Keys::KEY_KP3;
+        case 0x5C: return tff::Keys::KEY_KP4;
+        case 0x5D: return tff::Keys::KEY_KP5;
+        case 0x5E: return tff::Keys::KEY_KP6;
+        case 0x5F: return tff::Keys::KEY_KP7;
+        case 0x60: return tff::Keys::KEY_KP8;
+        case 0x61: return tff::Keys::KEY_KP9;
         case 0x62: return tff::Keys::KEY_KP0;
+        case 0x63: return tff::Keys::KEY_KPDOT;
 
         case 0xE0: return tff::Keys::KEY_LEFTCTRL;
         case 0xE1: return tff::Keys::KEY_LEFTSHIFT;
         case 0xE2: return tff::Keys::KEY_LEFTALT;
         case 0xE3: return tff::Keys::KEY_LEFTMETA;
-        case 0xE4: return tff::Keys::KEY_LEFTCTRL;
+        case 0xE4: return tff::Keys::KEY_RIGHTCTRL;
         case 0xE5: return tff::Keys::KEY_RIGHTSHIFT;
         case 0xE6: return tff::Keys::KEY_RIGHTALT;
-        case 0xE7: return tff::Keys::KEY_LEFTMETA;
+        case 0xE7: return tff::Keys::KEY_RIGHTMETA;
 
         default:
             return 0;
@@ -430,6 +501,23 @@ uint8_t RP2040Platform::convertKeyCodeToUsb(tff::KeyCode internal_keycode) {
         case tff::Keys::KEY_SLASH:      return 0x38;
         case tff::Keys::KEY_CAPSLOCK:   return 0x39;
 
+        case tff::Keys::KEY_F1:         return 0x3A;
+        case tff::Keys::KEY_F2:         return 0x3B;
+        case tff::Keys::KEY_F3:         return 0x3C;
+        case tff::Keys::KEY_F4:         return 0x3D;
+        case tff::Keys::KEY_F5:         return 0x3E;
+        case tff::Keys::KEY_F6:         return 0x3F;
+        case tff::Keys::KEY_F7:         return 0x40;
+        case tff::Keys::KEY_F8:         return 0x41;
+        case tff::Keys::KEY_F9:         return 0x42;
+        case tff::Keys::KEY_F10:        return 0x43;
+        case tff::Keys::KEY_F11:        return 0x44;
+        case tff::Keys::KEY_F12:        return 0x45;
+
+        case tff::Keys::KEY_SYSRQ:      return 0x46;
+        case tff::Keys::KEY_SCROLLLOCK: return 0x47;
+        case tff::Keys::KEY_PAUSE:      return 0x48;
+        case tff::Keys::KEY_INSERT:     return 0x49;
         case tff::Keys::KEY_HOME:       return 0x4A;
         case tff::Keys::KEY_PAGEUP:     return 0x4B;
         case tff::Keys::KEY_DELETE:     return 0x4C;
@@ -440,15 +528,32 @@ uint8_t RP2040Platform::convertKeyCodeToUsb(tff::KeyCode internal_keycode) {
         case tff::Keys::KEY_DOWN:       return 0x51;
         case tff::Keys::KEY_UP:         return 0x52;
 
+        case tff::Keys::KEY_NUMLOCK:    return 0x53;
+        case tff::Keys::KEY_KPSLASH:    return 0x54;
+        case tff::Keys::KEY_KPASTERISK: return 0x55;
+        case tff::Keys::KEY_KPMINUS:    return 0x56;
+        case tff::Keys::KEY_KPPLUS:     return 0x57;
+        case tff::Keys::KEY_KPENTER:    return 0x58;
         case tff::Keys::KEY_KP1:        return 0x59;
+        case tff::Keys::KEY_KP2:        return 0x5A;
+        case tff::Keys::KEY_KP3:        return 0x5B;
+        case tff::Keys::KEY_KP4:        return 0x5C;
+        case tff::Keys::KEY_KP5:        return 0x5D;
+        case tff::Keys::KEY_KP6:        return 0x5E;
+        case tff::Keys::KEY_KP7:        return 0x5F;
+        case tff::Keys::KEY_KP8:        return 0x60;
+        case tff::Keys::KEY_KP9:        return 0x61;
         case tff::Keys::KEY_KP0:        return 0x62;
+        case tff::Keys::KEY_KPDOT:      return 0x63;
 
         case tff::Keys::KEY_LEFTCTRL:   return 0xE0;
         case tff::Keys::KEY_LEFTSHIFT:  return 0xE1;
         case tff::Keys::KEY_LEFTALT:    return 0xE2;
         case tff::Keys::KEY_LEFTMETA:   return 0xE3;
+        case tff::Keys::KEY_RIGHTCTRL:  return 0xE4;
         case tff::Keys::KEY_RIGHTSHIFT: return 0xE5;
         case tff::Keys::KEY_RIGHTALT:   return 0xE6;
+        case tff::Keys::KEY_RIGHTMETA:  return 0xE7;
 
         default:
             return 0;

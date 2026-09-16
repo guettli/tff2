@@ -147,9 +147,9 @@ screen /dev/ttyACM0 115200
    - Per-keyboard configuration profiles
 
 3. **Advanced Mapping Features**
-   - Tap/hold detection for modifiers
-   - Sequence-based macros
-   - Dynamic layer switching
+   - Sequential leader key sequences
+   - One-shot / sticky modifiers (OSM)
+   - Home-row mouse key emulation via USB HID Mouse report
 
 ### Optimization Opportunities
 

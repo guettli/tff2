@@ -66,13 +66,59 @@ static void test_keycode_conversion() {
     assert(RP2040Platform::convertUsbToKeyCode(0x39) == tff::Keys::KEY_CAPSLOCK);
     assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_CAPSLOCK) == 0x39);
 
-    // Modifiers
+    // Modifiers (all 8)
     assert(RP2040Platform::convertUsbToKeyCode(0xE0) == tff::Keys::KEY_LEFTCTRL);
     assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTCTRL) == 0xE0);
     assert(RP2040Platform::convertUsbToKeyCode(0xE1) == tff::Keys::KEY_LEFTSHIFT);
     assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTSHIFT) == 0xE1);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE2) == tff::Keys::KEY_LEFTALT);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTALT) == 0xE2);
     assert(RP2040Platform::convertUsbToKeyCode(0xE3) == tff::Keys::KEY_LEFTMETA);
     assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTMETA) == 0xE3);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE4) == tff::Keys::KEY_RIGHTCTRL);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_RIGHTCTRL) == 0xE4);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE5) == tff::Keys::KEY_RIGHTSHIFT);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_RIGHTSHIFT) == 0xE5);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE6) == tff::Keys::KEY_RIGHTALT);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_RIGHTALT) == 0xE6);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE7) == tff::Keys::KEY_RIGHTMETA);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_RIGHTMETA) == 0xE7);
+
+    // Function keys (F1 - F12)
+    assert(RP2040Platform::convertUsbToKeyCode(0x3A) == tff::Keys::KEY_F1);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_F1) == 0x3A);
+    assert(RP2040Platform::convertUsbToKeyCode(0x43) == tff::Keys::KEY_F10);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_F10) == 0x43);
+    assert(RP2040Platform::convertUsbToKeyCode(0x44) == tff::Keys::KEY_F11);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_F11) == 0x44);
+    assert(RP2040Platform::convertUsbToKeyCode(0x45) == tff::Keys::KEY_F12);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_F12) == 0x45);
+
+    // Navigation and editing
+    assert(RP2040Platform::convertUsbToKeyCode(0x49) == tff::Keys::KEY_INSERT);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_INSERT) == 0x49);
+    assert(RP2040Platform::convertUsbToKeyCode(0x4A) == tff::Keys::KEY_HOME);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_HOME) == 0x4A);
+    assert(RP2040Platform::convertUsbToKeyCode(0x4D) == tff::Keys::KEY_END);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_END) == 0x4D);
+
+    // Keypad keys
+    assert(RP2040Platform::convertUsbToKeyCode(0x53) == tff::Keys::KEY_NUMLOCK);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_NUMLOCK) == 0x53);
+    assert(RP2040Platform::convertUsbToKeyCode(0x58) == tff::Keys::KEY_KPENTER);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_KPENTER) == 0x58);
+    assert(RP2040Platform::convertUsbToKeyCode(0x59) == tff::Keys::KEY_KP1);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_KP1) == 0x59);
+    assert(RP2040Platform::convertUsbToKeyCode(0x62) == tff::Keys::KEY_KP0);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_KP0) == 0x62);
+    assert(RP2040Platform::convertUsbToKeyCode(0x63) == tff::Keys::KEY_KPDOT);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_KPDOT) == 0x63);
+
+    // Unmapped codes return 0
+    assert(RP2040Platform::convertUsbToKeyCode(0x00) == 0);
+    assert(RP2040Platform::convertUsbToKeyCode(0xA5) == 0);
+    assert(RP2040Platform::convertKeyCodeToUsb(0) == 0);
+    assert(RP2040Platform::convertKeyCodeToUsb(9999) == 0);
 
     // Backward-compatible static helper check
     assert(RP2040Platform::convertKeyCode(0x09) == tff::Keys::KEY_F);
@@ -281,6 +327,37 @@ static void test_device_keys_and_cleanup() {
     std::cout << "PASSED\n";
 }
 
+static void test_unmapped_keys_and_auto_init() {
+    std::cout << "Test 9: getEngine auto-initialization & unmapped key drop... ";
+    RP2040Platform platform;
+
+    // platform not initialized yet; calling getEngine() should auto-initialize
+    const tff::TFFEngine& engine = platform.getEngine();
+    assert(platform.getConfig().combos.size() > 0);
+    (void)engine;
+
+    // Feeding an unmapped USB scancode (0xA5) or >0xFF should drop without crashing
+    platform.clearEmittedKeys();
+    platform.setTimestamp(7000);
+    platform.processHostKeyEvent(0xA5, true);
+    platform.processHostKeyEvent(0xA5, false);
+    platform.processHostKeyEvent(0x100, true);
+    assert(platform.getEmittedKeys().empty());
+
+    // Feeding F1 (0x3A) should NOT be confused with CapsLock
+    platform.clearEmittedKeys();
+    platform.setTimestamp(7100);
+    platform.processHostKeyEvent(0x3A, true);  // F1 down
+    platform.setTimestamp(7150);
+    platform.processHostKeyEvent(0x3A, false); // F1 up
+    const auto& emitted = platform.getEmittedKeys();
+    assert(emitted.size() == 1);
+    assert(emitted[0] == tff::Keys::KEY_F1);
+    assert(emitted[0] != tff::Keys::KEY_CAPSLOCK);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
@@ -294,6 +371,7 @@ int main() {
     test_modal_layers();
     test_text_snippets();
     test_device_keys_and_cleanup();
+    test_unmapped_keys_and_auto_init();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;
