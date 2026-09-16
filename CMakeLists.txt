@@ -44,9 +44,6 @@ include_directories(include)
 
 # Source files
 set(CORE_SOURCES
-    src/core/key_detector.cpp
-    src/core/key_mapper.cpp
-    src/core/tff_app.cpp
     src/core/tff_key_codes.cpp
     src/core/tff_engine.cpp
     src/core/tff_parser.cpp
@@ -118,21 +115,6 @@ if(NOT PICO_BUILD)
     target_link_libraries(linux_platform tff_core)
 
     # Create separate unit test executables
-    add_executable(test_key_detector
-        tests/test_key_detector.cpp
-    )
-    target_link_libraries(test_key_detector tff_core)
-
-    add_executable(test_key_mapper
-        tests/test_key_mapper.cpp
-    )
-    target_link_libraries(test_key_mapper tff_core)
-
-    add_executable(test_tff_app
-        tests/test_tff_app.cpp
-    )
-    target_link_libraries(test_tff_app tff_core)
-
     add_executable(test_rp2040_platform
         tests/test_rp2040_platform.cpp
     )
@@ -168,11 +150,6 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_cheatsheet tff_core)
 
-    add_executable(test_tff_mappings
-        tests/test_tff_mappings.cpp
-    )
-    target_link_libraries(test_tff_mappings tff_core)
-
     # Create Go-parity TFF test suite executable
     add_executable(test_tff_go_suite
         tests/test_tff_go_suite.cpp
@@ -205,9 +182,6 @@ if(NOT PICO_BUILD)
 
     # Enable testing
     enable_testing()
-    add_test(NAME test_key_detector COMMAND test_key_detector)
-    add_test(NAME test_key_mapper COMMAND test_key_mapper)
-    add_test(NAME test_tff_app COMMAND test_tff_app)
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
     add_test(NAME test_yaml_parser COMMAND test_yaml_parser)
     add_test(NAME test_tap_hold COMMAND test_tap_hold)
@@ -215,15 +189,11 @@ if(NOT PICO_BUILD)
     add_test(NAME test_text_snippets COMMAND test_text_snippets)
     add_test(NAME test_modal_layers COMMAND test_modal_layers)
     add_test(NAME test_cheatsheet COMMAND test_cheatsheet)
-    add_test(NAME test_tff_mappings COMMAND test_tff_mappings)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
 
     # Ensure assertions are always active in test executables regardless of build type
     set(TEST_TARGETS
-        test_key_detector
-        test_key_mapper
-        test_tff_app
         test_rp2040_platform
         test_yaml_parser
         test_tap_hold
@@ -231,7 +201,6 @@ if(NOT PICO_BUILD)
         test_text_snippets
         test_modal_layers
         test_cheatsheet
-        test_tff_mappings
         test_tff_go_suite
         test_linux_platform
     )

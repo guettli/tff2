@@ -1,67 +1,300 @@
 #include "rp2040_platform.h"
-#include "tff_app.h"
 #include <iostream>
 #include <cassert>
+#include <algorithm>
+
+static void test_initialization() {
+    std::cout << "Test 1: RP2040Platform initialization with default config... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    const auto& config = platform.getConfig();
+    assert(!config.combos.empty());
+    assert(!config.tap_hold_keys.empty());
+
+    // Verify default combos are present
+    bool found_jf = false;
+    for (const auto& c : config.combos) {
+        if (c.keys.size() == 2 &&
+            c.keys[0] == tff::Keys::KEY_J &&
+            c.keys[1] == tff::Keys::KEY_F &&
+            !c.out_keys.empty() &&
+            c.out_keys[0] == tff::Keys::KEY_BACKSPACE) {
+            found_jf = true;
+            break;
+        }
+    }
+    assert(found_jf);
+
+    // Verify tap-hold capslock is present
+    bool found_caps = false;
+    for (const auto& th : config.tap_hold_keys) {
+        if (th.key == tff::Keys::KEY_CAPSLOCK &&
+            th.tap_key == tff::Keys::KEY_ESC &&
+            th.hold_key == tff::Keys::KEY_LEFTMETA) {
+            found_caps = true;
+            break;
+        }
+    }
+    assert(found_caps);
+
+    std::cout << "PASSED (" << config.combos.size() << " combos, "
+              << config.tap_hold_keys.size() << " tap-hold keys)\n";
+}
+
+static void test_keycode_conversion() {
+    std::cout << "Test 2: USB HID <-> Linux KeyCode bidirectional conversion... ";
+
+    // Letters
+    assert(RP2040Platform::convertUsbToKeyCode(0x04) == tff::Keys::KEY_A);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_A) == 0x04);
+    assert(RP2040Platform::convertUsbToKeyCode(0x09) == tff::Keys::KEY_F);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_F) == 0x09);
+    assert(RP2040Platform::convertUsbToKeyCode(0x0D) == tff::Keys::KEY_J);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_J) == 0x0D);
+
+    // Common keys
+    assert(RP2040Platform::convertUsbToKeyCode(0x2C) == tff::Keys::KEY_SPACE);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_SPACE) == 0x2C);
+    assert(RP2040Platform::convertUsbToKeyCode(0x29) == tff::Keys::KEY_ESC);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_ESC) == 0x29);
+    assert(RP2040Platform::convertUsbToKeyCode(0x2A) == tff::Keys::KEY_BACKSPACE);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_BACKSPACE) == 0x2A);
+    assert(RP2040Platform::convertUsbToKeyCode(0x4C) == tff::Keys::KEY_DELETE);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_DELETE) == 0x4C);
+    assert(RP2040Platform::convertUsbToKeyCode(0x39) == tff::Keys::KEY_CAPSLOCK);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_CAPSLOCK) == 0x39);
+
+    // Modifiers
+    assert(RP2040Platform::convertUsbToKeyCode(0xE0) == tff::Keys::KEY_LEFTCTRL);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTCTRL) == 0xE0);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE1) == tff::Keys::KEY_LEFTSHIFT);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTSHIFT) == 0xE1);
+    assert(RP2040Platform::convertUsbToKeyCode(0xE3) == tff::Keys::KEY_LEFTMETA);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_LEFTMETA) == 0xE3);
+
+    // Backward-compatible static helper check
+    assert(RP2040Platform::convertKeyCode(0x09) == tff::Keys::KEY_F);
+    assert(RP2040Platform::convertToUsbKeyCode(tff::Keys::KEY_F) == 0x09);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_combos_processing() {
+    std::cout << "Test 3: Home-row combos processing on RP2040... ";
+    RP2040Platform platform;
+    platform.initialize();
+
+    // 1) Test j f -> backspace
+    platform.clearEmittedKeys();
+    platform.setTimestamp(100);
+    platform.processHostKeyEvent(0x0D, true);  // USB J down
+    platform.setTimestamp(120);
+    platform.processHostKeyEvent(0x09, true);  // USB F down (chord!)
+    platform.setTimestamp(180);                // Overlap > 40ms
+    platform.processHostKeyEvent(0x0D, false); // USB J up
+    platform.setTimestamp(200);
+    platform.processHostKeyEvent(0x09, false); // USB F up
+
+    const auto& emitted1 = platform.getEmittedKeys();
+    assert(!emitted1.empty());
+    assert(emitted1.back() == tff::Keys::KEY_BACKSPACE);
+
+    // 2) Test f j -> delete
+    platform.clearEmittedKeys();
+    platform.setTimestamp(500);
+    platform.processHostKeyEvent(0x09, true);  // USB F down
+    platform.setTimestamp(520);
+    platform.processHostKeyEvent(0x0D, true);  // USB J down
+    platform.setTimestamp(580);                // Overlap > 40ms
+    platform.processHostKeyEvent(0x09, false);
+    platform.setTimestamp(600);
+    platform.processHostKeyEvent(0x0D, false);
+
+    const auto& emitted2 = platform.getEmittedKeys();
+    assert(!emitted2.empty());
+    assert(emitted2.back() == tff::Keys::KEY_DELETE);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_triple_combos() {
+    std::cout << "Test 4: Triple combos (d + f + j -> esc) on RP2040... ";
+    RP2040Platform platform;
+    platform.initialize();
+
+    platform.clearEmittedKeys();
+    platform.setTimestamp(1000);
+    platform.processHostKeyEvent(0x07, true); // USB D down
+    platform.setTimestamp(1020);
+    platform.processHostKeyEvent(0x09, true); // USB F down
+    platform.setTimestamp(1040);
+    platform.processHostKeyEvent(0x0D, true); // USB J down (triple chord!)
+    platform.setTimestamp(1100);              // Overlap > 40ms
+    platform.processHostKeyEvent(0x07, false);
+    platform.setTimestamp(1120);
+    platform.processHostKeyEvent(0x09, false);
+    platform.setTimestamp(1140);
+    platform.processHostKeyEvent(0x0D, false);
+
+    const auto& emitted = platform.getEmittedKeys();
+    assert(!emitted.empty());
+    assert(emitted.back() == tff::Keys::KEY_ESC);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_tap_hold() {
+    std::cout << "Test 5: Tap-vs-Hold CapsLock (Esc / Super) on RP2040... ";
+    RP2040Platform platform;
+    platform.initialize();
+
+    // 1) Quick tap -> should emit Esc
+    platform.clearEmittedKeys();
+    platform.setTimestamp(2000);
+    platform.processHostKeyEvent(0x39, true);  // USB CapsLock down
+    platform.setTimestamp(2050);               // 50ms later (< 200ms)
+    platform.processHostKeyEvent(0x39, false); // USB CapsLock up -> TAP!
+
+    const auto& emitted_tap = platform.getEmittedKeys();
+    assert(!emitted_tap.empty());
+    assert(emitted_tap.back() == tff::Keys::KEY_ESC);
+
+    // 2) Fast chording: CapsLock held while another key is pressed -> promote to Super
+    platform.clearEmittedKeys();
+    platform.setTimestamp(3000);
+    platform.processHostKeyEvent(0x39, true);  // USB CapsLock down
+    platform.setTimestamp(3050);
+    platform.processHostKeyEvent(0x2C, true);  // USB Space down -> triggers hold promotion!
+
+    const auto& emitted_chord = platform.getEmittedKeys();
+    assert(!emitted_chord.empty());
+    assert(emitted_chord[0] == tff::Keys::KEY_LEFTMETA); // Super down
+
+    platform.setTimestamp(3080);
+    platform.processHostKeyEvent(0x2C, false);
+    platform.processHostKeyEvent(0x39, false);
+
+    // 3) Hold timeout: CapsLock held past 200ms -> promote to Super
+    platform.clearEmittedKeys();
+    platform.setTimestamp(4000);
+    platform.processHostKeyEvent(0x39, true);  // USB CapsLock down
+    platform.setTimestamp(4250);               // 250ms later (> 200ms)
+    platform.checkTimers();
+
+    const auto& emitted_hold = platform.getEmittedKeys();
+    assert(!emitted_hold.empty());
+    assert(emitted_hold[0] == tff::Keys::KEY_LEFTMETA); // Super down
+
+    platform.setTimestamp(4300);
+    platform.processHostKeyEvent(0x39, false);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_modal_layers() {
+    std::cout << "Test 6: Modal layers on RP2040... ";
+    RP2040Platform platform;
+    platform.initialize();
+
+    // Load custom configuration with a navigation layer
+    std::string custom_yaml = R"(
+tap_hold:
+  space: [space, nav, 200]
+
+layers:
+  nav:
+    h: left
+    j: down
+    k: up
+    l: right
+)";
+    bool ok = platform.loadConfiguration(custom_yaml);
+    assert(ok);
+
+    // Hold Space (0x2C) and press J (0x0D) -> should emit Down arrow
+    platform.clearEmittedKeys();
+    platform.setTimestamp(5000);
+    platform.processHostKeyEvent(0x2C, true);  // USB Space down
+    platform.setTimestamp(5040);
+    platform.processHostKeyEvent(0x0D, true);  // USB J down
+
+    const auto& emitted = platform.getEmittedKeys();
+    assert(!emitted.empty());
+    assert(emitted.back() == tff::Keys::KEY_DOWN);
+
+    platform.setTimestamp(5080);
+    platform.processHostKeyEvent(0x0D, false);
+    platform.processHostKeyEvent(0x2C, false);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_text_snippets() {
+    std::cout << "Test 7: Text snippets on RP2040... ";
+    RP2040Platform platform;
+    platform.initialize();
+
+    std::string snippet_yaml = R"(
+combos:
+  j + k: "hi"
+)";
+    bool ok = platform.loadConfiguration(snippet_yaml);
+    assert(ok);
+
+    platform.clearEmittedKeys();
+    platform.setTimestamp(6000);
+    platform.processHostKeyEvent(0x0D, true); // USB J down
+    platform.setTimestamp(6020);
+    platform.processHostKeyEvent(0x0E, true); // USB K down
+    platform.setTimestamp(6080);              // Overlap > 40ms
+    platform.processHostKeyEvent(0x0D, false);
+    platform.setTimestamp(6100);
+    platform.processHostKeyEvent(0x0E, false);
+
+    const auto& emitted = platform.getEmittedKeys();
+    // Emitted keys should contain 'h' and 'i'
+    assert(emitted.size() >= 2);
+    assert(std::find(emitted.begin(), emitted.end(), tff::Keys::KEY_H) != emitted.end());
+    assert(std::find(emitted.begin(), emitted.end(), tff::Keys::KEY_I) != emitted.end());
+
+    std::cout << "PASSED\n";
+}
+
+static void test_device_keys_and_cleanup() {
+    std::cout << "Test 8: sendDeviceKeys and cleanup... ";
+    RP2040Platform platform;
+    platform.initialize();
+
+    platform.clearEmittedKeys();
+    std::vector<uint32_t> keys = {tff::Keys::KEY_A, tff::Keys::KEY_B};
+    bool ok = platform.sendDeviceKeys(keys);
+    assert(ok);
+
+    const auto& emitted = platform.getEmittedKeys();
+    assert(emitted.size() == 2);
+    assert(emitted[0] == tff::Keys::KEY_A);
+    assert(emitted[1] == tff::Keys::KEY_B);
+
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
 
 int main() {
-    std::cout << "Testing RP2040 Platform Implementation\n";
-    std::cout << "========================================\n";
+    std::cout << "================================================\n";
+    std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
+    std::cout << "================================================\n";
 
-    // Test RP2040Platform initialization
-    RP2040Platform platform;
+    test_initialization();
+    test_keycode_conversion();
+    test_combos_processing();
+    test_triple_combos();
+    test_tap_hold();
+    test_modal_layers();
+    test_text_snippets();
+    test_device_keys_and_cleanup();
 
-    // Test initialization
-    bool init_result = platform.initialize();
-    assert(init_result);
-    (void)init_result;
-    std::cout << "✓ RP2040Platform initialization successful\n";
-
-    // Test with TFFApp directly
-    TFFApp app(100); // 100ms threshold
-
-    // Add test mappings
-    app.getKeyMapper().addMapping(KeyCodes::F_KEY, KeyCodes::J_KEY, {KeyCodes::ONE});      // F+J -> 1
-    app.getKeyMapper().addMapping(KeyCodes::J_KEY, KeyCodes::F_KEY, {KeyCodes::TWO});      // J+F -> 2
-    app.getKeyMapper().addMapping(KeyCodes::F_KEY, KeyCodes::SPACE_KEY, {KeyCodes::THREE}); // F+Space -> 3
-
-    // Test F+J combination (F pressed first)
-    uint32_t timestamp = 0;
-    auto result1 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
-    assert(result1.empty());
-    timestamp += 50; // Within 100ms threshold
-    auto result2 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
-
-    assert(result2.size() == 1);
-    assert(result2[0] == KeyCodes::ONE);
-    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 10, false);
-    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 10, false);
-    std::cout << "✓ F+J combination detection successful\n";
-
-    // Test J+F combination (J pressed first)
-    timestamp = 1000;
-    auto result3 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
-    assert(result3.empty());
-    timestamp += 50; // Within 100ms threshold
-    auto result4 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
-
-    assert(result4.size() == 1);
-    assert(result4[0] == KeyCodes::TWO);
-    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 10, false);
-    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 10, false);
-    std::cout << "✓ J+F combination detection successful\n";
-
-    // Test sequential keys (outside threshold)
-    timestamp = 2000;
-    auto result5 = app.processKeyEvent(KeyCodes::F_KEY, timestamp, true);
-    assert(result5.empty());
-    app.processKeyEvent(KeyCodes::F_KEY, timestamp + 50, false);
-    timestamp += 150; // Outside 100ms threshold
-    auto result6 = app.processKeyEvent(KeyCodes::J_KEY, timestamp, true);
-
-    assert(result6.empty());
-    app.processKeyEvent(KeyCodes::J_KEY, timestamp + 50, false);
-    std::cout << "✓ Sequential keys (outside threshold) handled correctly\n";
-
-    std::cout << "\nAll RP2040 platform tests passed!\n";
+    std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;
 }

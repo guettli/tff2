@@ -1,7 +1,7 @@
 #include "tff_parser.h"
-#include "key_mapper.h"
 #include "tff_key_codes.h"
 #include <iostream>
+#include <fstream>
 #include <cassert>
 
 int main() {
@@ -47,17 +47,24 @@ combos:
         std::cout << "✓ Test 2 passed: rejected unknown key in YAML\n";
     }
 
-    // Test 3: KeyMapper::loadConfiguration on repo config
+    // Test 3: Load repo config file via tff::loadYamlConfig
     {
-        KeyMapper mapper;
-        bool ok = mapper.loadConfiguration("config/tff-combos.yaml");
-        if (!ok) {
-            ok = mapper.loadConfiguration("../config/tff-combos.yaml");
+        std::ifstream file("config/tff-combos.yaml");
+        if (!file.is_open()) {
+            file.open("../config/tff-combos.yaml");
         }
+        assert(file.is_open());
+        std::string yaml_content((std::istreambuf_iterator<char>(file)),
+                                 std::istreambuf_iterator<char>());
+        tff::Config config;
+        std::string err_msg;
+        bool ok = tff::loadYamlConfig(yaml_content, config, err_msg);
         assert(ok);
-        assert(mapper.getMappingCount() > 0);
-        std::cout << "✓ Test 3 passed: KeyMapper loads tff-combos.yaml (" 
-                  << mapper.getMappingCount() << " mappings)\n";
+        assert(!config.combos.empty());
+        assert(!config.tap_hold_keys.empty());
+        std::cout << "✓ Test 3 passed: loadYamlConfig loads tff-combos.yaml (" 
+                  << config.combos.size() << " combos, "
+                  << config.tap_hold_keys.size() << " tap-hold keys)\n";
     }
 
     // Test 4: Compact dictionary syntax with ALL literal punctuation symbols

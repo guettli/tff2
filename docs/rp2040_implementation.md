@@ -25,56 +25,40 @@ The RP2040 implementation provides hardware support for the TFF-like keyboard re
 
 #### RP2040Platform
 Main platform handler that manages:
-- USB host initialization and event processing
-- USB device initialization and key output
-- Integration with core TFF logic
-- Hardware-specific timing and state management
+- USB host initialization and event processing (TinyUSB host)
+- USB device initialization and key output (TinyUSB device)
+- Integration with the shared `tff::TFFEngine` (combos, tap-vs-hold, text snippets, and modal layers)
+- Hardware-specific timing and timer handling via `checkTimers()`
 
 ### USB Integration
 
 #### USB Host (Keyboard Input)
 - Uses TinyUSB host stack to read from connected keyboards
-- Processes HID keyboard reports
-- Converts USB key codes to internal key codes
-- Tracks key press/release events with timestamps
+- Processes HID keyboard reports (Usage Page 0x07)
+- Converts USB key codes to internal Linux `KeyCode`s via `convertUsbToKeyCode`
+- Tracks key press/release events with microsecond timestamps
 
 #### USB Device (Keyboard Output)
 - Presents as standard HID keyboard to host computer
-- Sends mapped key combinations as keyboard events
-- Handles key press/release sequences
+- Sends mapped key combinations, tap-hold outputs, and layer remappings
+- Converts internal `KeyCode`s back to USB HID codes via `convertKeyCodeToUsb`
+- Handles key press/release sequences with proper event release swallowing
 
 ## Implementation Details
 
-### Key Code Conversion
-
-The RP2040 platform handles conversion between USB key codes and internal key codes:
-
-```cpp
-// USB key code to internal key code
-switch (usb_keycode) {
-    case 0x09: return KeyCodes::F_KEY;      // F key
-    case 0x0A: return KeyCodes::J_KEY;      // J key
-    case 0x2C: return KeyCodes::SPACE_KEY;  // Space key
-    // ... more mappings
-}
-
-// Internal key code to USB key code
-switch (internal_keycode) {
-    case KeyCodes::F_KEY: return 0x09;      // F key
-    case KeyCodes::J_KEY: return 0x0A;      // J key
-    case KeyCodes::SPACE_KEY: return 0x2C;  // Space key
-    // ... more mappings
-}
-```
+### Shared Core Engine (`tff::TFFEngine`)
+The RP2040 firmware uses the exact same `tff::TFFEngine` as the Linux platform daemon:
+- **Zero Drift**: All combo matching, triple chords, tap-hold dual role logic, modal layers, and macro expansions are evaluated identically.
+- **YAML Configurable**: Full configuration can be supplied via YAML strings or the built-in default configuration.
 
 ### Event Processing Flow
 
 1. **USB Host Event**: Keyboard report received via `tuh_hid_report_received_cb`
-2. **Key Code Conversion**: USB codes converted to internal codes
-3. **Timestamp Capture**: Current time recorded for overlap detection
-4. **Core Processing**: TFFApp processes key event with timing
-5. **Mapping Lookup**: Key combination mapped to output sequence
-6. **USB Device Output**: Mapped keys sent via `tud_hid_keyboard_report`
+2. **Key Code Conversion**: USB HID codes converted to internal `tff::KeyCode`s via `convertUsbToKeyCode`
+3. **Timestamp Capture**: Current millisecond timestamp captured from `get_absolute_time()`
+4. **Core Processing**: Shared `tff::TFFEngine::processEvent` evaluates chords, layers, and tap-hold state
+5. **Output Writing**: Remapped events translated to USB HID codes and sent via `tud_hid_keyboard_report`
+6. **Timer Servicing**: Hardware loop calls `checkTimers()` to service tap-hold timeouts and combo expiration
 
 ## Building for RP2040
 

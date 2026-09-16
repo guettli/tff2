@@ -23,6 +23,12 @@ void TFFEngine::setLayers(const std::vector<Layer>& layers) {
     layers_ = layers;
 }
 
+void TFFEngine::setConfig(const Config& config) {
+    setCombos(config.combos);
+    setTapHoldKeys(config.tap_hold_keys);
+    setLayers(config.layers);
+}
+
 void TFFEngine::activateLayer(const std::string& name) {
     if (active_layer_stack_.empty() || active_layer_stack_.back() != name) {
         active_layer_stack_.push_back(name);
