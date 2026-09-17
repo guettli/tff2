@@ -55,6 +55,11 @@ public:
     void deactivateLayer(const std::string& name);
     void toggleLayer(const std::string& name);
 
+    void setAutoShiftConfig(const AutoShiftConfig& config);
+    const AutoShiftConfig& getAutoShiftConfig() const { return auto_shift_; }
+    bool isAutoShiftKey(KeyCode code) const;
+    bool isModifierActive() const;
+
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
 
     void setFakeActiveTimer(bool fake) { fake_active_timer_ = fake; }
@@ -125,6 +130,23 @@ private:
     std::vector<Combo> down_keys_written_;
     std::vector<KeyCode> swallow_keys_;
 
+    struct PendingAutoShift {
+        KeyCode key = 0;
+        TimeVal down_time;
+        TimeVal expire_time;
+        bool shifted_emitted = false;
+    };
+
+    struct HeldAutoShift {
+        KeyCode key = 0;
+        bool shifted = false;
+    };
+
+    AutoShiftConfig auto_shift_;
+    PendingAutoShift pending_auto_shift_;
+    std::vector<HeldAutoShift> auto_shift_held_;
+    std::vector<KeyCode> active_modifiers_;
+
     int64_t min_overlap_duration_us_ = 80000;    // 80ms
     int64_t timeout_after_down_us_   = 150000;   // 150ms
     int64_t min_age_us_              = 140000;   // 140ms
@@ -146,6 +168,10 @@ private:
     void emitText(const std::string& text, TimeVal base_time);
     void writeKey(KeyCode code, int32_t value, TimeVal time);
     void writeEvent(const Event& ev, const std::string& reason);
+    void writeEventDirect(const Event& ev, const std::string& reason);
+
+    void handleAutoShiftOrWrite(const Event& ev, const std::string& reason);
+    void commitPendingAutoShiftUnshifted(TimeVal time);
 
     void flushBuffer(const std::string& reason);
 

@@ -184,8 +184,9 @@ int main(int argc, char* argv[]) {
         std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s), "
                   << config.tap_hold_keys.size() << " tap-hold key(s), "
                   << config.one_shot_keys.size() << " one-shot key(s), "
-                  << config.leader.sequences.size() << " leader sequence(s), and "
-                  << config.layers.size() << " layer(s) from " << config_file << "\n";
+                  << config.leader.sequences.size() << " leader sequence(s), "
+                  << (config.auto_shift.enabled ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) + " keys), ") : "")
+                  << "and " << config.layers.size() << " layer(s) from " << config_file << "\n";
         return 0;
     }
 

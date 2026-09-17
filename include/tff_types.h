@@ -187,12 +187,23 @@ struct LeaderConfig {
     }
 };
 
+struct AutoShiftConfig {
+    bool enabled = false;
+    int64_t timeout_us = 175000LL; // 175 ms default
+    std::vector<KeyCode> keys;
+
+    bool operator==(const AutoShiftConfig& o) const {
+        return enabled == o.enabled && timeout_us == o.timeout_us && keys == o.keys;
+    }
+};
+
 struct Config {
     std::vector<Combo> combos;
     std::vector<TapHoldKey> tap_hold_keys;
     std::vector<Layer> layers;
     std::vector<OneShotKey> one_shot_keys;
     LeaderConfig leader;
+    AutoShiftConfig auto_shift;
 };
 
 class EventWriter {

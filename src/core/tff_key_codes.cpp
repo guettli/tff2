@@ -563,6 +563,7 @@ struct KeyTable {
         add_alias(";", "semicolon");
         add_alias(",", "comma");
         add_alias(".", "dot");
+        add_alias("period", "dot");
         add_alias("/", "slash");
         add_alias("\\", "backslash");
         add_alias("-", "minus");

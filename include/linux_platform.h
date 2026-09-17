@@ -94,7 +94,12 @@ public:
     void setLeaderConfig(const tff::LeaderConfig& config);
 
     /**
-     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader)
+     * @brief Set auto-shift config directly
+     */
+    void setAutoShiftConfig(const tff::AutoShiftConfig& config);
+
+    /**
+     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader, auto-shift)
      */
     void setConfig(const tff::Config& config);
 

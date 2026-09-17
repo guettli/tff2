@@ -208,9 +208,17 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             ss << "\n";
         }
 
+        // 5. Auto-Shift
+        if (config.auto_shift.enabled) {
+            ss << "## Auto-Shift (Long-Press Capitalization)\n\n"
+               << "- **Status**: Enabled\n"
+               << "- **Timeout**: " << (config.auto_shift.timeout_us / 1000) << " ms\n"
+               << "- **Keys**: " << config.auto_shift.keys.size() << " keys active\n\n";
+        }
+
         if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
-            config.one_shot_keys.empty() && config.leader.sequences.empty()) {
-            ss << "_No combos, tap-hold keys, one-shot keys, or layers configured._\n\n";
+            config.one_shot_keys.empty() && config.leader.sequences.empty() && !config.auto_shift.enabled) {
+            ss << "_No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured._\n\n";
         }
 
         return ss.str();
@@ -366,9 +374,17 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         ss << "\n";
     }
 
+    // 5. Auto-Shift
+    if (config.auto_shift.enabled) {
+        ss << bold(blue("[ Auto-Shift (Long-Press Capitalization) ]", col), col) << "\n";
+        ss << "  " << dim("Status: ", col) << green("Enabled", col)
+           << dim(" | Timeout: " + std::to_string(config.auto_shift.timeout_us / 1000) + "ms", col)
+           << dim(" | Active Keys: " + std::to_string(config.auto_shift.keys.size()), col) << "\n\n";
+    }
+
     if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
-        config.one_shot_keys.empty() && config.leader.sequences.empty()) {
-        ss << dim("  (No combos, tap-hold keys, one-shot keys, or layers configured)", col) << "\n\n";
+        config.one_shot_keys.empty() && config.leader.sequences.empty() && !config.auto_shift.enabled) {
+        ss << dim("  (No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)", col) << "\n\n";
     }
 
     return ss.str();
