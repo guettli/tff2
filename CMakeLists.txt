@@ -106,6 +106,9 @@ else()
 endif()
 
 if(NOT PICO_BUILD)
+    # Add Linux-specific core sources (udev and permission setup)
+    target_sources(tff_core PRIVATE src/core/tff_udev.cpp)
+
     # Linux platform source files
     set(LINUX_PLATFORM_SOURCES
         src/platform/linux/linux_platform.cpp
@@ -206,6 +209,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_monitor tff_core linux_platform)
 
+    add_executable(test_udev
+        tests/test_udev.cpp
+    )
+    target_link_libraries(test_udev tff_core)
+
     # Enable testing
     enable_testing()
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
@@ -222,6 +230,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
     add_test(NAME test_monitor COMMAND test_monitor)
+    add_test(NAME test_udev COMMAND test_udev)
 
     # Ensure assertions are always active in test executables regardless of build type
     set(TEST_TARGETS
@@ -239,6 +248,7 @@ if(NOT PICO_BUILD)
         test_tff_go_suite
         test_linux_platform
         test_monitor
+        test_udev
     )
     foreach(target ${TEST_TARGETS})
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

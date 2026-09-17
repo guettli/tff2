@@ -206,29 +206,60 @@ WantedBy=default.target
 ## 5. Linux Permissions & Udev Rules
 
 TFF needs access to:
-1. `/dev/uinput` to emit virtual keystrokes.
+1. `/dev/uinput` to emit virtual keystrokes and mouse movements.
 2. `/dev/input/event*` to read physical keystrokes and acquire exclusive grab (`ioctl(fd, EVIOCGRAB, 1)`).
+
+### Automatic Setup (Recommended)
+
+TFF provides a built-in helper to diagnose permissions and install udev rules:
+
+1. **Check your current permissions and diagnostics**:
+   ```bash
+   tff setup-udev
+   ```
+   This inspects group membership, `/dev/uinput`, `/dev/input/event*` device access, and existing udev rules. If anything is missing, it provides clear, step-by-step instructions.
+
+2. **Automatically install udev rules and reload**:
+   ```bash
+   sudo tff setup-udev --install
+   ```
+   This automatically installs the required udev rules to `/etc/udev/rules.d/99-tff.rules`, configures `/etc/modules-load.d/uinput.conf`, and reloads rules with `udevadm`.
+
+3. **Inspect the generated udev rules**:
+   ```bash
+   tff setup-udev --print
+   ```
 
 ### Running as Root
 When running as a system-wide systemd service (default), root has full access automatically.
 
-### Running as Non-Root User
-To run TFF under a regular user account without `sudo`, grant access to the `input` group:
+### Running as Non-Root User (Manual Setup)
+If you prefer manual setup instead of `tff setup-udev --install`:
 
 1. Add your user to the `input` group:
    ```bash
    sudo usermod -aG input "$USER"
    ```
 
-2. Create a udev rule for `/dev/uinput` in `/etc/udev/rules.d/99-tff-uinput.rules`:
+2. Create `/etc/udev/rules.d/99-tff.rules`:
    ```udev
-   KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"
+   # /dev/uinput: virtual keyboard and mouse event emission
+   KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput", MODE="0660", GROUP="input"
+
+   # /dev/input/event*: physical keyboard event grabbing
+   KERNEL=="event*", SUBSYSTEM=="input", MODE="0660", GROUP="input"
    ```
 
 3. Reload udev rules:
    ```bash
    sudo udevadm control --reload-rules && sudo udevadm trigger
    ```
+
+4. Activate your new group membership in your current shell:
+   ```bash
+   newgrp input
+   ```
+   *(Or log out and log back in to your desktop session).*
 
 ---
 

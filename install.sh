@@ -110,6 +110,7 @@ if [[ "${MODE}" == "user" ]]; then
     echo "Check status:  systemctl --user status ten-flying-fingers"
     echo "View logs:     journalctl --user -u ten-flying-fingers -f"
     echo "Stop service:  systemctl --user stop ten-flying-fingers"
+    echo "Permissions:   tff setup-udev (run 'sudo tff setup-udev --install' for udev rules)"
 else
     echo "Check status:  sudo systemctl status ten-flying-fingers"
     echo "View logs:     sudo journalctl -u ten-flying-fingers -f"
