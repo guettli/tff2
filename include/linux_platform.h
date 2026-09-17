@@ -99,7 +99,12 @@ public:
     void setAutoShiftConfig(const tff::AutoShiftConfig& config);
 
     /**
-     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader, auto-shift)
+     * @brief Set mouse config directly
+     */
+    void setMouseConfig(const tff::MouseConfig& config);
+
+    /**
+     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader, auto-shift, mouse)
      */
     void setConfig(const tff::Config& config);
 

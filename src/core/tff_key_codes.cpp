@@ -258,6 +258,14 @@ static const KeyItem KEY_ITEMS[] = {
     {"KEY_WWAN", "wwan", 246, "WWAN"},
     {"KEY_RFKILL", "rfkill", 247, "RFKILL"},
     {"KEY_MICMUTE", "micmute", 248, "MICMUTE"},
+    {"BTN_LEFT", "btn_left", 272, "BTN_LEFT"},
+    {"BTN_RIGHT", "btn_right", 273, "BTN_RIGHT"},
+    {"BTN_MIDDLE", "btn_middle", 274, "BTN_MIDDLE"},
+    {"BTN_SIDE", "btn_side", 275, "BTN_SIDE"},
+    {"BTN_EXTRA", "btn_extra", 276, "BTN_EXTRA"},
+    {"BTN_FORWARD", "btn_forward", 277, "BTN_FORWARD"},
+    {"BTN_BACK", "btn_back", 278, "BTN_BACK"},
+    {"BTN_TASK", "btn_task", 279, "BTN_TASK"},
     {"KEY_OK", "ok", 352, "OK"},
     {"KEY_SELECT", "select", 353, "SELECT"},
     {"KEY_GOTO", "goto", 354, "GOTO"},
@@ -594,6 +602,16 @@ struct KeyTable {
         add_alias("pgup", "pageup");
         add_alias("pgdn", "pagedown");
         add_alias("pagedn", "pagedown");
+
+        // Mouse button aliases
+        add_alias("mouse_btn_left", "btn_left");
+        add_alias("mouse_left_click", "btn_left");
+        add_alias("mouse_btn_right", "btn_right");
+        add_alias("mouse_right_click", "btn_right");
+        add_alias("mouse_btn_middle", "btn_middle");
+        add_alias("mouse_middle_click", "btn_middle");
+        add_alias("mouse_btn_side", "btn_side");
+        add_alias("mouse_btn_extra", "btn_extra");
     }
 };
 
@@ -652,6 +670,15 @@ std::string codeName(uint16_t type, uint16_t code) {
         if (code == MSC_SCAN) return "MSC_SCAN";
         return "MSC_" + std::to_string(code);
     }
+    if (type == EV_REL) {
+        switch (code) {
+            case RelCodes::REL_X: return "REL_X";
+            case RelCodes::REL_Y: return "REL_Y";
+            case RelCodes::REL_HWHEEL: return "REL_HWHEEL";
+            case RelCodes::REL_WHEEL: return "REL_WHEEL";
+            default: return "REL_" + std::to_string(code);
+        }
+    }
     if (type == EV_KEY) {
         return "KEY_" + keyCodeToShortName(code);
     }
@@ -662,6 +689,7 @@ std::string typeName(uint16_t type) {
     if (type == EV_KEY) return "EV_KEY";
     if (type == EV_SYN) return "EV_SYN";
     if (type == EV_MSC) return "EV_MSC";
+    if (type == EV_REL) return "EV_REL";
     return "EV_" + std::to_string(type);
 }
 
@@ -669,6 +697,7 @@ bool parseTypeName(const std::string& name, uint16_t& out_type) {
     if (name == "EV_KEY") { out_type = EV_KEY; return true; }
     if (name == "EV_SYN") { out_type = EV_SYN; return true; }
     if (name == "EV_MSC") { out_type = EV_MSC; return true; }
+    if (name == "EV_REL") { out_type = EV_REL; return true; }
     return false;
 }
 
@@ -680,6 +709,12 @@ bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code) {
     if (type == EV_MSC && name == "MSC_SCAN") {
         out_code = MSC_SCAN;
         return true;
+    }
+    if (type == EV_REL) {
+        if (name == "REL_X") { out_code = RelCodes::REL_X; return true; }
+        if (name == "REL_Y") { out_code = RelCodes::REL_Y; return true; }
+        if (name == "REL_HWHEEL") { out_code = RelCodes::REL_HWHEEL; return true; }
+        if (name == "REL_WHEEL") { out_code = RelCodes::REL_WHEEL; return true; }
     }
     if (type == EV_KEY) {
         const auto& table = getTable();
@@ -781,6 +816,148 @@ bool asciiToKeyStroke(char c, KeyCode& code, bool& shift) {
 
     shift = false;
     return false;
+}
+
+bool parseMouseAction(const std::string& raw_word, MouseAction& out_mouse, std::string& err_msg) {
+    std::string word = raw_word;
+    size_t start = word.find_first_not_of(" \t");
+    size_t end = word.find_last_not_of(" \t");
+    if (start == std::string::npos) {
+        return false;
+    }
+    word = word.substr(start, end - start + 1);
+
+    if (word.front() == '"' || word.front() == '\'' || word.front() == '{' || word.front() == '[') {
+        return false;
+    }
+
+    std::string lower = word;
+    for (char& c : lower) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+
+    bool starts_with_mouse_prefix = (lower.rfind("mouse", 0) == 0 ||
+                                     lower.rfind("cursor", 0) == 0 ||
+                                     lower.rfind("wheel", 0) == 0 ||
+                                     lower.rfind("scroll", 0) == 0 ||
+                                     lower.rfind("ms_", 0) == 0 ||
+                                     lower.rfind("btn_", 0) == 0);
+    if (!starts_with_mouse_prefix) {
+        return false;
+    }
+
+    for (char c : word) {
+        if (std::isupper(static_cast<unsigned char>(c))) {
+            err_msg = "only lower case characters are allowed";
+            return false;
+        }
+    }
+
+    std::string base = word;
+    int16_t delta = 0;
+    size_t lparen = word.find('(');
+    size_t rparen = word.rfind(')');
+    if (lparen != std::string::npos && rparen != std::string::npos && rparen > lparen) {
+        base = word.substr(0, lparen);
+        std::string num_str = word.substr(lparen + 1, rparen - lparen - 1);
+        size_t nstart = num_str.find_first_not_of(" \t");
+        size_t nend = num_str.find_last_not_of(" \t");
+        if (nstart == std::string::npos) {
+            err_msg = "empty parameter in '" + word + "'";
+            return false;
+        }
+        num_str = num_str.substr(nstart, nend - nstart + 1);
+        try {
+            int parsed = std::stoi(num_str);
+            if (parsed < 1 || parsed > 1000) {
+                err_msg = "mouse delta must be between 1 and 1000 in '" + word + "'";
+                return false;
+            }
+            delta = static_cast<int16_t>(parsed);
+        } catch (...) {
+            err_msg = "invalid integer parameter in '" + word + "'";
+            return false;
+        }
+    }
+
+    if (base == "mouse_left" || base == "mouse_move_left" || base == "cursor_left" || base == "ms_left") {
+        out_mouse = MouseAction{MouseActionType::MoveLeft, delta};
+        return true;
+    }
+    if (base == "mouse_right" || base == "mouse_move_right" || base == "cursor_right" || base == "ms_right") {
+        out_mouse = MouseAction{MouseActionType::MoveRight, delta};
+        return true;
+    }
+    if (base == "mouse_up" || base == "mouse_move_up" || base == "cursor_up" || base == "ms_up") {
+        out_mouse = MouseAction{MouseActionType::MoveUp, delta};
+        return true;
+    }
+    if (base == "mouse_down" || base == "mouse_move_down" || base == "cursor_down" || base == "ms_down") {
+        out_mouse = MouseAction{MouseActionType::MoveDown, delta};
+        return true;
+    }
+    if (base == "mouse_wheel_up" || base == "wheel_up" || base == "scroll_up" || base == "ms_wheel_up") {
+        out_mouse = MouseAction{MouseActionType::WheelUp, delta};
+        return true;
+    }
+    if (base == "mouse_wheel_down" || base == "wheel_down" || base == "scroll_down" || base == "ms_wheel_down") {
+        out_mouse = MouseAction{MouseActionType::WheelDown, delta};
+        return true;
+    }
+    if (base == "mouse_wheel_left" || base == "wheel_left" || base == "scroll_left" || base == "ms_wheel_left") {
+        out_mouse = MouseAction{MouseActionType::WheelLeft, delta};
+        return true;
+    }
+    if (base == "mouse_wheel_right" || base == "wheel_right" || base == "scroll_right" || base == "ms_wheel_right") {
+        out_mouse = MouseAction{MouseActionType::WheelRight, delta};
+        return true;
+    }
+    if (base == "mouse_btn_left" || base == "btn_left" || base == "mouse_left_click") {
+        out_mouse = MouseAction{MouseActionType::BtnLeft, 0};
+        return true;
+    }
+    if (base == "mouse_btn_right" || base == "btn_right" || base == "mouse_right_click") {
+        out_mouse = MouseAction{MouseActionType::BtnRight, 0};
+        return true;
+    }
+    if (base == "mouse_btn_middle" || base == "btn_middle" || base == "mouse_middle_click") {
+        out_mouse = MouseAction{MouseActionType::BtnMiddle, 0};
+        return true;
+    }
+    if (base == "mouse_btn_side" || base == "btn_side") {
+        out_mouse = MouseAction{MouseActionType::BtnSide, 0};
+        return true;
+    }
+    if (base == "mouse_btn_extra" || base == "btn_extra") {
+        out_mouse = MouseAction{MouseActionType::BtnExtra, 0};
+        return true;
+    }
+
+    return false;
+}
+
+std::string mouseActionToWord(const MouseAction& action) {
+    std::string base;
+    switch (action.type) {
+        case MouseActionType::MoveLeft: base = "mouse_left"; break;
+        case MouseActionType::MoveRight: base = "mouse_right"; break;
+        case MouseActionType::MoveUp: base = "mouse_up"; break;
+        case MouseActionType::MoveDown: base = "mouse_down"; break;
+        case MouseActionType::WheelUp: base = "mouse_wheel_up"; break;
+        case MouseActionType::WheelDown: base = "mouse_wheel_down"; break;
+        case MouseActionType::WheelLeft: base = "mouse_wheel_left"; break;
+        case MouseActionType::WheelRight: base = "mouse_wheel_right"; break;
+        case MouseActionType::BtnLeft: base = "mouse_btn_left"; break;
+        case MouseActionType::BtnRight: base = "mouse_btn_right"; break;
+        case MouseActionType::BtnMiddle: base = "mouse_btn_middle"; break;
+        case MouseActionType::BtnSide: base = "mouse_btn_side"; break;
+        case MouseActionType::BtnExtra: base = "mouse_btn_extra"; break;
+        default: return "(none)";
+    }
+    if (action.delta != 0) {
+        return base + "(" + std::to_string(action.delta) + ")";
+    }
+    return base;
 }
 
 } // namespace tff

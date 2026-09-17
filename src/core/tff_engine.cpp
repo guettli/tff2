@@ -76,6 +76,7 @@ void TFFEngine::setConfig(const Config& config) {
     setOneShotKeys(config.one_shot_keys);
     setLeaderConfig(config.leader);
     setAutoShiftConfig(config.auto_shift);
+    setMouseConfig(config.mouse);
 }
 
 Config TFFEngine::getConfig() const {
@@ -86,7 +87,81 @@ Config TFFEngine::getConfig() const {
     cfg.one_shot_keys = one_shot_keys_;
     cfg.leader = leader_config_;
     cfg.auto_shift = auto_shift_;
+    cfg.mouse = mouse_config_;
     return cfg;
+}
+
+void TFFEngine::emitMouseAction(const MouseAction& action, TimeVal time) {
+    if (!action.isRelative() && !action.isButton()) return;
+
+    int16_t speed = (action.delta != 0) ? action.delta : mouse_config_.move_speed;
+    int16_t wheel = (action.delta != 0) ? action.delta : mouse_config_.wheel_step;
+
+    switch (action.type) {
+        case MouseActionType::MoveLeft:
+            writeRel(RelCodes::REL_X, -speed, time);
+            break;
+        case MouseActionType::MoveRight:
+            writeRel(RelCodes::REL_X, speed, time);
+            break;
+        case MouseActionType::MoveUp:
+            writeRel(RelCodes::REL_Y, -speed, time);
+            break;
+        case MouseActionType::MoveDown:
+            writeRel(RelCodes::REL_Y, speed, time);
+            break;
+        case MouseActionType::WheelUp:
+            writeRel(RelCodes::REL_WHEEL, wheel, time);
+            break;
+        case MouseActionType::WheelDown:
+            writeRel(RelCodes::REL_WHEEL, -wheel, time);
+            break;
+        case MouseActionType::WheelLeft:
+            writeRel(RelCodes::REL_HWHEEL, -wheel, time);
+            break;
+        case MouseActionType::WheelRight:
+            writeRel(RelCodes::REL_HWHEEL, wheel, time);
+            break;
+        case MouseActionType::BtnLeft:
+            writeKey(Keys::BTN_LEFT, KEY_VAL_DOWN, time);
+            writeKey(Keys::BTN_LEFT, KEY_VAL_UP, time);
+            break;
+        case MouseActionType::BtnRight:
+            writeKey(Keys::BTN_RIGHT, KEY_VAL_DOWN, time);
+            writeKey(Keys::BTN_RIGHT, KEY_VAL_UP, time);
+            break;
+        case MouseActionType::BtnMiddle:
+            writeKey(Keys::BTN_MIDDLE, KEY_VAL_DOWN, time);
+            writeKey(Keys::BTN_MIDDLE, KEY_VAL_UP, time);
+            break;
+        case MouseActionType::BtnSide:
+            writeKey(Keys::BTN_SIDE, KEY_VAL_DOWN, time);
+            writeKey(Keys::BTN_SIDE, KEY_VAL_UP, time);
+            break;
+        case MouseActionType::BtnExtra:
+            writeKey(Keys::BTN_EXTRA, KEY_VAL_DOWN, time);
+            writeKey(Keys::BTN_EXTRA, KEY_VAL_UP, time);
+            break;
+        default:
+            break;
+    }
+}
+
+void TFFEngine::writeRel(uint16_t code, int32_t value, TimeVal time) {
+    if (out_dev_ == nullptr) return;
+    Event ev_rel;
+    ev_rel.time = time;
+    ev_rel.type = EV_REL;
+    ev_rel.code = code;
+    ev_rel.value = value;
+    out_dev_->writeOne(ev_rel);
+
+    Event ev_syn;
+    ev_syn.time = time;
+    ev_syn.type = EV_SYN;
+    ev_syn.code = SYN_REPORT;
+    ev_syn.value = 0;
+    out_dev_->writeOne(ev_syn);
 }
 
 void TFFEngine::activateLeader(TimeVal time) {
@@ -215,7 +290,7 @@ const LayerAction* TFFEngine::findLayerAction(KeyCode code) const {
 void TFFEngine::releaseHeldLayerRemaps(TimeVal time) {
     if (out_dev_) {
         for (const auto& kv : held_layer_remaps_) {
-            if (!kv.second.is_text) {
+            if (!kv.second.mouse.isRelative() && !kv.second.is_text) {
                 for (auto it = kv.second.out_keys.rbegin(); it != kv.second.out_keys.rend(); ++it) {
                     writeKey(*it, KEY_VAL_UP, time);
                 }
@@ -343,6 +418,11 @@ bool TFFEngine::processEvent(const Event& ev) {
     }
 
     if (ev.value == KEY_VAL_REPEAT) {
+        auto remap_it = held_layer_remaps_.find(ev.code);
+        if (remap_it != held_layer_remaps_.end() && remap_it->second.mouse.isRelative()) {
+            emitMouseAction(remap_it->second.mouse, ev.time);
+            return true;
+        }
         // skip repeats
         return true;
     }
@@ -433,7 +513,9 @@ bool TFFEngine::processEvent(const Event& ev) {
             }
 
             if (matched_seq != nullptr) {
-                if (!matched_seq->toggle_layer.empty()) {
+                if (matched_seq->mouse.isRelative() || matched_seq->mouse.isButton()) {
+                    emitMouseAction(matched_seq->mouse, ev.time);
+                } else if (!matched_seq->toggle_layer.empty()) {
                     toggleLayer(matched_seq->toggle_layer);
                 } else if (!matched_seq->text.empty()) {
                     emitText(matched_seq->text, ev.time);
@@ -544,7 +626,10 @@ bool TFFEngine::processEvent(const Event& ev) {
             if (action != nullptr) {
                 HeldLayerRemap remap;
                 remap.input_key = ev.code;
-                if (!action->toggle_layer.empty()) {
+                if (action->mouse.isRelative()) {
+                    remap.mouse = action->mouse;
+                    emitMouseAction(action->mouse, ev.time);
+                } else if (!action->toggle_layer.empty()) {
                     toggleLayer(action->toggle_layer);
                     remap.is_text = true;
                 } else if (!action->text.empty()) {
@@ -573,7 +658,7 @@ bool TFFEngine::processEvent(const Event& ev) {
         // Check if this key was remapped by an active layer when pressed
         auto remap_it = held_layer_remaps_.find(ev.code);
         if (remap_it != held_layer_remaps_.end()) {
-            if (!remap_it->second.is_text) {
+            if (!remap_it->second.mouse.isRelative() && !remap_it->second.is_text) {
                 for (auto it = remap_it->second.out_keys.rbegin(); it != remap_it->second.out_keys.rend(); ++it) {
                     writeKey(*it, KEY_VAL_UP, ev.time);
                 }
@@ -952,7 +1037,20 @@ void TFFEngine::writeComboDownKeys(const Combo& combo) {
             return;
         }
     }
-    if (!combo.toggle_layer.empty()) {
+    if (combo.mouse.isButton()) {
+        if (!buf_.empty()) {
+            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight) ? Keys::BTN_RIGHT :
+                               (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE :
+                               (combo.mouse.type == MouseActionType::BtnSide) ? Keys::BTN_SIDE :
+                               (combo.mouse.type == MouseActionType::BtnExtra) ? Keys::BTN_EXTRA :
+                               Keys::BTN_LEFT;
+            writeKey(btn_code, KEY_VAL_DOWN, buf_[0].time);
+        }
+    } else if (combo.mouse.isRelative()) {
+        if (!buf_.empty()) {
+            emitMouseAction(combo.mouse, buf_[0].time);
+        }
+    } else if (!combo.toggle_layer.empty()) {
         toggleLayer(combo.toggle_layer);
     } else if (!buf_.empty()) {
         if (!combo.text.empty()) {
@@ -1020,7 +1118,14 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
     }
 
     if (!buf_.empty()) {
-        if (combo.toggle_layer.empty() && combo.text.empty()) {
+        if (combo.mouse.isButton()) {
+            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight) ? Keys::BTN_RIGHT :
+                               (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE :
+                               (combo.mouse.type == MouseActionType::BtnSide) ? Keys::BTN_SIDE :
+                               (combo.mouse.type == MouseActionType::BtnExtra) ? Keys::BTN_EXTRA :
+                               Keys::BTN_LEFT;
+            writeKey(btn_code, KEY_VAL_UP, buf_[0].time);
+        } else if (combo.toggle_layer.empty() && combo.text.empty() && !combo.mouse.isRelative()) {
             writeCombo(combo, buf_[0].time, KEY_VAL_UP);
         }
         if (disengaging_trigger_key_ != 0) {

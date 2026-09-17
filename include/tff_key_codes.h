@@ -114,6 +114,20 @@ namespace Keys {
     constexpr KeyCode KEY_LEFTMETA   = 125;
     constexpr KeyCode KEY_RIGHTMETA  = 126;
     constexpr KeyCode KEY_RFKILL     = 247;
+
+    // Mouse buttons (EV_KEY)
+    constexpr KeyCode BTN_LEFT       = 0x110; // 272
+    constexpr KeyCode BTN_RIGHT      = 0x111; // 273
+    constexpr KeyCode BTN_MIDDLE     = 0x112; // 274
+    constexpr KeyCode BTN_SIDE       = 0x113; // 275
+    constexpr KeyCode BTN_EXTRA      = 0x114; // 276
+}
+
+namespace RelCodes {
+    constexpr uint16_t REL_X      = 0x00;
+    constexpr uint16_t REL_Y      = 0x01;
+    constexpr uint16_t REL_HWHEEL = 0x06;
+    constexpr uint16_t REL_WHEEL  = 0x08;
 }
 
 /**
@@ -133,6 +147,16 @@ std::string keyCodeToWord(KeyCode code);
  * @brief Converts a KeyCode to uppercase short name ("F", "CAPSLOCK", "BACKSPACE", "1").
  */
 std::string keyCodeToShortName(KeyCode code);
+
+/**
+ * @brief Parses a mouse action string (e.g. "mouse_left", "mouse_right(20)", "mouse_wheel_up").
+ */
+bool parseMouseAction(const std::string& word, MouseAction& out_mouse, std::string& err_msg);
+
+/**
+ * @brief Converts a MouseAction to canonical lowercase string (e.g. "mouse_left", "mouse_left(20)").
+ */
+std::string mouseActionToWord(const MouseAction& action);
 
 /**
  * @brief Converts (type, code) to evdev code name ("KEY_F", "SYN_REPORT", "MSC_SCAN").

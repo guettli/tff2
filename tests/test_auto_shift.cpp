@@ -9,6 +9,8 @@
 
 using namespace tff;
 
+namespace {
+
 class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
@@ -31,6 +33,8 @@ public:
         return result;
     }
 };
+
+} // anonymous namespace
 
 static void test_auto_shift_tap_lowercase() {
     MockWriter writer;

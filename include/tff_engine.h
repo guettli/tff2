@@ -60,6 +60,11 @@ public:
     bool isAutoShiftKey(KeyCode code) const;
     bool isModifierActive() const;
 
+    void setMouseConfig(const MouseConfig& config) { mouse_config_ = config; }
+    const MouseConfig& getMouseConfig() const { return mouse_config_; }
+    void emitMouseAction(const MouseAction& action, TimeVal time);
+    void writeRel(uint16_t code, int32_t value, TimeVal time);
+
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
 
     void setFakeActiveTimer(bool fake) { fake_active_timer_ = fake; }
@@ -95,6 +100,7 @@ private:
         KeyCode input_key = 0;
         std::vector<KeyCode> out_keys;
         bool is_text = false;
+        MouseAction mouse;
     };
 
     struct ArmedOneShotModifier {
@@ -143,6 +149,7 @@ private:
     };
 
     AutoShiftConfig auto_shift_;
+    MouseConfig mouse_config_;
     PendingAutoShift pending_auto_shift_;
     std::vector<HeldAutoShift> auto_shift_held_;
     std::vector<KeyCode> active_modifiers_;

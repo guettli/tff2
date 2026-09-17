@@ -67,6 +67,7 @@ enum KeyValue : int32_t {
 enum EventType : uint16_t {
     EV_SYN = 0x00,
     EV_KEY = 0x01,
+    EV_REL = 0x02,
     EV_MSC = 0x04
 };
 
@@ -74,8 +75,70 @@ enum SynCode : uint16_t {
     SYN_REPORT = 0
 };
 
+enum RelCode : uint16_t {
+    REL_X      = 0x00,
+    REL_Y      = 0x01,
+    REL_HWHEEL = 0x06,
+    REL_WHEEL  = 0x08
+};
+
 enum MscCode : uint16_t {
     MSC_SCAN = 4
+};
+
+enum class MouseActionType : uint8_t {
+    None = 0,
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+    WheelUp,
+    WheelDown,
+    WheelLeft,
+    WheelRight,
+    BtnLeft,
+    BtnRight,
+    BtnMiddle,
+    BtnSide,
+    BtnExtra
+};
+
+struct MouseAction {
+    MouseActionType type = MouseActionType::None;
+    int16_t delta = 0; // 0 = use default move speed or wheel step
+
+    bool isMovement() const {
+        return type == MouseActionType::MoveLeft || type == MouseActionType::MoveRight ||
+               type == MouseActionType::MoveUp || type == MouseActionType::MoveDown;
+    }
+
+    bool isWheel() const {
+        return type == MouseActionType::WheelUp || type == MouseActionType::WheelDown ||
+               type == MouseActionType::WheelLeft || type == MouseActionType::WheelRight;
+    }
+
+    bool isButton() const {
+        return type == MouseActionType::BtnLeft || type == MouseActionType::BtnRight ||
+               type == MouseActionType::BtnMiddle || type == MouseActionType::BtnSide ||
+               type == MouseActionType::BtnExtra;
+    }
+
+    bool isRelative() const {
+        return isMovement() || isWheel();
+    }
+
+    bool operator==(const MouseAction& o) const {
+        return type == o.type && delta == o.delta;
+    }
+};
+
+struct MouseConfig {
+    int16_t move_speed = 10;
+    int16_t wheel_step = 1;
+
+    bool operator==(const MouseConfig& o) const {
+        return move_speed == o.move_speed && wheel_step == o.wheel_step;
+    }
 };
 
 struct Event {
@@ -94,13 +157,15 @@ struct Combo {
     std::vector<KeyCode> out_keys;
     std::string text; // Multi-character text snippet / macro expansion
     std::string toggle_layer; // Layer to toggle on/off when combo triggered
+    MouseAction mouse;
 
     Combo() = default;
-    Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "")
-        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)) {}
+    Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "", MouseAction m = {})
+        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)), mouse(m) {}
 
     bool operator==(const Combo& o) const {
-        return keys == o.keys && out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer;
+        return keys == o.keys && out_keys == o.out_keys && text == o.text &&
+               toggle_layer == o.toggle_layer && mouse == o.mouse;
     }
 };
 
@@ -108,13 +173,14 @@ struct LayerAction {
     std::vector<KeyCode> out_keys;
     std::string text;
     std::string toggle_layer;
+    MouseAction mouse;
 
     LayerAction() = default;
-    explicit LayerAction(std::vector<KeyCode> ok, std::string t = "", std::string tl = "")
-        : out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)) {}
+    explicit LayerAction(std::vector<KeyCode> ok, std::string t = "", std::string tl = "", MouseAction m = {})
+        : out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)), mouse(m) {}
 
     bool operator==(const LayerAction& o) const {
-        return out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer;
+        return out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer && mouse == o.mouse;
     }
 };
 
@@ -167,13 +233,15 @@ struct LeaderSequence {
     std::vector<KeyCode> out_keys;  // Output key combination
     std::string text;               // Output text snippet (e.g. ":wq\n")
     std::string toggle_layer;       // Layer to toggle on/off when sequence triggered
+    MouseAction mouse;
 
     LeaderSequence() = default;
-    LeaderSequence(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "")
-        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)) {}
+    LeaderSequence(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "", MouseAction m = {})
+        : keys(std::move(k)), out_keys(std::move(ok)), text(std::move(t)), toggle_layer(std::move(tl)), mouse(m) {}
 
     bool operator==(const LeaderSequence& o) const {
-        return keys == o.keys && out_keys == o.out_keys && text == o.text && toggle_layer == o.toggle_layer;
+        return keys == o.keys && out_keys == o.out_keys && text == o.text &&
+               toggle_layer == o.toggle_layer && mouse == o.mouse;
     }
 };
 
@@ -204,6 +272,7 @@ struct Config {
     std::vector<OneShotKey> one_shot_keys;
     LeaderConfig leader;
     AutoShiftConfig auto_shift;
+    MouseConfig mouse;
 };
 
 class EventWriter {
