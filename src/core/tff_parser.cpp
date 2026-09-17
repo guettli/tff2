@@ -16,6 +16,22 @@ std::string trim(const std::string& s) {
     return s.substr(start, end - start + 1);
 }
 
+bool parseBoolean(const std::string& s, bool& out_val) {
+    std::string val = trim(s);
+    for (char& c : val) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    if (val == "true" || val == "yes" || val == "1" || val == "on") {
+        out_val = true;
+        return true;
+    }
+    if (val == "false" || val == "no" || val == "0" || val == "off") {
+        out_val = false;
+        return true;
+    }
+    return false;
+}
+
 std::vector<std::string> split(const std::string& s, char delim) {
     std::vector<std::string> tokens;
     std::string token;
@@ -564,6 +580,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_auto_shift = false;
     bool in_auto_shift_keys_list = false;
     bool in_mouse = false;
+    bool in_settings = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
@@ -579,6 +596,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_leader_tag = false;
     bool has_auto_shift_tag = false;
     bool has_mouse_tag = false;
+    bool has_settings_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
     size_t layers_base_indent = 0;
@@ -588,6 +606,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     size_t auto_shift_base_indent = 0;
     size_t auto_shift_keys_list_indent = 0;
     size_t mouse_base_indent = 0;
+    size_t settings_base_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
     std::string current_layer_name;
@@ -681,6 +700,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_mouse = false;
+            in_settings = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -703,6 +723,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_mouse = false;
+            in_settings = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
@@ -721,6 +742,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_mouse = false;
+            in_settings = false;
             has_layers_tag = true;
             layers_base_indent = current_indent;
             current_layer_name.clear();
@@ -743,6 +765,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_mouse = false;
+            in_settings = false;
             has_one_shot_tag = true;
             one_shot_base_indent = current_indent;
             continue;
@@ -764,6 +787,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_mouse = false;
+            in_settings = false;
             has_leader_tag = true;
             leader_base_indent = current_indent;
             continue;
@@ -784,6 +808,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader = false;
             in_leader_sequences = false;
             in_mouse = false;
+            in_settings = false;
             has_auto_shift_tag = true;
             auto_shift_base_indent = current_indent;
             config.auto_shift.enabled = true;
@@ -806,10 +831,33 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+            in_settings = false;
             has_mouse_tag = true;
             mouse_base_indent = current_indent;
             continue;
         } else if (t.rfind("mouse", 0) == 0 && t.find(':') == std::string::npos && (!in_layers || current_indent <= layers_base_indent)) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
+        }
+
+        if (t.rfind("settings:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
+            if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
+            in_settings = true;
+            in_combos = false;
+            in_tap_hold = false;
+            in_layers = false;
+            in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
+            in_mouse = false;
+            has_settings_tag = true;
+            settings_base_indent = current_indent;
+            continue;
+        } else if (t.rfind("settings", 0) == 0 && t.find(':') == std::string::npos && (!in_layers || current_indent <= layers_base_indent)) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
@@ -847,6 +895,60 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (in_mouse && current_indent <= mouse_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_mouse = false;
+        }
+
+        if (in_settings && current_indent <= settings_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            in_settings = false;
+        }
+
+        if (in_settings) {
+            auto colon = t.find(':');
+            if (colon == std::string::npos) continue;
+            std::string k = trim(t.substr(0, colon));
+            std::string v = trim(t.substr(colon + 1));
+            if (k == "combo_timeout_ms" || k == "combo_timeout" || k == "combo_window_ms") {
+                try {
+                    int val = std::stoi(v);
+                    if (val < 1 || val > 5000) {
+                        err_msg = "combo_timeout_ms must be between 1 and 5000";
+                        return false;
+                    }
+                    config.settings.combo_timeout_ms = val;
+                } catch (...) {
+                    err_msg = "invalid integer for combo_timeout_ms: " + v;
+                    return false;
+                }
+            } else if (k == "tap_hold_timeout_ms" || k == "tap_hold_timeout") {
+                try {
+                    int val = std::stoi(v);
+                    if (val < 1 || val > 10000) {
+                        err_msg = "tap_hold_timeout_ms must be between 1 and 10000";
+                        return false;
+                    }
+                    config.settings.tap_hold_timeout_ms = val;
+                } catch (...) {
+                    err_msg = "invalid integer for tap_hold_timeout_ms: " + v;
+                    return false;
+                }
+            } else if (k == "exclusive_grab" || k == "grab") {
+                bool b = false;
+                if (!parseBoolean(v, b)) {
+                    err_msg = "invalid boolean for exclusive_grab: " + v;
+                    return false;
+                }
+                config.settings.exclusive_grab = b;
+            } else if (k == "hotplug") {
+                bool b = false;
+                if (!parseBoolean(v, b)) {
+                    err_msg = "invalid boolean for hotplug: " + v;
+                    return false;
+                }
+                config.settings.hotplug = b;
+            } else {
+                err_msg = "unknown field '" + k + "' in settings section";
+                return false;
+            }
+            continue;
         }
 
         if (in_mouse) {
@@ -1017,7 +1119,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 has_pending_th = true;
                 pending_th_indent = current_indent;
                 pending_th.key = th_code;
-                pending_th.timeout_us = 200000LL;
+                pending_th.timeout_us = 0;
                 continue;
             }
 
@@ -1084,7 +1186,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 has_pending_th = true;
                 pending_th_indent = current_indent;
                 pending_th.key = th_code;
-                pending_th.timeout_us = 200000LL;
+                pending_th.timeout_us = 0;
             } else {
                 // Inline compact format: "capslock: [esc, super]" or "space: [space, nav, 200]"
                 std::string clean_val = val_part;
@@ -1108,6 +1210,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
 
                 TapHoldKey thk;
+                thk.timeout_us = 0;
                 thk.key = th_code;
                 std::string toggle_layer_name;
                 std::string toggle_err;
@@ -1932,7 +2035,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !has_auto_shift_tag && !has_mouse_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !has_auto_shift_tag && !has_mouse_tag && !has_settings_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
@@ -2151,6 +2254,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (config.auto_shift.timeout_us <= 0) {
             err_msg = "auto_shift timeout_ms must be positive";
             return false;
+        }
+    }
+
+    for (auto& th : config.tap_hold_keys) {
+        if (th.timeout_us <= 0) {
+            th.timeout_us = config.settings.tap_hold_timeout_ms * 1000LL;
         }
     }
 

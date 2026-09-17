@@ -265,6 +265,24 @@ struct AutoShiftConfig {
     }
 };
 
+struct Settings {
+    int64_t combo_timeout_ms = 40;       // Overlap detection window in ms (default 40ms)
+    int64_t tap_hold_timeout_ms = 200;   // Default timeout for dual-role keys in ms (default 200ms)
+    bool exclusive_grab = true;          // Exclusive device grab (default true)
+    bool hotplug = true;                 // Inotify device hotplugging (default true)
+
+    bool operator==(const Settings& o) const {
+        return combo_timeout_ms == o.combo_timeout_ms &&
+               tap_hold_timeout_ms == o.tap_hold_timeout_ms &&
+               exclusive_grab == o.exclusive_grab &&
+               hotplug == o.hotplug;
+    }
+
+    bool operator!=(const Settings& o) const {
+        return !(*this == o);
+    }
+};
+
 struct Config {
     std::vector<Combo> combos;
     std::vector<TapHoldKey> tap_hold_keys;
@@ -273,6 +291,7 @@ struct Config {
     LeaderConfig leader;
     AutoShiftConfig auto_shift;
     MouseConfig mouse;
+    Settings settings;
 };
 
 class EventWriter {

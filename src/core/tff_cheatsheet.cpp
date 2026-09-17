@@ -230,6 +230,17 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "- **Keys**: " << config.auto_shift.keys.size() << " keys active\n\n";
         }
 
+        // 6. Global Settings (if customized)
+        if (config.settings != Settings{}) {
+            ss << "## Global Settings\n\n"
+               << "| Setting | Value |\n"
+               << "|:---|:---|\n"
+               << "| Combo Overlap Window | `" << config.settings.combo_timeout_ms << "ms` |\n"
+               << "| Default Tap-Hold Timeout | `" << config.settings.tap_hold_timeout_ms << "ms` |\n"
+               << "| Exclusive Grab | `" << (config.settings.exclusive_grab ? "true" : "false") << "` |\n"
+               << "| Inotify Hotplug | `" << (config.settings.hotplug ? "true" : "false") << "` |\n\n";
+        }
+
         if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
             config.one_shot_keys.empty() && config.leader.sequences.empty() && !config.auto_shift.enabled) {
             ss << "_No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured._\n\n";
@@ -403,6 +414,15 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         ss << "  " << dim("Status: ", col) << green("Enabled", col)
            << dim(" | Timeout: " + std::to_string(config.auto_shift.timeout_us / 1000) + "ms", col)
            << dim(" | Active Keys: " + std::to_string(config.auto_shift.keys.size()), col) << "\n\n";
+    }
+
+    // 6. Global Settings (if customized)
+    if (config.settings != Settings{}) {
+        ss << bold(blue("[ Global Settings ]", col), col) << "\n";
+        ss << "  " << dim("Combo Timeout: ", col) << cyan(std::to_string(config.settings.combo_timeout_ms) + "ms", col)
+           << dim(" | Tap-Hold Timeout: ", col) << cyan(std::to_string(config.settings.tap_hold_timeout_ms) + "ms", col)
+           << dim(" | Exclusive Grab: ", col) << cyan(config.settings.exclusive_grab ? "yes" : "no", col)
+           << dim(" | Hotplug: ", col) << cyan(config.settings.hotplug ? "yes" : "no", col) << "\n\n";
     }
 
     if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&

@@ -49,7 +49,8 @@ void printHelp(const char* prog) {
               << "                          (default: auto-discover all connected keyboards)\n"
               << "  -g, --grab              Exclusively grab input device (default: true)\n"
               << "  --no-grab               Do not grab device (events still pass to OS)\n"
-              << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging (default: enabled)\n"
+              << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: enabled)\n"
+              << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
               << "  -l, --list              List all discovered keyboards and exit\n"
               << "  -v, --verbose           Print detailed key down/up event logs\n"
               << "  -h, --help              Show this help message\n\n"
@@ -71,7 +72,9 @@ int main(int argc, char* argv[]) {
     std::string config_file = "config/tff-combos.yaml";
     std::vector<std::string> device_paths;
     bool grab = true;
+    bool grab_explicit = false;
     bool hotplug = true;
+    bool hotplug_explicit = false;
     bool watch_config = false;
     bool list_only = false;
     bool validate_only = false;
@@ -104,10 +107,16 @@ int main(int argc, char* argv[]) {
             watch_config = true;
         } else if (arg == "-g" || arg == "--grab") {
             grab = true;
+            grab_explicit = true;
         } else if (arg == "--no-grab") {
             grab = false;
+            grab_explicit = true;
+        } else if (arg == "--hotplug") {
+            hotplug = true;
+            hotplug_explicit = true;
         } else if (arg == "--no-hotplug") {
             hotplug = false;
+            hotplug_explicit = true;
         } else if (arg == "-c" || arg == "--config") {
             if (i + 1 < argc) {
                 config_file = argv[++i];
@@ -186,7 +195,9 @@ int main(int argc, char* argv[]) {
                   << config.one_shot_keys.size() << " one-shot key(s), "
                   << config.leader.sequences.size() << " leader sequence(s), "
                   << (config.auto_shift.enabled ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) + " keys), ") : "")
-                  << "and " << config.layers.size() << " layer(s) from " << config_file << "\n";
+                  << config.layers.size() << " layer(s), and settings (combo: "
+                  << config.settings.combo_timeout_ms << "ms, tap-hold: "
+                  << config.settings.tap_hold_timeout_ms << "ms) from " << config_file << "\n";
         return 0;
     }
 
@@ -255,8 +266,17 @@ int main(int argc, char* argv[]) {
     std::cout << "Loaded " << engine.getCombos().size() << " combo(s), "
               << engine.getTapHoldKeys().size() << " tap-hold key(s), "
               << engine.getOneShotKeys().size() << " one-shot key(s), "
-              << engine.getLeaderConfig().sequences.size() << " leader sequence(s), and "
-              << engine.getLayers().size() << " layer(s)\n";
+              << engine.getLeaderConfig().sequences.size() << " leader sequence(s), "
+              << engine.getLayers().size() << " layer(s), settings (combo: "
+              << platform.getSettings().combo_timeout_ms << "ms, tap-hold: "
+              << platform.getSettings().tap_hold_timeout_ms << "ms)\n";
+
+    if (!grab_explicit) {
+        grab = platform.getSettings().exclusive_grab;
+    }
+    if (!hotplug_explicit) {
+        hotplug = platform.getSettings().hotplug;
+    }
 
     platform.setGrab(grab);
     platform.enableHotplug(hotplug);

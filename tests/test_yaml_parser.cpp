@@ -1,4 +1,5 @@
 #include "tff_parser.h"
+#include "tff_engine.h"
 #include "tff_key_codes.h"
 #include <iostream>
 #include <fstream>
@@ -407,6 +408,121 @@ tap_hold:
         assert(err_msg.find("invalid modifier key") != std::string::npos);
 
         std::cout << "✓ Test 13 passed: one-shot modifiers and layers\n";
+    }
+
+    // Test 14: Settings section parsing, defaults, and validation
+    {
+        // 1. Default settings when omitted
+        std::string minimal_yaml = R"(
+combos:
+  j f: backspace
+)";
+        tff::Config cfg_default;
+        std::string err_msg;
+        assert(tff::loadYamlConfig(minimal_yaml, cfg_default, err_msg));
+        assert(cfg_default.settings.combo_timeout_ms == 40);
+        assert(cfg_default.settings.tap_hold_timeout_ms == 200);
+        assert(cfg_default.settings.exclusive_grab == true);
+        assert(cfg_default.settings.hotplug == true);
+
+        // 2. Custom settings and propagation to tap_hold default timeout
+        std::string custom_settings_yaml = R"(
+settings:
+  combo_timeout_ms: 60
+  tap_hold_timeout_ms: 350
+  exclusive_grab: false
+  hotplug: false
+
+combos:
+  j f: backspace
+
+tap_hold:
+  capslock: [esc, super]
+  space: [space, super, 150]
+)";
+        tff::Config cfg_custom;
+        assert(tff::loadYamlConfig(custom_settings_yaml, cfg_custom, err_msg));
+        assert(cfg_custom.settings.combo_timeout_ms == 60);
+        assert(cfg_custom.settings.tap_hold_timeout_ms == 350);
+        assert(cfg_custom.settings.exclusive_grab == false);
+        assert(cfg_custom.settings.hotplug == false);
+        assert(cfg_custom.tap_hold_keys.size() == 2);
+        // capslock inherited custom default (350ms)
+        assert(cfg_custom.tap_hold_keys[0].timeout_us == 350000LL);
+        // space kept its explicit timeout (150ms)
+        assert(cfg_custom.tap_hold_keys[1].timeout_us == 150000LL);
+
+        // 3. Settings aliases and alternative boolean syntax (yes/no, on/off, 1/0)
+        std::string aliases_yaml = R"(
+settings:
+  combo_timeout: 45
+  tap_hold_timeout: 280
+  grab: off
+  hotplug: yes
+)";
+        tff::Config cfg_aliases;
+        assert(tff::loadYamlConfig(aliases_yaml, cfg_aliases, err_msg));
+        assert(cfg_aliases.settings.combo_timeout_ms == 45);
+        assert(cfg_aliases.settings.tap_hold_timeout_ms == 280);
+        assert(cfg_aliases.settings.exclusive_grab == false);
+        assert(cfg_aliases.settings.hotplug == true);
+
+        // 4. Validation: unknown field
+        std::string bad_field_yaml = R"(
+settings:
+  unknown_opt: 123
+)";
+        tff::Config cfg_bad_field;
+        assert(!tff::loadYamlConfig(bad_field_yaml, cfg_bad_field, err_msg));
+        assert(err_msg.find("unknown field 'unknown_opt' in settings section") != std::string::npos);
+
+        // 5. Validation: combo_timeout_ms out of range
+        std::string bad_combo_yaml = R"(
+settings:
+  combo_timeout_ms: 0
+)";
+        tff::Config cfg_bad_combo;
+        assert(!tff::loadYamlConfig(bad_combo_yaml, cfg_bad_combo, err_msg));
+        assert(err_msg.find("combo_timeout_ms must be between 1 and 5000") != std::string::npos);
+
+        // 6. Validation: invalid integer
+        std::string bad_int_yaml = R"(
+settings:
+  tap_hold_timeout_ms: invalid_num
+)";
+        tff::Config cfg_bad_int;
+        assert(!tff::loadYamlConfig(bad_int_yaml, cfg_bad_int, err_msg));
+        assert(err_msg.find("invalid integer for tap_hold_timeout_ms") != std::string::npos);
+
+        // 7. Validation: invalid boolean
+        std::string bad_bool_yaml = R"(
+settings:
+  exclusive_grab: maybe
+)";
+        tff::Config cfg_bad_bool;
+        assert(!tff::loadYamlConfig(bad_bool_yaml, cfg_bad_bool, err_msg));
+        assert(err_msg.find("invalid boolean for exclusive_grab") != std::string::npos);
+
+        // 8. Validation: mapping value error without colon
+        std::string no_colon_yaml = R"(
+settings
+  combo_timeout_ms: 50
+)";
+        tff::Config cfg_no_colon;
+        assert(!tff::loadYamlConfig(no_colon_yaml, cfg_no_colon, err_msg));
+        assert(err_msg == "mapping values are not allowed in this context");
+
+        // 9. TFFEngine integration with Settings
+        tff::TFFEngine engine;
+        engine.setConfig(cfg_custom);
+        assert(engine.getSettings().combo_timeout_ms == 60);
+        assert(engine.getComboTimeoutMs() == 60);
+
+        engine.setComboTimeoutMs(75);
+        assert(engine.getComboTimeoutMs() == 75);
+        assert(engine.getSettings().combo_timeout_ms == 75);
+
+        std::cout << "✓ Test 14 passed: settings section parsing, defaults, and validation\n";
     }
 
     std::cout << "\nAll YAML parser tests passed!\n";

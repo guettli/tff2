@@ -177,3 +177,12 @@ tap_hold:
 #     d: wheel_down
 #     f: mouse_btn_left    # Hold to drag!
 #     s: mouse_btn_right
+
+# Global Engine & Platform Settings:
+# Customize chord detection timing, default tap-vs-hold timeout, exclusive grab, and hotplug.
+#
+# settings:
+#   combo_timeout_ms: 40       # Overlap detection window in ms (default: 40)
+#   tap_hold_timeout_ms: 200   # Default timeout for dual-role keys in ms (default: 200)
+#   exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
+#   hotplug: true              # Inotify device hotplugging (default: true)

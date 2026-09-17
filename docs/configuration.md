@@ -580,6 +580,31 @@ combos:
   s + d: mouse_btn_right    # Chord S and D together to right-click
 ```
 
+## Global Settings (`settings:`)
+
+TFF supports an optional top-level `settings:` section to customize engine timing and platform behavior directly from YAML:
+
+```yaml
+settings:
+  combo_timeout_ms: 40       # Overlap detection window for chords (default: 40ms)
+  tap_hold_timeout_ms: 200   # Default timeout for dual-role keys (default: 200ms)
+  exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
+  hotplug: true              # Monitor /dev/input for hotplugged keyboards (default: true)
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|:---|:---|:---|:---|
+| `combo_timeout_ms` | integer (1–5000) | `40` | Overlap window in milliseconds required to trigger simultaneous chords. Fast typists can decrease this (e.g. `30`–`35ms`) to avoid accidental chords during rapid rolls; others can increase it (e.g. `60`–`80ms`). |
+| `tap_hold_timeout_ms` | integer (1–10000) | `200` | Default timeout in milliseconds for dual-role keys. Any `tap_hold:` key without an explicit timeout inherits this value. |
+| `exclusive_grab` | boolean | `true` | When true, grabs keyboard devices exclusively via `ioctl(fd, EVIOCGRAB, 1)` so original keys are intercepted. |
+| `hotplug` | boolean | `true` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. |
+
+### Aliases & Format Flexibility
+- Boolean options accept `true`/`false`, `yes`/`no`, `on`/`off`, and `1`/`0` (case-insensitive).
+- Key name aliases: `combo_timeout` / `combo_window_ms`, `tap_hold_timeout`, and `grab`.
+
 ## CLI Validation
 
 You can validate any configuration file before running the daemon:

@@ -171,6 +171,16 @@ void LinuxPlatform::setMouseConfig(const tff::MouseConfig& config) {
     }
 }
 
+void LinuxPlatform::setSettings(const tff::Settings& settings) {
+    settings_ = settings;
+    if (!initialized_) {
+        initialize();
+    }
+    if (engine_) {
+        engine_->setSettings(settings);
+    }
+}
+
 void LinuxPlatform::setConfig(const tff::Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
@@ -179,6 +189,7 @@ void LinuxPlatform::setConfig(const tff::Config& config) {
     setLeaderConfig(config.leader);
     setAutoShiftConfig(config.auto_shift);
     setMouseConfig(config.mouse);
+    setSettings(config.settings);
 }
 
 bool LinuxPlatform::loadConfiguration(const std::string& config_file) {

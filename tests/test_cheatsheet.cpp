@@ -261,6 +261,36 @@ leader:
     std::cout << "test_toggle_layer_cheatsheet: PASSED\n";
 }
 
+static void test_settings_cheatsheet() {
+    Config config;
+    config.settings.combo_timeout_ms = 65;
+    config.settings.tap_hold_timeout_ms = 350;
+    config.settings.exclusive_grab = false;
+    config.settings.hotplug = true;
+
+    // Terminal plain
+    CheatsheetOptions term_opts;
+    term_opts.color = false;
+    std::string term = Cheatsheet::generate(config, term_opts);
+    assert(term.find("[ Global Settings ]") != std::string::npos);
+    assert(term.find("Combo Timeout: 65ms") != std::string::npos);
+    assert(term.find("Tap-Hold Timeout: 350ms") != std::string::npos);
+    assert(term.find("Exclusive Grab: no") != std::string::npos);
+    assert(term.find("Hotplug: yes") != std::string::npos);
+
+    // Markdown
+    CheatsheetOptions md_opts;
+    md_opts.markdown = true;
+    std::string md = Cheatsheet::generate(config, md_opts);
+    assert(md.find("## Global Settings") != std::string::npos);
+    assert(md.find("`65ms`") != std::string::npos);
+    assert(md.find("`350ms`") != std::string::npos);
+    assert(md.find("`false`") != std::string::npos);
+    assert(md.find("`true`") != std::string::npos);
+
+    std::cout << "test_settings_cheatsheet: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Cheatsheet Visualizer tests...\n";
     test_empty_config();
@@ -269,6 +299,7 @@ int main() {
     test_yaml_to_cheatsheet_integration();
     test_helpers();
     test_toggle_layer_cheatsheet();
-    std::cout << "All 6 Cheatsheet tests passed successfully!\n";
+    test_settings_cheatsheet();
+    std::cout << "All 7 Cheatsheet tests passed successfully!\n";
     return 0;
 }

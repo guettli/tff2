@@ -65,6 +65,11 @@ public:
     void emitMouseAction(const MouseAction& action, TimeVal time);
     void writeRel(uint16_t code, int32_t value, TimeVal time);
 
+    void setSettings(const Settings& settings);
+    const Settings& getSettings() const { return settings_; }
+    void setComboTimeoutMs(int64_t ms);
+    int64_t getComboTimeoutMs() const { return settings_.combo_timeout_ms; }
+
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
 
     void setFakeActiveTimer(bool fake) { fake_active_timer_ = fake; }
@@ -150,6 +155,7 @@ private:
 
     AutoShiftConfig auto_shift_;
     MouseConfig mouse_config_;
+    Settings settings_;
     PendingAutoShift pending_auto_shift_;
     std::vector<HeldAutoShift> auto_shift_held_;
     std::vector<KeyCode> active_modifiers_;

@@ -69,6 +69,16 @@ bool TFFEngine::isModifierActive() const {
     return false;
 }
 
+void TFFEngine::setSettings(const Settings& settings) {
+    settings_ = settings;
+    min_overlap_us_ = settings.combo_timeout_ms * 1000LL;
+}
+
+void TFFEngine::setComboTimeoutMs(int64_t ms) {
+    settings_.combo_timeout_ms = ms;
+    min_overlap_us_ = ms * 1000LL;
+}
+
 void TFFEngine::setConfig(const Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
@@ -77,6 +87,7 @@ void TFFEngine::setConfig(const Config& config) {
     setLeaderConfig(config.leader);
     setAutoShiftConfig(config.auto_shift);
     setMouseConfig(config.mouse);
+    setSettings(config.settings);
 }
 
 Config TFFEngine::getConfig() const {
@@ -88,6 +99,7 @@ Config TFFEngine::getConfig() const {
     cfg.leader = leader_config_;
     cfg.auto_shift = auto_shift_;
     cfg.mouse = mouse_config_;
+    cfg.settings = settings_;
     return cfg;
 }
 
