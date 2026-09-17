@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <functional>
 
 namespace tff {
 
@@ -16,6 +17,35 @@ enum class EvalResult {
     AllDownKeysSeen,
     AllDownKeysSeenAndAlreadyWritten
 };
+
+struct TraceEvent {
+    enum class Kind {
+        ChordCandidate,
+        TriggerCombo,
+        KeySwallowed,
+        EmitKey,
+        EmitText,
+        EmitMouse,
+        LayerActive,
+        LayerInactive,
+        TapHoldWait,
+        TapHoldTap,
+        TapHoldHold,
+        LeaderActive,
+        LeaderCandidate,
+        LeaderTrigger,
+        LeaderCancel,
+        AutoShiftTap,
+        AutoShiftHold,
+        OneShotArmed,
+        Info
+    };
+    Kind kind = Kind::Info;
+    std::string text;
+    Event event;
+};
+
+using TraceCallback = std::function<void(const TraceEvent&)>;
 
 class TFFEngine {
 public:
@@ -71,6 +101,15 @@ public:
     int64_t getComboTimeoutMs() const { return settings_.combo_timeout_ms; }
 
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
+
+    void setTraceCallback(TraceCallback cb) { trace_callback_ = std::move(cb); }
+    const TraceCallback& getTraceCallback() const { return trace_callback_; }
+    bool hasTraceCallback() const { return static_cast<bool>(trace_callback_); }
+    void trace(TraceEvent::Kind kind, const std::string& text, const Event& ev = Event{}) const {
+        if (trace_callback_) {
+            trace_callback_(TraceEvent{kind, text, ev});
+        }
+    }
 
     void setFakeActiveTimer(bool fake) { fake_active_timer_ = fake; }
 
@@ -159,6 +198,7 @@ private:
     PendingAutoShift pending_auto_shift_;
     std::vector<HeldAutoShift> auto_shift_held_;
     std::vector<KeyCode> active_modifiers_;
+    TraceCallback trace_callback_;
 
     int64_t min_overlap_duration_us_ = 80000;    // 80ms
     int64_t timeout_after_down_us_   = 150000;   // 150ms

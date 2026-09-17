@@ -3,10 +3,12 @@
 
 #include "tff_engine.h"
 #include "tff_parser.h"
+#include "tff_monitor.h"
 #include <vector>
 #include <string>
 #include <memory>
 #include <atomic>
+#include <iostream>
 
 /**
  * @brief Full Linux platform implementation for Ten Flying Fingers (TFF)
@@ -28,6 +30,12 @@ public:
      * @brief Configure whether input keyboard devices should be exclusively grabbed
      */
     void setGrab(bool grab) { grabbed_ = grab; }
+
+    /**
+     * @brief Configure whether virtual events are emitted to /dev/uinput
+     */
+    void setEmitToUinput(bool emit);
+    bool isEmitToUinput() const { return emit_uinput_; }
 
     /**
      * @brief Initialize platform (creates virtual uinput keyboard)
@@ -193,6 +201,14 @@ public:
     void run(std::atomic<bool>& should_stop, std::atomic<bool>* should_reload = nullptr);
 
     /**
+     * @brief Run live interactive event monitor and debugger until should_stop is set
+     * @param should_stop Atomic flag to stop monitoring
+     * @param options Monitor formatting and display options
+     * @param out Output stream to write monitor log to (defaults to std::cout)
+     */
+    void runMonitor(std::atomic<bool>& should_stop, const tff::MonitorOptions& options = tff::MonitorOptions{}, std::ostream& out = std::cout);
+
+    /**
      * @brief Process a single event through the platform
      */
     bool processEvent(const tff::Event& ev);
@@ -238,6 +254,7 @@ private:
     int evdev_fd_;
     std::vector<DeviceInfo> devices_;
     bool grabbed_;
+    bool emit_uinput_;
     bool initialized_;
     bool verbose_;
     bool hotplug_enabled_;
