@@ -20,4 +20,8 @@ fi
 
 # 2. Run automated test suite
 echo "Running automated hardware test suite..."
-python3 test_tff_automated.py
+if id -Gn | grep -qw input; then
+    python3 test_tff_automated.py "$@"
+else
+    sg input -c "python3 test_tff_automated.py $*"
+fi

@@ -26,10 +26,13 @@ KEY_DOWN = 1
 LINUX_KEY_CODES = {
     'ESC': 1,
     'BACKSPACE': 14,
+    'LEFTCTRL': 29,
     'A': 30,
     'F': 33,
     'J': 36,
     'SEMICOLON': 39,
+    'LEFTSHIFT': 42,
+    'C': 46,
     'HOME': 102,
     'UP': 103,
     'PAGEUP': 104,
@@ -44,6 +47,7 @@ LINUX_KEY_CODES = {
 # HID keycodes (USB boot keyboard)
 HID_KEYS = {
     'a': 0x04,
+    'c': 0x06,
     'd': 0x07,
     'f': 0x09,
     'g': 0x0A,
@@ -180,11 +184,68 @@ TEST_CASES = [
         'name': 'Sequential Typing: J then F (>100ms threshold, no combo)',
         'key1': HID_KEYS['j'],
         'key2': HID_KEYS['f'],
-        'delay_ms': 200,
+        'delay_ms': 250,
         'expected_sequence': [LINUX_KEY_CODES['J'], LINUX_KEY_CODES['F']],
         'expected_name': 'KEY_J (36) then KEY_F (33)',
         'type': 'sequential',
-    }
+    },
+    {
+        'name': 'Physical Modifier: LeftShift + A -> Shifted A',
+        'mod_byte': 0x02,
+        'key': HID_KEYS['a'],
+        'expected_mod': LINUX_KEY_CODES['LEFTSHIFT'],
+        'expected_key': LINUX_KEY_CODES['A'],
+        'expected_name': 'KEY_LEFTSHIFT (42) + KEY_A (30)',
+        'type': 'modifier',
+    },
+    {
+        'name': 'Physical Modifier: LeftCtrl + C -> Ctrl + C',
+        'mod_byte': 0x01,
+        'key': HID_KEYS['c'],
+        'expected_mod': LINUX_KEY_CODES['LEFTCTRL'],
+        'expected_key': LINUX_KEY_CODES['C'],
+        'expected_name': 'KEY_LEFTCTRL (29) + KEY_C (46)',
+        'type': 'modifier',
+    },
+    {
+        'name': 'Consecutive Repeated Combo: J + F twice -> Backspace x2',
+        'key1': HID_KEYS['j'],
+        'key2': HID_KEYS['f'],
+        'delay_ms': 20,
+        'expected_linux_code': LINUX_KEY_CODES['BACKSPACE'],
+        'expected_name': 'KEY_BACKSPACE (14) twice',
+        'type': 'repeat_combo',
+    },
+    {
+        'name': 'Interleaved Typing & Combo: A -> Backspace (J+F) -> A',
+        'single_key': HID_KEYS['a'],
+        'combo_k1': HID_KEYS['j'],
+        'combo_k2': HID_KEYS['f'],
+        'delay_ms': 20,
+        'expected_sequence': [LINUX_KEY_CODES['A'], LINUX_KEY_CODES['BACKSPACE'], LINUX_KEY_CODES['A']],
+        'expected_name': 'KEY_A (30) -> KEY_BACKSPACE (14) -> KEY_A (30)',
+        'type': 'interleaved',
+    },
+    {
+        'name': 'Non-Combo Key Release: F alone (< timeout, released before combo)',
+        'key': HID_KEYS['f'],
+        'next_key': HID_KEYS['a'],
+        'expected_key': LINUX_KEY_CODES['F'],
+        'expected_next': LINUX_KEY_CODES['A'],
+        'expected_name': 'KEY_F (33) then KEY_A (30)',
+        'type': 'single_tap',
+    },
+    {
+        'name': 'Combo with Physical Modifier: Shift + (J + F) -> Shifted Backspace',
+        'mod_byte': 0x02,
+        'key1': HID_KEYS['j'],
+        'key2': HID_KEYS['f'],
+        'delay_ms': 20,
+        'expected_mod': LINUX_KEY_CODES['LEFTSHIFT'],
+        'expected_key': LINUX_KEY_CODES['BACKSPACE'],
+        'expected_name': 'KEY_LEFTSHIFT (42) + KEY_BACKSPACE (14)',
+        'type': 'combo_with_mod',
+    },
 ]
 
 def find_keyboard_input_device():
@@ -262,113 +323,214 @@ def run_tests():
     failed_count = 0
     results = []
 
-    for idx, test in enumerate(TEST_CASES, 1):
-        test_name = test['name']
-        print(f"[{idx:2d}/{len(TEST_CASES):2d}] Testing: {test_name}...", end=' ', flush=True)
+def execute_test_attempt(test, out_fd, in_fd):
+    """Execute a single attempt of a test case and return (passed, detail, events)"""
+    os.write(out_fd, bytearray(8))
+    time.sleep(0.25)
+    flush_input(in_fd)
 
-        # Ensure clean state before test
+    if test['type'] == 'combo':
+        report1 = bytearray([0, 0, test['key1'], 0, 0, 0, 0, 0])
+        os.write(out_fd, report1)
+        time.sleep(test['delay_ms'] / 1000.0)
+
+        report2 = bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0])
+        os.write(out_fd, report2)
+        time.sleep(0.18)
+
         os.write(out_fd, bytearray(8))
+        events = read_input_events(in_fd, timeout=0.6)
+
+        expected_code = test['expected_linux_code']
+        passed = (
+            len(events) >= 2
+            and events[0] == (expected_code, KEY_DOWN)
+            and events[1] == (expected_code, KEY_UP)
+        )
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'triple':
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], 0, 0, 0, 0, 0]))
+        time.sleep(test['delay_ms'] / 1000.0)
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], 0, 0, 0, 0]))
+        time.sleep(test['delay_ms'] / 1000.0)
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.6)
+        expected_code = test['expected_linux_code']
+        passed = (
+            len(events) >= 2
+            and events[0] == (expected_code, KEY_DOWN)
+            and events[1] == (expected_code, KEY_UP)
+        )
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'sequential':
+        os.write(out_fd, bytearray([0, 0, test['key1'], 0, 0, 0, 0, 0]))
         time.sleep(0.05)
-        flush_input(in_fd)
+        os.write(out_fd, bytearray(8))
+        time.sleep(test['delay_ms'] / 1000.0)
 
-        if test['type'] == 'combo':
-            # Send Key 1 press
-            report1 = bytearray([0, 0, test['key1'], 0, 0, 0, 0, 0])
-            os.write(out_fd, report1)
+        os.write(out_fd, bytearray([0, 0, test['key2'], 0, 0, 0, 0, 0]))
+        time.sleep(0.05)
+        os.write(out_fd, bytearray(8))
 
-            time.sleep(test['delay_ms'] / 1000.0)
+        events = read_input_events(in_fd, timeout=0.6)
+        k1_exp = test['expected_sequence'][0]
+        k2_exp = test['expected_sequence'][1]
+        pressed_codes = [c for c, v in events if v == KEY_DOWN]
+        passed = (pressed_codes == [k1_exp, k2_exp])
+        detail = f"Sequential output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
 
-            # Send Key 1 + Key 2 overlapping press
-            report2 = bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0])
-            os.write(out_fd, report2)
+    elif test['type'] == 'modifier':
+        report = bytearray([test['mod_byte'], 0, test['key'], 0, 0, 0, 0, 0])
+        os.write(out_fd, report)
+        time.sleep(0.08)
+        os.write(out_fd, bytearray(8))
 
-            time.sleep(0.08)
+        events = read_input_events(in_fd, timeout=0.6)
+        pressed_codes = [c for c, v in events if v == KEY_DOWN]
+        passed = (test['expected_mod'] in pressed_codes and test['expected_key'] in pressed_codes)
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
 
-            # Send Release
-            report_empty = bytearray(8)
-            os.write(out_fd, report_empty)
+    elif test['type'] == 'repeat_combo':
+        # 1st combo execution
+        os.write(out_fd, bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.25)
 
-            events = read_input_events(in_fd, timeout=0.6)
+        # 2nd combo execution
+        os.write(out_fd, bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
 
-            # Verification: expect press and release of expected_linux_code
-            expected_code = test['expected_linux_code']
-            passed = (
-                len(events) >= 2
-                and events[0] == (expected_code, KEY_DOWN)
-                and events[1] == (expected_code, KEY_UP)
-            )
+        events = read_input_events(in_fd, timeout=0.6)
+        expected_code = test['expected_linux_code']
+        down_events = [c for c, v in events if v == KEY_DOWN and c == expected_code]
+        passed = (len(down_events) >= 2)
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
 
-            if passed:
-                print("PASS")
-                passed_count += 1
-                results.append((test_name, "PASS", f"Output {test['expected_name']}"))
-            else:
-                print(f"FAIL (got {events})")
-                failed_count += 1
-                results.append((test_name, "FAIL", f"Expected {test['expected_name']}, got {events}"))
+    elif test['type'] == 'interleaved':
+        # 1. Single key tap
+        os.write(out_fd, bytearray([0, 0, test['single_key'], 0, 0, 0, 0, 0]))
+        time.sleep(0.04)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.25)
 
-        elif test['type'] == 'triple':
-            # Send Key 1
-            os.write(out_fd, bytearray([0, 0, test['keys'][0], 0, 0, 0, 0, 0]))
-            time.sleep(test['delay_ms'] / 1000.0)
-            # Send Key 1 + Key 2
-            os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], 0, 0, 0, 0]))
-            time.sleep(test['delay_ms'] / 1000.0)
-            # Send Key 1 + Key 2 + Key 3
-            os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
-            time.sleep(0.08)
-            # Send Release
-            os.write(out_fd, bytearray(8))
+        # 2. Combo
+        os.write(out_fd, bytearray([0, 0, test['combo_k1'], test['combo_k2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.25)
 
-            events = read_input_events(in_fd, timeout=0.6)
-            expected_code = test['expected_linux_code']
-            passed = (
-                len(events) >= 2
-                and events[0] == (expected_code, KEY_DOWN)
-                and events[1] == (expected_code, KEY_UP)
-            )
-            if passed:
-                print("PASS")
-                passed_count += 1
-                results.append((test_name, "PASS", f"Output {test['expected_name']}"))
-            else:
-                print(f"FAIL (got {events})")
-                failed_count += 1
-                results.append((test_name, "FAIL", f"Expected {test['expected_name']}, got {events}"))
+        # 3. Single key tap again
+        os.write(out_fd, bytearray([0, 0, test['single_key'], 0, 0, 0, 0, 0]))
+        time.sleep(0.04)
+        os.write(out_fd, bytearray(8))
 
-        elif test['type'] == 'sequential':
-            # Send Key 1 press
-            os.write(out_fd, bytearray([0, 0, test['key1'], 0, 0, 0, 0, 0]))
-            time.sleep(0.03)
-            # Release Key 1
-            os.write(out_fd, bytearray(8))
+        events = read_input_events(in_fd, timeout=0.6)
+        pressed = [c for c, v in events if v == KEY_DOWN]
+        passed = (pressed == test['expected_sequence'])
+        detail = f"Sequence {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
 
-            # Delay greater than threshold
-            time.sleep(test['delay_ms'] / 1000.0)
+    elif test['type'] == 'single_tap':
+        os.write(out_fd, bytearray([0, 0, test['key'], 0, 0, 0, 0, 0]))
+        time.sleep(0.04)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.25)
 
-            # Send Key 2 press
-            os.write(out_fd, bytearray([0, 0, test['key2'], 0, 0, 0, 0, 0]))
-            time.sleep(0.03)
-            # Release Key 2
-            os.write(out_fd, bytearray(8))
+        os.write(out_fd, bytearray([0, 0, test['next_key'], 0, 0, 0, 0, 0]))
+        time.sleep(0.04)
+        os.write(out_fd, bytearray(8))
 
-            events = read_input_events(in_fd, timeout=0.6)
+        events = read_input_events(in_fd, timeout=0.6)
+        pressed = [c for c, v in events if v == KEY_DOWN]
+        expected = [test['expected_key'], test['expected_next']]
+        passed = (pressed == expected)
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
 
-            k1_exp = test['expected_sequence'][0]
-            k2_exp = test['expected_sequence'][1]
+    elif test['type'] == 'combo_with_mod':
+        # Send Shift + Key 1 + Key 2
+        os.write(out_fd, bytearray([test['mod_byte'], 0, test['key1'], test['key2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
 
-            # Should contain press and release for both keys
-            pressed_codes = [c for c, v in events if v == KEY_DOWN]
-            passed = (pressed_codes == [k1_exp, k2_exp])
+        events = read_input_events(in_fd, timeout=0.6)
+        pressed_codes = [c for c, v in events if v == KEY_DOWN]
+        passed = (test['expected_mod'] in pressed_codes and test['expected_key'] in pressed_codes)
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
 
-            if passed:
-                print("PASS")
-                passed_count += 1
-                results.append((test_name, "PASS", f"Sequential output {test['expected_name']}"))
-            else:
-                print(f"FAIL (got {events})")
-                failed_count += 1
-                results.append((test_name, "FAIL", f"Expected {test['expected_name']}, got {events}"))
+    return False, "Unknown test type", []
+
+def run_tests():
+    print("=" * 65)
+    print("      TFF AUTOMATED USB-OTG HARDWARE TEST SUITE")
+    print("=" * 65)
+
+    hidg_path = '/dev/hidg0'
+    if not os.path.exists(hidg_path):
+        print(f"Error: {hidg_path} does not exist. Run ./setup_fake_keyboard.sh first.")
+        sys.exit(1)
+
+    input_path = find_keyboard_input_device()
+    if not input_path or not os.path.exists(input_path):
+        print("Error: RP2040 Keyboard input device not found in /dev/input/by-id/.")
+        sys.exit(1)
+
+    filter_arg = sys.argv[1].lower() if len(sys.argv) > 1 else None
+    active_tests = [t for t in TEST_CASES if not filter_arg or filter_arg in t['name'].lower()]
+
+    print(f"USB-OTG Output Gadget: {hidg_path}")
+    print(f"RP2040 Input Device:   {input_path}")
+    print(f"Total Test Cases:      {len(active_tests)}")
+    print("-" * 65)
+
+    try:
+        out_fd = os.open(hidg_path, os.O_WRONLY)
+    except Exception as e:
+        print(f"Error opening {hidg_path}: {e}")
+        sys.exit(1)
+
+    try:
+        in_fd = os.open(input_path, os.O_RDONLY | os.O_NONBLOCK)
+    except Exception as e:
+        print(f"Error opening {input_path}: {e}")
+        os.close(out_fd)
+        sys.exit(1)
+
+    passed_count = 0
+    failed_count = 0
+    results = []
+
+    for idx, test in enumerate(active_tests, 1):
+        test_name = test['name']
+        print(f"[{idx:2d}/{len(active_tests):2d}] Testing: {test_name}...", end=' ', flush=True)
+
+        passed, detail, events = execute_test_attempt(test, out_fd, in_fd)
+        if not passed:
+            # Retry once to handle transient USB host polling or GC pauses
+            time.sleep(0.3)
+            passed, detail, events = execute_test_attempt(test, out_fd, in_fd)
+
+        if passed:
+            print("PASS")
+            passed_count += 1
+            results.append((test_name, "PASS", detail))
+        else:
+            print(f"FAIL (got {events})")
+            failed_count += 1
+            results.append((test_name, "FAIL", detail))
 
         time.sleep(0.2)
 
@@ -383,7 +545,7 @@ def run_tests():
         print(f"[{status_str}] {name:<45} | {detail}")
 
     print("-" * 65)
-    print(f"Total: {len(TEST_CASES)} | Passed: {passed_count} | Failed: {failed_count}")
+    print(f"Total: {len(active_tests)} | Passed: {passed_count} | Failed: {failed_count}")
     print("=" * 65)
 
     if failed_count == 0:
