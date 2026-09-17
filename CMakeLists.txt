@@ -165,6 +165,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_auto_shift tff_core)
 
+    add_executable(test_mouse_keys
+        tests/test_mouse_keys.cpp
+    )
+    target_link_libraries(test_mouse_keys tff_core)
+
     # Create Go-parity TFF test suite executable
     add_executable(test_tff_go_suite
         tests/test_tff_go_suite.cpp
@@ -207,6 +212,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_one_shot COMMAND test_one_shot)
     add_test(NAME test_leader COMMAND test_leader)
     add_test(NAME test_auto_shift COMMAND test_auto_shift)
+    add_test(NAME test_mouse_keys COMMAND test_mouse_keys)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
     add_test(NAME test_linux_platform COMMAND test_linux_platform)
 
@@ -222,6 +228,7 @@ if(NOT PICO_BUILD)
         test_one_shot
         test_leader
         test_auto_shift
+        test_mouse_keys
         test_tff_go_suite
         test_linux_platform
     )

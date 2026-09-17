@@ -563,18 +563,22 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_leader_sequences = false;
     bool in_auto_shift = false;
     bool in_auto_shift_keys_list = false;
+    bool in_mouse = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
     bool has_text = false;
     std::string current_toggle_layer;
     bool has_toggle_layer = false;
+    MouseAction current_mouse;
+    bool has_mouse = false;
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
     bool has_one_shot_tag = false;
     bool has_leader_tag = false;
     bool has_auto_shift_tag = false;
+    bool has_mouse_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
     size_t layers_base_indent = 0;
@@ -583,6 +587,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     size_t leader_sequences_indent = 0;
     size_t auto_shift_base_indent = 0;
     size_t auto_shift_keys_list_indent = 0;
+    size_t mouse_base_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
     std::string current_layer_name;
@@ -675,6 +680,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+            in_mouse = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -696,6 +702,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+            in_mouse = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
@@ -713,6 +720,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+            in_mouse = false;
             has_layers_tag = true;
             layers_base_indent = current_indent;
             current_layer_name.clear();
@@ -734,6 +742,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+            in_mouse = false;
             has_one_shot_tag = true;
             one_shot_base_indent = current_indent;
             continue;
@@ -754,6 +763,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+            in_mouse = false;
             has_leader_tag = true;
             leader_base_indent = current_indent;
             continue;
@@ -773,11 +783,33 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_one_shot = false;
             in_leader = false;
             in_leader_sequences = false;
+            in_mouse = false;
             has_auto_shift_tag = true;
             auto_shift_base_indent = current_indent;
             config.auto_shift.enabled = true;
             continue;
         } else if (t.rfind("auto_shift", 0) == 0 && t.find(':') == std::string::npos) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
+        }
+
+        if (t.rfind("mouse:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
+            if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
+            in_mouse = true;
+            in_combos = false;
+            in_tap_hold = false;
+            in_layers = false;
+            in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
+            has_mouse_tag = true;
+            mouse_base_indent = current_indent;
+            continue;
+        } else if (t.rfind("mouse", 0) == 0 && t.find(':') == std::string::npos && (!in_layers || current_indent <= layers_base_indent)) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
@@ -811,6 +843,46 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (in_auto_shift && current_indent <= auto_shift_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
+        }
+
+        if (in_mouse && current_indent <= mouse_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            in_mouse = false;
+        }
+
+        if (in_mouse) {
+            auto colon = t.find(':');
+            if (colon == std::string::npos) continue;
+            std::string k = trim(t.substr(0, colon));
+            std::string v = trim(t.substr(colon + 1));
+            if (k == "speed" || k == "move_speed" || k == "mouse_speed") {
+                try {
+                    int spd = std::stoi(v);
+                    if (spd < 1 || spd > 1000) {
+                        err_msg = "mouse speed must be between 1 and 1000";
+                        return false;
+                    }
+                    config.mouse.move_speed = static_cast<int16_t>(spd);
+                } catch (...) {
+                    err_msg = "invalid integer for mouse speed";
+                    return false;
+                }
+            } else if (k == "wheel_step" || k == "wheel_speed" || k == "scroll_step") {
+                try {
+                    int ws = std::stoi(v);
+                    if (ws < 1 || ws > 100) {
+                        err_msg = "mouse wheel_step must be between 1 and 100";
+                        return false;
+                    }
+                    config.mouse.wheel_step = static_cast<int16_t>(ws);
+                } catch (...) {
+                    err_msg = "invalid integer for mouse wheel_step";
+                    return false;
+                }
+            } else {
+                err_msg = "unknown field '" + k + "' in mouse section";
+                return false;
+            }
+            continue;
         }
 
         if (in_layers) {
@@ -856,35 +928,51 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
+            std::string snippet;
             std::string toggle_layer_name;
             std::string toggle_err;
-            if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
+            MouseAction mouse_act;
+            std::string mouse_err;
+            if (isTextSnippet(val_part, snippet)) {
+                if (snippet.empty()) {
+                    err_msg = "empty text snippet is not allowed";
+                    return false;
+                }
+                for (char ch : snippet) {
+                    KeyCode kc = 0;
+                    bool shift = false;
+                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        return false;
+                    }
+                }
+                LayerAction act;
+                act.text = snippet;
+                config.layers.back().mappings[in_code] = act;
+            } else if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
                 LayerAction act;
                 act.toggle_layer = toggle_layer_name;
                 config.layers.back().mappings[in_code] = act;
             } else if (!toggle_err.empty()) {
                 err_msg = toggle_err;
                 return false;
-            } else {
-                std::string snippet;
-                bool snippet_mode = isTextSnippet(val_part, snippet);
-                if (snippet_mode) {
-                    if (snippet.empty()) {
-                        err_msg = "empty text snippet is not allowed";
-                        return false;
-                    }
-                    for (char ch : snippet) {
-                        KeyCode kc = 0;
-                        bool shift = false;
-                        if (!asciiToKeyStroke(ch, kc, shift)) {
-                            err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
-                            return false;
-                        }
-                    }
-                    LayerAction act;
-                    act.text = snippet;
-                    config.layers.back().mappings[in_code] = act;
+            } else if (parseMouseAction(val_part, mouse_act, mouse_err)) {
+                LayerAction act;
+                if (mouse_act.isButton()) {
+                    KeyCode btn_code = (mouse_act.type == MouseActionType::BtnRight) ? Keys::BTN_RIGHT :
+                                       (mouse_act.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE :
+                                       (mouse_act.type == MouseActionType::BtnSide) ? Keys::BTN_SIDE :
+                                       (mouse_act.type == MouseActionType::BtnExtra) ? Keys::BTN_EXTRA :
+                                       Keys::BTN_LEFT;
+                    act.out_keys = {btn_code};
                 } else {
+                    act.mouse = mouse_act;
+                }
+                config.layers.back().mappings[in_code] = act;
+            } else if (!mouse_err.empty()) {
+                err_msg = mouse_err;
+                return false;
+            } else {
                     auto out_words = parseOutputWords(val_part);
                     if (out_words.empty()) {
                         err_msg = "empty list in 'outKeys' is not allowed";
@@ -902,7 +990,6 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     act.out_keys = out_codes;
                     config.layers.back().mappings[in_code] = act;
                 }
-            }
             continue;
         }
 
@@ -1314,13 +1401,20 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     pending_lseq.toggle_layer = val_part;
                 } else if (key_part == "text" || key_part == "type") {
                     pending_lseq.text = unquoteAndUnescape(val_part);
-                } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out") {
+                } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out" || key_part == "action") {
                     std::string toggle_layer_name;
                     std::string toggle_err;
+                    MouseAction mouse_act;
+                    std::string mouse_err;
                     if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
                         pending_lseq.toggle_layer = toggle_layer_name;
                     } else if (!toggle_err.empty()) {
                         err_msg = toggle_err;
+                        return false;
+                    } else if (parseMouseAction(val_part, mouse_act, mouse_err)) {
+                        pending_lseq.mouse = mouse_act;
+                    } else if (!mouse_err.empty()) {
+                        err_msg = mouse_err;
                         return false;
                     } else {
                         auto words = parseOutputWords(val_part);
@@ -1357,24 +1451,29 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
+            std::string snippet;
             std::string toggle_layer_name;
             std::string toggle_err;
-            if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
+            MouseAction mouse_act;
+            std::string mouse_err;
+            if (isTextSnippet(val_part, snippet)) {
+                seq.text = snippet;
+            } else if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
                 seq.toggle_layer = toggle_layer_name;
             } else if (!toggle_err.empty()) {
                 err_msg = toggle_err;
                 return false;
+            } else if (parseMouseAction(val_part, mouse_act, mouse_err)) {
+                seq.mouse = mouse_act;
+            } else if (!mouse_err.empty()) {
+                err_msg = mouse_err;
+                return false;
             } else {
-                std::string snippet;
-                if (isTextSnippet(val_part, snippet)) {
-                    seq.text = snippet;
-                } else {
-                    auto words = parseOutputWords(val_part);
-                    for (const auto& w : words) {
-                        KeyCode kc = 0;
-                        if (!wordToKeyCode(w, kc, err_msg)) return false;
-                        seq.out_keys.push_back(kc);
-                    }
+                auto words = parseOutputWords(val_part);
+                for (const auto& w : words) {
+                    KeyCode kc = 0;
+                    if (!wordToKeyCode(w, kc, err_msg)) return false;
+                    seq.out_keys.push_back(kc);
                 }
             }
             config.leader.sequences.push_back(seq);
@@ -1488,13 +1587,17 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             return false;
         } else if (t.find("outKeys:") != std::string::npos || t.rfind("out:", 0) == 0 ||
                    t.rfind("text:", 0) == 0 || t.rfind("type:", 0) == 0 ||
-                   t.rfind("toggle_layer:", 0) == 0 || t.rfind("tg:", 0) == 0) {
+                   t.rfind("toggle_layer:", 0) == 0 || t.rfind("tg:", 0) == 0 ||
+                   t.rfind("action:", 0) == 0) {
             auto colon = t.find(':');
             std::string prop = trim(t.substr(0, colon));
             std::string val_part = trim(t.substr(colon + 1));
 
             std::string toggle_layer_name;
             std::string toggle_err;
+            MouseAction mouse_act;
+            std::string mouse_err;
+            std::string snippet;
             if (prop == "toggle_layer" || prop == "tg") {
                 has_toggle_layer = true;
                 current_toggle_layer = val_part;
@@ -1509,31 +1612,34 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     err_msg = "empty text snippet is not allowed";
                     return false;
                 }
+            } else if (isTextSnippet(val_part, snippet)) {
+                has_text = true;
+                current_text = snippet;
+                if (current_text.empty()) {
+                    err_msg = "empty text snippet is not allowed";
+                    return false;
+                }
             } else if (parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err)) {
                 has_toggle_layer = true;
                 current_toggle_layer = toggle_layer_name;
             } else if (!toggle_err.empty()) {
                 err_msg = toggle_err;
                 return false;
+            } else if (parseMouseAction(val_part, mouse_act, mouse_err)) {
+                has_mouse = true;
+                current_mouse = mouse_act;
+            } else if (!mouse_err.empty()) {
+                err_msg = mouse_err;
+                return false;
             } else {
-                std::string snippet;
-                if (isTextSnippet(val_part, snippet)) {
-                    has_text = true;
-                    current_text = snippet;
-                    if (current_text.empty()) {
-                        err_msg = "empty text snippet is not allowed";
-                        return false;
-                    }
-                } else {
-                    current_outkeys = val_part;
-                }
+                current_outkeys = val_part;
             }
 
             if (current_keys.empty()) {
                 err_msg = "empty list in 'keys' is not allowed";
                 return false;
             }
-            if (current_outkeys.empty() && !has_text && !has_toggle_layer) {
+            if (current_outkeys.empty() && !has_text && !has_toggle_layer && !has_mouse) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
@@ -1573,7 +1679,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
 
             std::vector<KeyCode> out_codes;
-            if (has_toggle_layer) {
+            if (has_toggle_layer || has_mouse) {
                 // No out codes needed
             } else if (has_text) {
                 for (char ch : current_text) {
@@ -1615,6 +1721,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     c.keys = perm;
                     if (has_toggle_layer) {
                         c.toggle_layer = current_toggle_layer;
+                    } else if (has_mouse) {
+                        c.mouse = current_mouse;
                     } else if (has_text) {
                         c.text = current_text;
                     } else {
@@ -1627,6 +1735,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 c.keys = chord_codes;
                 if (has_toggle_layer) {
                     c.toggle_layer = current_toggle_layer;
+                } else if (has_mouse) {
+                    c.mouse = current_mouse;
                 } else if (has_text) {
                     c.text = current_text;
                 } else {
@@ -1639,8 +1749,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             current_outkeys.clear();
             current_text.clear();
             current_toggle_layer.clear();
+            current_mouse = MouseAction{};
             has_text = false;
             has_toggle_layer = false;
+            has_mouse = false;
             continue;
         }
 
@@ -1709,23 +1821,31 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
 
-            std::string toggle_layer_name;
-            std::string toggle_err;
-            bool toggle_mode = parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err);
-            if (!toggle_err.empty()) {
-                err_msg = toggle_err;
-                return false;
-            }
-
             std::string snippet;
-            bool snippet_mode = !toggle_mode && isTextSnippet(val_part, snippet);
+            bool snippet_mode = isTextSnippet(val_part, snippet);
             if (snippet_mode && snippet.empty()) {
                 err_msg = "empty text snippet is not allowed";
                 return false;
             }
 
+            std::string toggle_layer_name;
+            std::string toggle_err;
+            bool toggle_mode = !snippet_mode && parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err);
+            if (!toggle_err.empty()) {
+                err_msg = toggle_err;
+                return false;
+            }
+
+            MouseAction mouse_act;
+            std::string mouse_err;
+            bool mouse_mode = !snippet_mode && !toggle_mode && parseMouseAction(val_part, mouse_act, mouse_err);
+            if (!mouse_err.empty()) {
+                err_msg = mouse_err;
+                return false;
+            }
+
             std::vector<KeyCode> out_codes;
-            if (toggle_mode) {
+            if (toggle_mode || mouse_mode) {
                 // No out codes needed
             } else if (snippet_mode) {
                 for (char ch : snippet) {
@@ -1776,6 +1896,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     c.keys.insert(c.keys.end(), perm.begin(), perm.end());
                     if (toggle_mode) {
                         c.toggle_layer = toggle_layer_name;
+                    } else if (mouse_mode) {
+                        c.mouse = mouse_act;
                     } else if (snippet_mode) {
                         c.text = snippet;
                     } else {
@@ -1789,6 +1911,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
                 if (toggle_mode) {
                     c.toggle_layer = toggle_layer_name;
+                } else if (mouse_mode) {
+                    c.mouse = mouse_act;
                 } else if (snippet_mode) {
                     c.text = snippet;
                 } else {
@@ -1803,12 +1927,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     if (!flush_pending_os()) return false;
     if (!flush_pending_lseq()) return false;
 
-    if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer) {
+    if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer && !has_mouse) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !has_auto_shift_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !has_auto_shift_tag && !has_mouse_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }

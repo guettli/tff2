@@ -162,6 +162,15 @@ void LinuxPlatform::setAutoShiftConfig(const tff::AutoShiftConfig& config) {
     }
 }
 
+void LinuxPlatform::setMouseConfig(const tff::MouseConfig& config) {
+    if (!initialized_) {
+        initialize();
+    }
+    if (engine_) {
+        engine_->setMouseConfig(config);
+    }
+}
+
 void LinuxPlatform::setConfig(const tff::Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
@@ -169,6 +178,7 @@ void LinuxPlatform::setConfig(const tff::Config& config) {
     setLayers(config.layers);
     setLeaderConfig(config.leader);
     setAutoShiftConfig(config.auto_shift);
+    setMouseConfig(config.mouse);
 }
 
 bool LinuxPlatform::loadConfiguration(const std::string& config_file) {
@@ -927,7 +937,8 @@ int LinuxPlatform::createVirtualKeyboard(const std::string& device_name) {
     if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 ||
         ioctl(fd, UI_SET_EVBIT, EV_SYN) < 0 ||
         ioctl(fd, UI_SET_EVBIT, EV_MSC) < 0 ||
-        ioctl(fd, UI_SET_EVBIT, EV_REP) < 0) {
+        ioctl(fd, UI_SET_EVBIT, EV_REP) < 0 ||
+        ioctl(fd, UI_SET_EVBIT, EV_REL) < 0) {
         close(fd);
         return -1;
     }
@@ -935,6 +946,11 @@ int LinuxPlatform::createVirtualKeyboard(const std::string& device_name) {
     for (int i = 0; i < KEY_MAX; ++i) {
         ioctl(fd, UI_SET_KEYBIT, i);
     }
+
+    ioctl(fd, UI_SET_RELBIT, REL_X);
+    ioctl(fd, UI_SET_RELBIT, REL_Y);
+    ioctl(fd, UI_SET_RELBIT, REL_WHEEL);
+    ioctl(fd, UI_SET_RELBIT, REL_HWHEEL);
 
     struct uinput_setup usetup;
     std::memset(&usetup, 0, sizeof(usetup));

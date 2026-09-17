@@ -151,3 +151,29 @@ tap_hold:
 #   enabled: true
 #   timeout_ms: 175
 #   keys: letters   # letters (default), numbers, symbols, all, or explicit list like [a, b, c, comma]
+
+# Home-Row Mouse Keys via uinput:
+# Full mouse cursor movement, scroll wheel, and click-and-drag emulation via Linux uinput.
+# Relative motion is emitted natively (EV_REL: REL_X, REL_Y, REL_WHEEL, REL_HWHEEL)
+# and mouse buttons are standard Linux keys (BTN_LEFT, BTN_RIGHT, BTN_MIDDLE, BTN_SIDE, BTN_EXTRA).
+#
+# mouse:
+#   speed: 12        # Cursor move speed in pixels (default: 10)
+#   wheel_step: 1    # Scroll wheel units per event (default: 1)
+#
+# tap_hold:
+#   space:
+#     tap: space
+#     layer: mouse
+#     timeout_ms: 180
+#
+# layers:
+#   mouse:
+#     h: mouse_left
+#     j: mouse_down
+#     k: mouse_up
+#     l: mouse_right
+#     u: wheel_up
+#     d: wheel_down
+#     f: mouse_btn_left    # Hold to drag!
+#     s: mouse_btn_right

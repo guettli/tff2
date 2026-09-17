@@ -484,6 +484,102 @@ tff cheatsheet --plain
 
 When piped or when the `NO_COLOR` environment variable is present, color codes are disabled automatically.
 
+## Home-Row Mouse Keys via uinput
+
+TFF supports full mouse emulation directly from your keyboard without reaching for a physical mouse or trackpad. Mouse events are emitted natively through the Linux `uinput` virtual device (`EV_REL` relative motion axes `REL_X`, `REL_Y`, `REL_WHEEL`, `REL_HWHEEL`, and `EV_KEY` mouse button clicks `BTN_LEFT`, `BTN_RIGHT`, `BTN_MIDDLE`, `BTN_SIDE`, `BTN_EXTRA`).
+
+### Mouse Actions Reference
+
+| Action Name | Type | Description |
+|:---|:---|:---|
+| `mouse_left`, `cursor_left`, `ms_left` | Relative Move | Moves cursor left by `move_speed` pixels (X axis) |
+| `mouse_right`, `cursor_right`, `ms_right` | Relative Move | Moves cursor right by `move_speed` pixels (X axis) |
+| `mouse_up`, `cursor_up`, `ms_up` | Relative Move | Moves cursor up by `move_speed` pixels (Y axis) |
+| `mouse_down`, `cursor_down`, `ms_down` | Relative Move | Moves cursor down by `move_speed` pixels (Y axis) |
+| `mouse_wheel_up`, `wheel_up`, `scroll_up` | Relative Scroll | Scrolls wheel up by `wheel_step` units |
+| `mouse_wheel_down`, `wheel_down`, `scroll_down` | Relative Scroll | Scrolls wheel down by `wheel_step` units |
+| `mouse_wheel_left`, `wheel_left`, `scroll_left` | Relative Scroll | Horizontal wheel scroll left by `wheel_step` units |
+| `mouse_wheel_right`, `wheel_right`, `scroll_right` | Relative Scroll | Horizontal wheel scroll right by `wheel_step` units |
+| `mouse_btn_left`, `btn_left`, `mouse_left_click` | Mouse Button | Left mouse click (`BTN_LEFT`, keycode 272) |
+| `mouse_btn_right`, `btn_right`, `mouse_right_click` | Mouse Button | Right mouse click (`BTN_RIGHT`, keycode 273) |
+| `mouse_btn_middle`, `btn_middle`, `mouse_middle_click` | Mouse Button | Middle mouse click (`BTN_MIDDLE`, keycode 274) |
+| `mouse_btn_side`, `btn_side` | Mouse Button | Side / Back mouse button (`BTN_SIDE`, keycode 275) |
+| `mouse_btn_extra`, `btn_extra` | Mouse Button | Extra / Forward mouse button (`BTN_EXTRA`, keycode 276) |
+
+#### Custom Movement Distances & Scroll Speeds
+
+You can override the default speed for specific keys or combos by specifying an inline parameter in parentheses:
+```yaml
+layers:
+  mouse:
+    h: mouse_left(25)     # Moves cursor left by 25 pixels
+    j: mouse_down(25)     # Moves cursor down by 25 pixels
+    u: wheel_up(3)        # Fast scroll up (3 units per tick)
+```
+
+### Global Mouse Settings (`mouse:`)
+
+Configure base movement speed and scroll wheel step under the `mouse:` root block:
+
+```yaml
+mouse:
+  speed: 12        # Cursor move speed in pixels (default: 10, range: 1..1000)
+  wheel_step: 2    # Scroll wheel units per event (default: 1, range: 1..100)
+```
+
+### Home-Row Mouse Layer Example
+
+A complete ergonomic setup combining a dual-role `space` key with a dedicated `mouse` modal layer:
+
+```yaml
+mouse:
+  speed: 12
+  wheel_step: 1
+
+tap_hold:
+  space:
+    tap: space
+    layer: mouse
+    timeout_ms: 180
+
+layers:
+  mouse:
+    # Vi-style home row cursor movements
+    h: mouse_left
+    j: mouse_down
+    k: mouse_up
+    l: mouse_right
+
+    # Faster navigation on top row
+    y: mouse_left(30)
+    u: mouse_down(30)
+    i: mouse_up(30)
+    o: mouse_right(30)
+
+    # Scrolling
+    e: wheel_up
+    d: wheel_down
+
+    # Buttons & Dragging
+    f: mouse_btn_left    # Press and hold to drag!
+    s: mouse_btn_right
+    a: mouse_btn_middle
+```
+
+#### Key Repeat & Click-and-Drag Support
+- **Continuous Motion**: Holding a movement key (`h`, `j`, `k`, `l`) triggers kernel key-repeat, smoothly gliding the cursor across the screen.
+- **Click-and-Drag**: Because mouse buttons (`BTN_LEFT`, `BTN_RIGHT`, `BTN_MIDDLE`) are standard Linux input events, holding `f` keeps the mouse button physically held down until `f` is released. You can select text or drag windows seamlessly!
+
+### Combos with Mouse Actions
+
+Combos can trigger mouse clicks or sudden cursor shifts:
+
+```yaml
+combos:
+  d + f: mouse_btn_left     # Chord D and F together to left-click
+  s + d: mouse_btn_right    # Chord S and D together to right-click
+```
+
 ## CLI Validation
 
 You can validate any configuration file before running the daemon:
