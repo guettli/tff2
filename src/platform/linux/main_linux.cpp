@@ -71,7 +71,9 @@ int main(int argc, char* argv[]) {
     std::string config_file = "config/tff-combos.yaml";
     std::vector<std::string> device_paths;
     bool grab = true;
+    bool grab_explicit = false;
     bool hotplug = true;
+    bool hotplug_explicit = false;
     bool watch_config = false;
     bool list_only = false;
     bool validate_only = false;
@@ -104,10 +106,13 @@ int main(int argc, char* argv[]) {
             watch_config = true;
         } else if (arg == "-g" || arg == "--grab") {
             grab = true;
+            grab_explicit = true;
         } else if (arg == "--no-grab") {
             grab = false;
+            grab_explicit = true;
         } else if (arg == "--no-hotplug") {
             hotplug = false;
+            hotplug_explicit = true;
         } else if (arg == "-c" || arg == "--config") {
             if (i + 1 < argc) {
                 config_file = argv[++i];
@@ -186,7 +191,9 @@ int main(int argc, char* argv[]) {
                   << config.one_shot_keys.size() << " one-shot key(s), "
                   << config.leader.sequences.size() << " leader sequence(s), "
                   << (config.auto_shift.enabled ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) + " keys), ") : "")
-                  << "and " << config.layers.size() << " layer(s) from " << config_file << "\n";
+                  << config.layers.size() << " layer(s), and settings (combo: "
+                  << config.settings.combo_timeout_ms << "ms, tap-hold: "
+                  << config.settings.tap_hold_timeout_ms << "ms) from " << config_file << "\n";
         return 0;
     }
 
@@ -257,6 +264,13 @@ int main(int argc, char* argv[]) {
               << engine.getOneShotKeys().size() << " one-shot key(s), "
               << engine.getLeaderConfig().sequences.size() << " leader sequence(s), and "
               << engine.getLayers().size() << " layer(s)\n";
+
+    if (!grab_explicit) {
+        grab = platform.getSettings().exclusive_grab;
+    }
+    if (!hotplug_explicit) {
+        hotplug = platform.getSettings().hotplug;
+    }
 
     platform.setGrab(grab);
     platform.enableHotplug(hotplug);

@@ -104,7 +104,13 @@ public:
     void setMouseConfig(const tff::MouseConfig& config);
 
     /**
-     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader, auto-shift, mouse)
+     * @brief Set global settings directly
+     */
+    void setSettings(const tff::Settings& settings);
+    const tff::Settings& getSettings() const { return settings_; }
+
+    /**
+     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader, auto-shift, mouse, settings)
      */
     void setConfig(const tff::Config& config);
 
@@ -245,6 +251,7 @@ private:
 
     std::unique_ptr<tff::EventWriter> writer_;
     std::unique_ptr<tff::TFFEngine> engine_;
+    tff::Settings settings_;
 
     std::vector<uint32_t> received_keys_;
 
