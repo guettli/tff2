@@ -28,11 +28,13 @@ LINUX_KEY_CODES = {
     'BACKSPACE': 14,
     'LEFTCTRL': 29,
     'A': 30,
+    'D': 32,
     'F': 33,
     'J': 36,
     'SEMICOLON': 39,
     'LEFTSHIFT': 42,
     'C': 46,
+    'N': 49,
     'HOME': 102,
     'UP': 103,
     'PAGEUP': 104,
@@ -245,6 +247,102 @@ TEST_CASES = [
         'expected_key': LINUX_KEY_CODES['BACKSPACE'],
         'expected_name': 'KEY_LEFTSHIFT (42) + KEY_BACKSPACE (14)',
         'type': 'combo_with_mod',
+    },
+    {
+        'name': 'Staggered Release: J + F (release J first) -> Backspace',
+        'key1': HID_KEYS['j'],
+        'key2': HID_KEYS['f'],
+        'delay_ms': 20,
+        'first_release': 1,
+        'expected_linux_code': LINUX_KEY_CODES['BACKSPACE'],
+        'expected_name': 'KEY_BACKSPACE (14)',
+        'type': 'staggered_release',
+    },
+    {
+        'name': 'Reverse Staggered Release: J + F (release F first) -> Backspace',
+        'key1': HID_KEYS['j'],
+        'key2': HID_KEYS['f'],
+        'delay_ms': 20,
+        'first_release': 2,
+        'expected_linux_code': LINUX_KEY_CODES['BACKSPACE'],
+        'expected_name': 'KEY_BACKSPACE (14)',
+        'type': 'staggered_release',
+    },
+    {
+        'name': 'Staggered Release: F + J (release F first) -> Delete',
+        'key1': HID_KEYS['f'],
+        'key2': HID_KEYS['j'],
+        'delay_ms': 20,
+        'first_release': 1,
+        'expected_linux_code': LINUX_KEY_CODES['DELETE'],
+        'expected_name': 'KEY_DELETE (111)',
+        'type': 'staggered_release',
+    },
+    {
+        'name': 'Triple Combo Staggered Release: D + F + J -> Escape',
+        'keys': [HID_KEYS['d'], HID_KEYS['f'], HID_KEYS['j']],
+        'delay_ms': 20,
+        'expected_linux_code': LINUX_KEY_CODES['ESC'],
+        'expected_name': 'KEY_ESC (1)',
+        'type': 'staggered_triple_release',
+    },
+    {
+        'name': 'Combo with Ctrl Modifier: Ctrl + (J + F) -> Ctrl + Backspace',
+        'mod_byte': 0x01,
+        'key1': HID_KEYS['j'],
+        'key2': HID_KEYS['f'],
+        'delay_ms': 20,
+        'expected_mod': LINUX_KEY_CODES['LEFTCTRL'],
+        'expected_key': LINUX_KEY_CODES['BACKSPACE'],
+        'expected_name': 'KEY_LEFTCTRL (29) + KEY_BACKSPACE (14)',
+        'type': 'combo_with_mod',
+    },
+    {
+        'name': 'Alternating Combos: (J + F) -> Backspace then (F + J) -> Delete',
+        'c1_k1': HID_KEYS['j'],
+        'c1_k2': HID_KEYS['f'],
+        'c2_k1': HID_KEYS['f'],
+        'c2_k2': HID_KEYS['j'],
+        'expected_sequence': [LINUX_KEY_CODES['BACKSPACE'], LINUX_KEY_CODES['DELETE']],
+        'expected_name': 'KEY_BACKSPACE (14) then KEY_DELETE (111)',
+        'type': 'alternating_combos',
+    },
+    {
+        'name': 'Triple Combo Repeated: D + F + J twice -> Esc x2',
+        'keys': [HID_KEYS['d'], HID_KEYS['f'], HID_KEYS['j']],
+        'expected_linux_code': LINUX_KEY_CODES['ESC'],
+        'expected_name': 'KEY_ESC (1) twice',
+        'type': 'repeat_triple',
+    },
+    {
+        'name': 'Sustained Combo Hold: J + F held for 350ms -> Backspace',
+        'key1': HID_KEYS['j'],
+        'key2': HID_KEYS['f'],
+        'hold_duration_s': 0.35,
+        'expected_linux_code': LINUX_KEY_CODES['BACKSPACE'],
+        'expected_name': 'KEY_BACKSPACE (14) sustained',
+        'type': 'sustained_hold',
+    },
+    {
+        'name': 'Sequential Rollover: F then N (>200ms gap, no nav combo)',
+        'key1': HID_KEYS['f'],
+        'key2': HID_KEYS['n'],
+        'delay_ms': 250,
+        'expected_sequence': [LINUX_KEY_CODES['F'], LINUX_KEY_CODES['N']],
+        'expected_name': 'KEY_F (33) then KEY_N (49)',
+        'type': 'sequential',
+    },
+    {
+        'name': 'Multi-Action Typing Flow: A -> (F+N) -> (J+F) -> A',
+        'k1': HID_KEYS['a'],
+        'c1_k1': HID_KEYS['f'],
+        'c1_k2': HID_KEYS['n'],
+        'c2_k1': HID_KEYS['j'],
+        'c2_k2': HID_KEYS['f'],
+        'k2': HID_KEYS['a'],
+        'expected_sequence': [LINUX_KEY_CODES['A'], LINUX_KEY_CODES['DOWN'], LINUX_KEY_CODES['BACKSPACE'], LINUX_KEY_CODES['A']],
+        'expected_name': 'A (30) -> DOWN (108) -> BACKSPACE (14) -> A (30)',
+        'type': 'multi_interleaved',
     },
 ]
 
@@ -460,7 +558,7 @@ def execute_test_attempt(test, out_fd, in_fd):
         return passed, detail, events
 
     elif test['type'] == 'combo_with_mod':
-        # Send Shift + Key 1 + Key 2
+        # Send Mod + Key 1 + Key 2
         os.write(out_fd, bytearray([test['mod_byte'], 0, test['key1'], test['key2'], 0, 0, 0, 0]))
         time.sleep(0.18)
         os.write(out_fd, bytearray(8))
@@ -469,6 +567,142 @@ def execute_test_attempt(test, out_fd, in_fd):
         pressed_codes = [c for c, v in events if v == KEY_DOWN]
         passed = (test['expected_mod'] in pressed_codes and test['expected_key'] in pressed_codes)
         detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'staggered_release':
+        report1 = bytearray([0, 0, test['key1'], 0, 0, 0, 0, 0])
+        os.write(out_fd, report1)
+        time.sleep(test['delay_ms'] / 1000.0)
+
+        report2 = bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0])
+        os.write(out_fd, report2)
+        time.sleep(0.18)
+
+        if test.get('first_release', 1) == 1:
+            # Release key1 first
+            os.write(out_fd, bytearray([0, 0, test['key2'], 0, 0, 0, 0, 0]))
+            time.sleep(0.06)
+            os.write(out_fd, bytearray(8))
+        else:
+            # Release key2 first
+            os.write(out_fd, bytearray([0, 0, test['key1'], 0, 0, 0, 0, 0]))
+            time.sleep(0.06)
+            os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.6)
+        expected_code = test['expected_linux_code']
+        passed = (
+            len(events) >= 2
+            and events[0] == (expected_code, KEY_DOWN)
+            and events[1] == (expected_code, KEY_UP)
+        )
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'staggered_triple_release':
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], 0, 0, 0, 0, 0]))
+        time.sleep(test['delay_ms'] / 1000.0)
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], 0, 0, 0, 0]))
+        time.sleep(test['delay_ms'] / 1000.0)
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
+        time.sleep(0.18)
+
+        # Release keys one by one in reverse order
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], 0, 0, 0, 0]))
+        time.sleep(0.05)
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], 0, 0, 0, 0, 0]))
+        time.sleep(0.05)
+        os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.6)
+        expected_code = test['expected_linux_code']
+        passed = (
+            len(events) >= 2
+            and events[0] == (expected_code, KEY_DOWN)
+            and events[1] == (expected_code, KEY_UP)
+        )
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'alternating_combos':
+        # Combo 1
+        os.write(out_fd, bytearray([0, 0, test['c1_k1'], test['c1_k2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.20)
+
+        # Combo 2
+        os.write(out_fd, bytearray([0, 0, test['c2_k1'], test['c2_k2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.6)
+        down_codes = [c for c, v in events if v == KEY_DOWN]
+        passed = (down_codes == test['expected_sequence'])
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'repeat_triple':
+        # Triple 1
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.20)
+
+        # Triple 2
+        os.write(out_fd, bytearray([0, 0, test['keys'][0], test['keys'][1], test['keys'][2], 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.6)
+        down_codes = [c for c, v in events if v == KEY_DOWN and c == test['expected_linux_code']]
+        passed = (len(down_codes) >= 2)
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'sustained_hold':
+        os.write(out_fd, bytearray([0, 0, test['key1'], test['key2'], 0, 0, 0, 0]))
+        time.sleep(test['hold_duration_s'])
+        os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.6)
+        expected_code = test['expected_linux_code']
+        passed = (
+            len(events) >= 2
+            and events[0] == (expected_code, KEY_DOWN)
+            and events[-1] == (expected_code, KEY_UP)
+        )
+        detail = f"Output {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
+        return passed, detail, events
+
+    elif test['type'] == 'multi_interleaved':
+        # 1. Tap A
+        os.write(out_fd, bytearray([0, 0, test['k1'], 0, 0, 0, 0, 0]))
+        time.sleep(0.04)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.20)
+
+        # 2. Combo F+N (Down)
+        os.write(out_fd, bytearray([0, 0, test['c1_k1'], test['c1_k2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.20)
+
+        # 3. Combo J+F (Backspace)
+        os.write(out_fd, bytearray([0, 0, test['c2_k1'], test['c2_k2'], 0, 0, 0, 0]))
+        time.sleep(0.18)
+        os.write(out_fd, bytearray(8))
+        time.sleep(0.20)
+
+        # 4. Tap A
+        os.write(out_fd, bytearray([0, 0, test['k2'], 0, 0, 0, 0, 0]))
+        time.sleep(0.04)
+        os.write(out_fd, bytearray(8))
+
+        events = read_input_events(in_fd, timeout=0.8)
+        down_codes = [c for c, v in events if v == KEY_DOWN]
+        passed = (down_codes == test['expected_sequence'])
+        detail = f"Sequence {test['expected_name']}" if passed else f"Expected {test['expected_name']}, got {events}"
         return passed, detail, events
 
     return False, "Unknown test type", []

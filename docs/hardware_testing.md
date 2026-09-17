@@ -73,7 +73,7 @@ Or run the Python test runner directly:
 python3 test_tff_automated.py
 ```
 
-### Verified Test Cases (20/20 Passing)
+### Verified Test Cases (30/30 Passing)
 
 | Test Case | Simulated Combination / Action | Timing / Order | Expected Output Key(s) | Status |
 |-----------|--------------------------------|----------------|------------------------|--------|
@@ -97,3 +97,13 @@ python3 test_tff_automated.py
 | 18 | A -> (J+F) -> A | Interleaved Typing & Combo | `KEY_A` (30) -> `KEY_BACKSPACE` (14) -> `KEY_A` (30) | **PASS** |
 | 19 | F alone | Non-Combo Key Release (< timeout) | `KEY_F` (33) then `KEY_A` (30) | **PASS** |
 | 20 | Shift + (J + F) | Combo with Physical Modifier | `KEY_LEFTSHIFT` (42) + `KEY_BACKSPACE` (14) | **PASS** |
+| 21 | J + F (release J first) | Staggered Key Release | `KEY_BACKSPACE` (14) | **PASS** |
+| 22 | J + F (release F first) | Reverse Staggered Key Release | `KEY_BACKSPACE` (14) | **PASS** |
+| 23 | F + J (release F first) | Staggered Key Release | `KEY_DELETE` (111) | **PASS** |
+| 24 | D + F + J | Triple Staggered Release (J->F->D) | `KEY_ESC` (1) | **PASS** |
+| 25 | Ctrl + (J + F) | Combo with Ctrl Modifier | `KEY_LEFTCTRL` (29) + `KEY_BACKSPACE` (14) | **PASS** |
+| 26 | (J + F) -> (F + J) | Alternating Combos (Backspace then Delete) | `KEY_BACKSPACE` (14) then `KEY_DELETE` (111) | **PASS** |
+| 27 | D + F + J twice | Consecutive Repeated Triple Combo | `KEY_ESC` (1) x2 | **PASS** |
+| 28 | J + F held 350ms | Sustained Combo Hold | `KEY_BACKSPACE` (14) | **PASS** |
+| 29 | F then N (>250ms) | Sequential Rollover (no nav combo) | `KEY_F` (33) then `KEY_N` (49) | **PASS** |
+| 30 | A -> (F+N) -> (J+F) -> A | Multi-Action Typing Flow | `KEY_A` -> `DOWN` -> `BACKSPACE` -> `KEY_A` | **PASS** |
