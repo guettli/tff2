@@ -355,6 +355,79 @@ void test_platform_monitor_api() {
     std::cout << "PASSED\n";
 }
 
+void test_options_toggles() {
+    std::cout << "Test 12: Monitor options toggles (--no-deltas, --no-emitted, --plain)... " << std::flush;
+    DummyWriter writer;
+    tff::TFFEngine engine(&writer);
+
+    tff::MonitorOptions opts;
+    opts.color = false;
+    opts.show_deltas = false;
+    opts.show_emitted = false;
+
+    tff::EventMonitor monitor(opts);
+    monitor.attachToEngine(engine);
+
+    tff::Event ev1{tff::TimeVal{0, 100000}, EV_KEY, tff::Keys::KEY_A, tff::KEY_VAL_DOWN};
+    engine.processEvent(ev1);
+    std::string l1 = monitor.formatEvent(ev1);
+
+    // No ANSI color escapes
+    assert(l1.find("\033[") == std::string::npos);
+    // No delta ms
+    assert(l1.find("ms)") == std::string::npos);
+    // No virtual emitted keys
+    assert(l1.find("EMIT:") == std::string::npos);
+
+    // Timer with only EmitKey and show_emitted = false returns empty string
+    engine.trace(tff::TraceEvent::Kind::EmitKey, "EMIT: a (code: 30, DOWN)");
+    std::string t_out = monitor.formatTimer(tff::TimeVal{0, 200000});
+    assert(t_out.empty());
+
+    std::cout << "PASSED\n";
+}
+
+void test_column_alignment_long_key_names() {
+    std::cout << "Test 13: Column alignment with long key names... " << std::flush;
+    tff::MonitorOptions opts;
+    opts.color = false;
+    opts.show_deltas = true;
+    opts.show_emitted = true;
+
+    tff::EventMonitor monitor(opts);
+    DummyWriter writer;
+    tff::TFFEngine engine(&writer);
+    monitor.attachToEngine(engine);
+
+    // CapsLock key has long string: "'capslock' (code: 58)" (21 characters)
+    tff::Event ev{tff::TimeVal{0, 100000}, EV_KEY, tff::Keys::KEY_CAPSLOCK, tff::KEY_VAL_DOWN};
+    engine.trace(tff::TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold 'layer(nav)'");
+    engine.trace(tff::TraceEvent::Kind::EmitKey, "EMIT: esc (code: 1, DOWN)");
+
+    std::string out = monitor.formatEvent(ev);
+    std::istringstream iss(out);
+    std::string line1, line2;
+    std::getline(iss, line1);
+    std::getline(iss, line2);
+
+    size_t pos1 = line1.find("-> TAP-HOLD");
+    size_t pos2 = line2.find("-> EMIT");
+    assert(pos1 != std::string::npos);
+    assert(pos2 != std::string::npos);
+    // Exact column alignment
+    assert(pos1 == pos2);
+    assert(pos1 == 60);
+
+    // Timer column alignment matches column 60
+    engine.trace(tff::TraceEvent::Kind::LayerActive, "LAYER TOGGLE: nav (on)");
+    std::string timer_out = monitor.formatTimer(tff::TimeVal{0, 250000});
+    size_t timer_pos = timer_out.find("-> LAYER TOGGLE");
+    assert(timer_pos != std::string::npos);
+    assert(timer_pos == 60);
+
+    std::cout << "PASSED\n";
+}
+
 } // anonymous namespace
 
 int main() {
@@ -371,7 +444,9 @@ int main() {
     test_auto_shift_monitor();
     test_device_label();
     test_platform_monitor_api();
+    test_options_toggles();
+    test_column_alignment_long_key_names();
     std::cout << "===============================\n";
-    std::cout << "All 11 monitor tests PASSED!\n";
+    std::cout << "All 13 monitor tests PASSED!\n";
     return 0;
 }

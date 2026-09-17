@@ -164,7 +164,9 @@ void TFFEngine::writeRel(uint16_t code, int32_t value, TimeVal time) {
                             (code == RelCodes::REL_Y) ? "REL_Y" :
                             (code == RelCodes::REL_WHEEL) ? "REL_WHEEL" :
                             (code == RelCodes::REL_HWHEEL) ? "REL_HWHEEL" : std::to_string(code);
-    trace(TraceEvent::Kind::EmitMouse, "EMIT REL: " + axis_name + " " + std::to_string(value));
+    if (trace_callback_) {
+        trace(TraceEvent::Kind::EmitMouse, "EMIT REL: " + axis_name + " " + std::to_string(value));
+    }
     if (out_dev_ == nullptr) return;
     Event ev_rel;
     ev_rel.time = time;
@@ -964,7 +966,7 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
                 break;
             }
         }
-        if (!already_down) {
+        if (!already_down && trace_callback_) {
             trace(TraceEvent::Kind::TriggerCombo, "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
         }
         writeComboDownKeys(all_combos_[i]);
@@ -990,7 +992,9 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         if (already) {
             continue;
         }
-        trace(TraceEvent::Kind::TriggerCombo, "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
+        if (trace_callback_) {
+            trace(TraceEvent::Kind::TriggerCombo, "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
+        }
         writeComboDownKeys(all_combos_[i]);
         down_keys_written_.push_back(all_combos_[i]);
     }
@@ -1012,19 +1016,21 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         return true;
     }
     if (has_candidate) {
-        std::vector<KeyCode> down_keys;
-        for (const auto& ev : buf_) {
-            if (ev.value == KEY_VAL_DOWN &&
-                std::find(down_keys.begin(), down_keys.end(), ev.code) == down_keys.end()) {
-                down_keys.push_back(ev.code);
+        if (trace_callback_) {
+            std::vector<KeyCode> down_keys;
+            for (const auto& ev : buf_) {
+                if (ev.value == KEY_VAL_DOWN &&
+                    std::find(down_keys.begin(), down_keys.end(), ev.code) == down_keys.end()) {
+                    down_keys.push_back(ev.code);
+                }
             }
-        }
-        if (down_keys.size() >= 2) {
-            std::string candidate_keys;
-            for (size_t k = 0; k < down_keys.size(); ++k) {
-                candidate_keys += (k > 0 ? " + " : "") + keyCodeToWord(down_keys[k]);
+            if (down_keys.size() >= 2) {
+                std::string candidate_keys;
+                for (size_t k = 0; k < down_keys.size(); ++k) {
+                    candidate_keys += (k > 0 ? " + " : "") + keyCodeToWord(down_keys[k]);
+                }
+                trace(TraceEvent::Kind::ChordCandidate, "CHORD CANDIDATE: " + candidate_keys);
             }
-            trace(TraceEvent::Kind::ChordCandidate, "CHORD CANDIDATE: " + candidate_keys);
         }
         return true;
     }
@@ -1243,7 +1249,9 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
 }
 
 void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
-    trace(TraceEvent::Kind::EmitText, "EMIT TEXT: \"" + text + "\"");
+    if (trace_callback_) {
+        trace(TraceEvent::Kind::EmitText, "EMIT TEXT: \"" + text + "\"");
+    }
     TimeVal curr_time = base_time;
     for (char c : text) {
         KeyCode code = 0;
@@ -1301,7 +1309,7 @@ void TFFEngine::writeKey(KeyCode code, int32_t value, TimeVal time) {
 }
 
 void TFFEngine::writeEventDirect(const Event& ev, const std::string& /*reason*/) {
-    if (ev.type == EV_KEY) {
+    if (trace_callback_ && ev.type == EV_KEY) {
         trace(TraceEvent::Kind::EmitKey, "EMIT: " + keyCodeToWord(ev.code) + " (code: " + std::to_string(ev.code) + ", " +
               (ev.value == KEY_VAL_DOWN ? "DOWN" : (ev.value == KEY_VAL_UP ? "UP" : "REPEAT")) + ")", ev);
     }
@@ -1323,7 +1331,9 @@ void TFFEngine::writeEvent(const Event& ev, const std::string& reason) {
 void TFFEngine::commitPendingAutoShiftUnshifted(TimeVal time) {
     (void)time;
     if (pending_auto_shift_.key == 0) return;
-    trace(TraceEvent::Kind::AutoShiftTap, "AUTO-SHIFT: tap '" + keyCodeToWord(pending_auto_shift_.key) + "'");
+    if (trace_callback_) {
+        trace(TraceEvent::Kind::AutoShiftTap, "AUTO-SHIFT: tap '" + keyCodeToWord(pending_auto_shift_.key) + "'");
+    }
     if (pending_auto_shift_.shifted_emitted) {
         auto_shift_held_.push_back({pending_auto_shift_.key, true});
     } else {

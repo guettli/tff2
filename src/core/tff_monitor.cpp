@@ -133,9 +133,9 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
         oss << key_plain;
     }
 
-    int key_width = 16;
-    int pad = key_width - static_cast<int>(key_plain.size());
-    if (pad < 0) pad = 0;
+    int key_width = 24;
+    int actual_key_col = std::max(key_width, static_cast<int>(key_plain.size()));
+    int pad = actual_key_col - static_cast<int>(key_plain.size());
     oss << std::string(pad, ' ');
     oss << "  ";
 
@@ -156,8 +156,8 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
     oss << "  ";
 
     // Calculate indent width for secondary lines
-    // ts (14) + 2 + [dev] + action (6) + 2 + key (key_width) + 2 + delta (8) + 2
-    int base_indent = 14 + 2 + (device_label.empty() ? 0 : (static_cast<int>(device_label.size()) + 3)) + 6 + 2 + key_width + 2 + 8 + 2;
+    // ts (14) + 2 + [dev] + action (6) + 2 + actual_key_col + 2 + delta (8) + 2
+    int base_indent = 14 + 2 + (device_label.empty() ? 0 : (static_cast<int>(device_label.size()) + 3)) + 6 + 2 + actual_key_col + 2 + 8 + 2;
 
     // 5. Annotations
     std::vector<const TraceEvent*> annot_traces;
@@ -243,6 +243,24 @@ std::string EventMonitor::formatTimer(TimeVal time) {
         return "";
     }
 
+    std::vector<const TraceEvent*> annot_traces;
+    std::vector<const TraceEvent*> emit_traces;
+
+    for (const auto& tr : pending_traces_) {
+        if (tr.kind == TraceEvent::Kind::EmitKey ||
+            tr.kind == TraceEvent::Kind::EmitText ||
+            tr.kind == TraceEvent::Kind::EmitMouse) {
+            emit_traces.push_back(&tr);
+        } else {
+            annot_traces.push_back(&tr);
+        }
+    }
+
+    if (annot_traces.empty() && (!options_.show_emitted || emit_traces.empty())) {
+        clearTrace();
+        return "";
+    }
+
     std::ostringstream oss;
     std::string ts_plain = formatTimestamp(time);
     if (options_.color) {
@@ -258,24 +276,11 @@ std::string EventMonitor::formatTimer(TimeVal time) {
         oss << "TIMER EXPIRED";
     }
 
-    // Indent to annotation column: 52 - 14 - 2 - 13 = 23
-    constexpr int kTimerPad = 23;
+    // Indent to annotation column: 60 - 14 - 2 - 13 = 31
+    constexpr int kTimerPad = 31;
     oss << std::string(kTimerPad, ' ');
 
-    std::vector<const TraceEvent*> annot_traces;
-    std::vector<const TraceEvent*> emit_traces;
-
-    for (const auto& tr : pending_traces_) {
-        if (tr.kind == TraceEvent::Kind::EmitKey ||
-            tr.kind == TraceEvent::Kind::EmitText ||
-            tr.kind == TraceEvent::Kind::EmitMouse) {
-            emit_traces.push_back(&tr);
-        } else {
-            annot_traces.push_back(&tr);
-        }
-    }
-
-    std::string indent(52, ' ');
+    std::string indent(60, ' ');
     for (size_t i = 0; i < annot_traces.size(); ++i) {
         const auto* tr = annot_traces[i];
         if (i > 0) {

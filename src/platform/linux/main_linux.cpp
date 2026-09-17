@@ -43,7 +43,9 @@ void printHelp(const char* prog) {
               << "Options:\n"
               << "  -s, --cheatsheet        Display cheat sheet of configured keys and layers\n"
               << "  --markdown, --md        Output cheat sheet formatted as GitHub Markdown tables\n"
-              << "  --plain, --no-color     Disable ANSI color codes in cheat sheet output\n"
+              << "  --plain, --no-color     Disable ANSI color codes in cheat sheet and monitor output\n"
+              << "  --no-deltas             Disable timing deltas in live event monitor\n"
+              << "  --no-emitted            Disable emitted virtual key lines in live event monitor\n"
               << "  -c, --config <file>     Path to combos YAML configuration file\n"
               << "                          (default: config/tff-combos.yaml)\n"
               << "  -w, --watch-config      Watch configuration file for live changes via inotify\n"
@@ -85,6 +87,8 @@ int main(int argc, char* argv[]) {
     bool validate_only = false;
     bool cheatsheet_only = false;
     bool monitor_only = false;
+    bool monitor_show_deltas = true;
+    bool monitor_show_emitted = true;
     bool cheatsheet_markdown = false;
     bool cheatsheet_color = true;
     bool verbose = false;
@@ -106,6 +110,10 @@ int main(int argc, char* argv[]) {
             cheatsheet_markdown = true;
         } else if (arg == "--plain" || arg == "--no-color") {
             cheatsheet_color = false;
+        } else if (arg == "--no-deltas") {
+            monitor_show_deltas = false;
+        } else if (arg == "--no-emitted") {
+            monitor_show_emitted = false;
         } else if (arg == "combos") {
             // Subcommand keyword for compatibility with Go tff
             continue;
@@ -266,10 +274,15 @@ int main(int argc, char* argv[]) {
         platform.enableHotplug(hotplug);
 
         // Load configuration if available
-        if (!platform.loadConfiguration(config_file)) {
+        bool config_loaded = platform.loadConfiguration(config_file);
+        if (!config_loaded) {
             if (config_file == "config/tff-combos.yaml" && platform.loadConfiguration("../config/tff-combos.yaml")) {
-                // loaded from parent directory
+                config_loaded = true;
             }
+        }
+        if (!config_loaded && config_file != "config/tff-combos.yaml") {
+            std::cerr << "Error: Could not load configuration file: " << config_file << "\n";
+            return 1;
         }
 
         if (!device_paths.empty()) {
@@ -287,6 +300,8 @@ int main(int argc, char* argv[]) {
 
         tff::MonitorOptions opts;
         opts.color = color;
+        opts.show_deltas = monitor_show_deltas;
+        opts.show_emitted = monitor_show_emitted;
 
         platform.runMonitor(g_should_stop, opts, std::cout);
         return 0;

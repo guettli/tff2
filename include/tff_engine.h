@@ -104,6 +104,7 @@ public:
 
     void setTraceCallback(TraceCallback cb) { trace_callback_ = std::move(cb); }
     const TraceCallback& getTraceCallback() const { return trace_callback_; }
+    bool hasTraceCallback() const { return static_cast<bool>(trace_callback_); }
     void trace(TraceEvent::Kind kind, const std::string& text, const Event& ev = Event{}) const {
         if (trace_callback_) {
             trace_callback_(TraceEvent{kind, text, ev});

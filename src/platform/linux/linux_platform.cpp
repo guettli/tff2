@@ -989,14 +989,33 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
             continue;
         }
 
+        // 1. Detach disconnected devices or poll errors
+        std::vector<int> fds_to_detach;
+        for (const auto& pfd : pfds) {
+            if (pfd.revents == 0 || pfd.fd == inotify_fd_) {
+                continue;
+            }
+            if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                fds_to_detach.push_back(pfd.fd);
+            }
+        }
+        for (int fd : fds_to_detach) {
+            detachInputDevice(fd);
+        }
+
+        // 2. Process inotify events
         for (const auto& pfd : pfds) {
             if (pfd.fd == inotify_fd_ && (pfd.revents & POLLIN)) {
                 processInotifyEvents();
             }
         }
 
+        // 3. Process key events
         for (const auto& pfd : pfds) {
             if (pfd.fd == inotify_fd_ || (pfd.revents & POLLIN) == 0) {
+                continue;
+            }
+            if (std::find(fds_to_detach.begin(), fds_to_detach.end(), pfd.fd) != fds_to_detach.end()) {
                 continue;
             }
             std::string dev_label;
@@ -1011,10 +1030,17 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
             struct input_event ie;
             while (true) {
                 ssize_t bytes = read(pfd.fd, &ie, sizeof(ie));
-                if (bytes <= 0) {
-                    if (bytes < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                if (bytes < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
                         break;
                     }
+                    if (errno == EINTR) {
+                        continue;
+                    }
+                    detachInputDevice(pfd.fd);
+                    break;
+                }
+                if (bytes == 0) {
                     detachInputDevice(pfd.fd);
                     break;
                 }
