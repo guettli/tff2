@@ -49,7 +49,8 @@ void printHelp(const char* prog) {
               << "                          (default: auto-discover all connected keyboards)\n"
               << "  -g, --grab              Exclusively grab input device (default: true)\n"
               << "  --no-grab               Do not grab device (events still pass to OS)\n"
-              << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging (default: enabled)\n"
+              << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: enabled)\n"
+              << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
               << "  -l, --list              List all discovered keyboards and exit\n"
               << "  -v, --verbose           Print detailed key down/up event logs\n"
               << "  -h, --help              Show this help message\n\n"
@@ -110,6 +111,9 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--no-grab") {
             grab = false;
             grab_explicit = true;
+        } else if (arg == "--hotplug") {
+            hotplug = true;
+            hotplug_explicit = true;
         } else if (arg == "--no-hotplug") {
             hotplug = false;
             hotplug_explicit = true;
@@ -262,8 +266,10 @@ int main(int argc, char* argv[]) {
     std::cout << "Loaded " << engine.getCombos().size() << " combo(s), "
               << engine.getTapHoldKeys().size() << " tap-hold key(s), "
               << engine.getOneShotKeys().size() << " one-shot key(s), "
-              << engine.getLeaderConfig().sequences.size() << " leader sequence(s), and "
-              << engine.getLayers().size() << " layer(s)\n";
+              << engine.getLeaderConfig().sequences.size() << " leader sequence(s), "
+              << engine.getLayers().size() << " layer(s), settings (combo: "
+              << platform.getSettings().combo_timeout_ms << "ms, tap-hold: "
+              << platform.getSettings().tap_hold_timeout_ms << "ms)\n";
 
     if (!grab_explicit) {
         grab = platform.getSettings().exclusive_grab;
