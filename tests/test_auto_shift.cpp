@@ -257,6 +257,71 @@ static void test_auto_shift_modifier_coexistence() {
     std::cout << "test_auto_shift_modifier_coexistence: PASSED\n";
 }
 
+static void test_auto_shift_tap_hold_and_oneshot_modifier_coexistence() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    const std::string yaml = R"(
+tap_hold:
+  capslock: [esc, leftctrl, 200]
+one_shot:
+  leftalt: 1000
+auto_shift:
+  enabled: true
+  timeout_ms: 175
+  keys: letters
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    engine.setConfig(config);
+
+    // 1. Dual-role Tap-Hold modifier coexistence:
+    // Hold CapsLock down, then press 'c'. Chording promotes CapsLock to LeftCtrl DOWN,
+    // and 'c' MUST emit DOWN immediately without auto-shift buffering/delay!
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    // Fast chord: 'c' goes down
+    engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_C, KEY_VAL_DOWN});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_C && writer.keyEvents()[1].value == KEY_VAL_DOWN);
+    assert(engine.isModifierActive());
+
+    // Release 'c'
+    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_C, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 3);
+    assert(writer.keyEvents()[2].code == Keys::KEY_C && writer.keyEvents()[2].value == KEY_VAL_UP);
+
+    // Release CapsLock
+    engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 4);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTCTRL && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(!engine.isModifierActive());
+    writer.clear();
+
+    // 2. One-Shot modifier coexistence:
+    // Tap LeftAlt -> arms OSM LeftAlt.
+    engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_LEFTALT, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 120000}, EV_KEY, Keys::KEY_LEFTALT, KEY_VAL_UP});
+    assert(engine.isOneShotModifierArmed(Keys::KEY_LEFTALT));
+    assert(engine.isModifierActive());
+
+    // Now press 't' (which is in auto_shift letters) -> OSM Alt activates and auto-shift is bypassed immediately!
+    engine.processEvent(Event{TimeVal{0, 140000}, EV_KEY, Keys::KEY_T, KEY_VAL_DOWN});
+    assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTALT && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_T && writer.keyEvents()[1].value == KEY_VAL_DOWN);
+
+    // Release 't' -> both T and Alt release
+    engine.processEvent(Event{TimeVal{0, 160000}, EV_KEY, Keys::KEY_T, KEY_VAL_UP});
+    assert(writer.keyEvents().size() == 4);
+    assert(writer.keyEvents()[2].code == Keys::KEY_T && writer.keyEvents()[2].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTALT && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(!engine.isModifierActive());
+
+    std::cout << "test_auto_shift_tap_hold_and_oneshot_modifier_coexistence: PASSED\n";
+}
+
 static void test_auto_shift_with_combos() {
     MockWriter writer;
     TFFEngine engine(&writer);
@@ -479,11 +544,12 @@ int main() {
     test_auto_shift_roll_then_hold();
     test_auto_shift_punctuation_symbols();
     test_auto_shift_modifier_coexistence();
+    test_auto_shift_tap_hold_and_oneshot_modifier_coexistence();
     test_auto_shift_with_combos();
     test_auto_shift_with_modal_layers();
     test_auto_shift_yaml_parsing_and_presets();
     test_auto_shift_yaml_validation_errors();
     test_auto_shift_cheatsheet();
-    std::cout << "All 11 Auto-Shift unit tests passed successfully!\n";
+    std::cout << "All 12 Auto-Shift unit tests passed successfully!\n";
     return 0;
 }

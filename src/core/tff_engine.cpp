@@ -43,8 +43,22 @@ bool TFFEngine::isAutoShiftKey(KeyCode code) const {
 }
 
 bool TFFEngine::isModifierActive() const {
-    if (!active_modifiers_.empty() || !active_one_shot_modifiers_down_.empty()) {
+    if (!active_modifiers_.empty() || !active_one_shot_modifiers_down_.empty() || !armed_one_shot_modifiers_.empty()) {
         return true;
+    }
+    // Check dual-role tap-hold keys promoted to hold
+    for (const auto& ath : active_tap_holds_) {
+        if (ath.hold_emitted && isModifier(ath.config.hold_key)) {
+            return true;
+        }
+    }
+    // Check active layer remaps holding modifier keys
+    for (const auto& kv : held_layer_remaps_) {
+        for (KeyCode k : kv.second.out_keys) {
+            if (isModifier(k)) {
+                return true;
+            }
+        }
     }
     if (pending_auto_shift_.shifted_emitted) {
         return true;
@@ -226,8 +240,7 @@ bool TFFEngine::hasActiveTimer() const {
     if (leader_active_) {
         return true;
     }
-    if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
-        !pending_auto_shift_.shifted_emitted && !pending_auto_shift_.unshifted_emitted) {
+    if (auto_shift_.enabled && pending_auto_shift_.key != 0 && !pending_auto_shift_.shifted_emitted) {
         return true;
     }
     return false;
@@ -256,8 +269,7 @@ TimeVal TFFEngine::getActiveTimerTime() const {
     if (leader_active_ && leader_expire_time_ < earliest) {
         earliest = leader_expire_time_;
     }
-    if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
-        !pending_auto_shift_.shifted_emitted && !pending_auto_shift_.unshifted_emitted) {
+    if (auto_shift_.enabled && pending_auto_shift_.key != 0 && !pending_auto_shift_.shifted_emitted) {
         if (pending_auto_shift_.expire_time < earliest) {
             earliest = pending_auto_shift_.expire_time;
         }
@@ -290,8 +302,6 @@ void TFFEngine::reset() {
         if (pending_auto_shift_.shifted_emitted) {
             writeKey(pending_auto_shift_.key, KEY_VAL_UP, TimeVal{});
             writeKey(Keys::KEY_LEFTSHIFT, KEY_VAL_UP, TimeVal{});
-        } else if (pending_auto_shift_.unshifted_emitted) {
-            writeKey(pending_auto_shift_.key, KEY_VAL_UP, TimeVal{});
         }
         pending_auto_shift_ = {};
     }
@@ -651,8 +661,6 @@ void TFFEngine::finish() {
         if (pending_auto_shift_.shifted_emitted) {
             writeKey(pending_auto_shift_.key, KEY_VAL_UP, pending_auto_shift_.down_time);
             writeKey(Keys::KEY_LEFTSHIFT, KEY_VAL_UP, pending_auto_shift_.down_time);
-        } else if (pending_auto_shift_.unshifted_emitted) {
-            writeKey(pending_auto_shift_.key, KEY_VAL_UP, pending_auto_shift_.down_time);
         } else {
             writeKey(pending_auto_shift_.key, KEY_VAL_DOWN, pending_auto_shift_.down_time);
             writeKey(pending_auto_shift_.key, KEY_VAL_UP, pending_auto_shift_.down_time);
@@ -683,8 +691,7 @@ bool TFFEngine::handleUpChar(const Event& ev) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
-    if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
-        !pending_auto_shift_.shifted_emitted && !pending_auto_shift_.unshifted_emitted) {
+    if (auto_shift_.enabled && pending_auto_shift_.key != 0 && !pending_auto_shift_.shifted_emitted) {
         if (time >= pending_auto_shift_.expire_time) {
             writeKey(Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN, pending_auto_shift_.expire_time);
             writeKey(pending_auto_shift_.key, KEY_VAL_DOWN, pending_auto_shift_.expire_time);
@@ -1087,7 +1094,7 @@ void TFFEngine::writeEventDirect(const Event& ev, const std::string& /*reason*/)
         syn.time = ev.time;
         syn.type = EV_SYN;
         syn.code = SYN_REPORT;
-        syn.value = ev.value;
+        syn.value = 0;
         out_dev_->writeOne(syn);
     }
 }
@@ -1130,17 +1137,12 @@ void TFFEngine::handleAutoShiftOrWrite(const Event& ev, const std::string& reaso
         pending_auto_shift_.down_time = ev.time;
         pending_auto_shift_.expire_time = TimeVal::fromMicros(ev.time.toMicros() + auto_shift_.timeout_us);
         pending_auto_shift_.shifted_emitted = false;
-        pending_auto_shift_.unshifted_emitted = false;
         return;
     } else if (ev.value == KEY_VAL_UP) {
         if (pending_auto_shift_.key == ev.code) {
             if (pending_auto_shift_.shifted_emitted) {
                 writeKey(ev.code, KEY_VAL_UP, ev.time);
                 writeKey(Keys::KEY_LEFTSHIFT, KEY_VAL_UP, ev.time);
-                pending_auto_shift_ = {};
-                return;
-            } else if (pending_auto_shift_.unshifted_emitted) {
-                writeKey(ev.code, KEY_VAL_UP, ev.time);
                 pending_auto_shift_ = {};
                 return;
             } else {

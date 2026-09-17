@@ -135,7 +135,6 @@ private:
         TimeVal down_time;
         TimeVal expire_time;
         bool shifted_emitted = false;
-        bool unshifted_emitted = false;
     };
 
     struct HeldAutoShift {
