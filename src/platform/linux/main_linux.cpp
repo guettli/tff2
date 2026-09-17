@@ -119,10 +119,13 @@ int main(int argc, char* argv[]) {
         } else if (arg == "setup-udev") {
             setup_udev_mode = true;
         } else if (arg == "-i" || arg == "--install") {
+            setup_udev_mode = true;
             udev_opts.install = true;
         } else if (arg == "-p" || arg == "--print") {
+            setup_udev_mode = true;
             udev_opts.print_only = true;
         } else if (arg == "--check") {
+            setup_udev_mode = true;
             udev_opts.check_only = true;
         } else if (arg == "--rule-path") {
             if (i + 1 < argc) {

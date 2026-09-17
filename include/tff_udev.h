@@ -1,6 +1,8 @@
 #ifndef TFF_UDEV_H
 #define TFF_UDEV_H
 
+#if !defined(PICO_BUILD)
+
 #include <string>
 #include <vector>
 #include <sys/types.h>
@@ -10,6 +12,7 @@ namespace udev {
 
 struct PermissionCheckResult {
     std::string username;
+    std::string sudo_user;
     uid_t uid = 0;
     gid_t gid = 0;
     bool is_root = false;
@@ -69,5 +72,7 @@ bool reloadUdevRules(std::string& err_msg);
 
 } // namespace udev
 } // namespace tff
+
+#endif // !defined(PICO_BUILD)
 
 #endif // TFF_UDEV_H

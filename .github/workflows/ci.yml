@@ -49,6 +49,8 @@ jobs:
           ./build/tff_linux --help
           ./build/tff_linux --list
           ./build/tff_linux validate config/tff-combos.yaml
+          ./build/tff_linux setup-udev --print
+          ./build/tff_linux setup-udev --check || true
 
       - name: Test installer script (system-wide)
         run: |
@@ -98,6 +100,8 @@ jobs:
           ./build-asan/tff_linux --help
           ./build-asan/tff_linux --list
           ./build-asan/tff_linux validate config/tff-combos.yaml
+          ./build-asan/tff_linux setup-udev --print
+          ./build-asan/tff_linux setup-udev --check || true
 
   cppcheck:
     name: Static Analysis (Cppcheck)

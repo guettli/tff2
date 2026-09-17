@@ -1,5 +1,7 @@
 #include "tff_udev.h"
 
+#if !defined(PICO_BUILD)
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -44,6 +46,11 @@ PermissionCheckResult checkPermissions(const std::string& rule_path) {
     res.uid = getuid();
     res.gid = getgid();
     res.is_root = (res.uid == 0);
+
+    const char* sudo_user_env = std::getenv("SUDO_USER");
+    if (sudo_user_env != nullptr && sudo_user_env[0] != '\0') {
+        res.sudo_user = sudo_user_env;
+    }
 
     const struct passwd* pw = getpwuid(res.uid);
     if (pw != nullptr && pw->pw_name != nullptr) {
@@ -99,7 +106,7 @@ PermissionCheckResult checkPermissions(const std::string& rule_path) {
             if (std::strncmp(entry->d_name, "event", 5) == 0) {
                 res.event_devices_total++;
                 std::string full_path = std::string("/dev/input/") + entry->d_name;
-                if (access(full_path.c_str(), R_OK | W_OK) == 0) {
+                if (access(full_path.c_str(), R_OK) == 0) {
                     res.event_devices_accessible++;
                 }
             }
@@ -140,14 +147,15 @@ PermissionCheckResult checkPermissions(const std::string& rule_path) {
                 break;
             }
         }
-    } else if (res.uinput_exists) {
-        // Built into kernel
+    }
+    if (!res.uinput_module_loaded && res.uinput_exists) {
+        // Built into kernel (CONFIG_INPUT_UINPUT=y) or devtmpfs static node present
         res.uinput_module_loaded = true;
     }
 
     // 7. Overall readiness
     bool uinput_ok = res.uinput_exists && res.uinput_readable && res.uinput_writable;
-    bool event_ok = (res.event_devices_total == 0 || res.event_devices_accessible == res.event_devices_total);
+    bool event_ok = (res.event_devices_total == 0 || res.event_devices_accessible > 0);
     res.can_run_non_root = res.is_root || (uinput_ok && event_ok);
 
     return res;
@@ -173,7 +181,11 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
     oss << "========================================================\n\n";
 
     // 1. User info
-    oss << "Current User:      " << res.username << " (UID: " << res.uid << ", GID: " << res.gid << ")\n";
+    oss << "Current User:      " << res.username << " (UID: " << res.uid << ", GID: " << res.gid << ")";
+    if (res.is_root && !res.sudo_user.empty()) {
+        oss << " [invoked via sudo by '" << res.sudo_user << "']";
+    }
+    oss << "\n";
 
     // 2. Group membership
     oss << "'input' group:     ";
@@ -261,7 +273,8 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
 static bool runCommand(const std::string& cmd, std::string& err_msg) {
     int ret = std::system(cmd.c_str());
     if (ret != 0) {
-        err_msg = "Command failed with exit code " + std::to_string(ret) + ": " + cmd;
+        int exit_code = WIFEXITED(ret) ? WEXITSTATUS(ret) : ret;
+        err_msg = "Command failed with exit code " + std::to_string(exit_code) + ": " + cmd;
         return false;
     }
     return true;
@@ -323,3 +336,5 @@ bool installUdevRule(const SetupUdevOptions& opts, std::string& err_msg) {
 
 } // namespace udev
 } // namespace tff
+
+#endif // !defined(PICO_BUILD)

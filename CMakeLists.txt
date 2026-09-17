@@ -49,7 +49,6 @@ set(CORE_SOURCES
     src/core/tff_parser.cpp
     src/core/tff_cheatsheet.cpp
     src/core/tff_monitor.cpp
-    src/core/tff_udev.cpp
 )
 
 # RP2040 platform source files
@@ -107,6 +106,9 @@ else()
 endif()
 
 if(NOT PICO_BUILD)
+    # Add Linux-specific core sources (udev and permission setup)
+    target_sources(tff_core PRIVATE src/core/tff_udev.cpp)
+
     # Linux platform source files
     set(LINUX_PLATFORM_SOURCES
         src/platform/linux/linux_platform.cpp
