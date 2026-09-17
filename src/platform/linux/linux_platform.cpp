@@ -23,11 +23,13 @@ namespace {
 
 class UInputWriter : public tff::EventWriter {
 public:
-    UInputWriter(int uinput_fd, std::vector<uint32_t>* received_keys, bool verbose = false)
-        : uinput_fd_(uinput_fd), received_keys_(received_keys), verbose_(verbose) {}
+    UInputWriter(int uinput_fd, std::vector<uint32_t>* received_keys, bool verbose = false, bool emit_uinput = true)
+        : uinput_fd_(uinput_fd), received_keys_(received_keys), verbose_(verbose), emit_uinput_(emit_uinput) {}
 
     void setUinputFd(int fd) { uinput_fd_ = fd; }
     void setVerbose(bool verbose) { verbose_ = verbose; }
+    void setEmitToUinput(bool emit) { emit_uinput_ = emit; }
+    bool isEmitToUinput() const { return emit_uinput_; }
 
     void writeOne(const tff::Event& ev) override {
         if (verbose_ && ev.type == EV_KEY) {
@@ -38,7 +40,7 @@ public:
         if (ev.type == EV_KEY && ev.value == tff::KEY_VAL_DOWN && received_keys_) {
             received_keys_->push_back(ev.code);
         }
-        if (uinput_fd_ >= 0) {
+        if (emit_uinput_ && uinput_fd_ >= 0) {
             struct input_event ie;
             std::memset(&ie, 0, sizeof(ie));
             ie.time.tv_sec = ev.time.sec;
@@ -55,6 +57,7 @@ private:
     int uinput_fd_;
     std::vector<uint32_t>* received_keys_;
     bool verbose_;
+    bool emit_uinput_;
 };
 
 } // anonymous namespace
@@ -63,6 +66,7 @@ LinuxPlatform::LinuxPlatform()
     : uinput_fd_(-1),
       evdev_fd_(-1),
       grabbed_(false),
+      emit_uinput_(true),
       initialized_(false),
       verbose_(false),
       hotplug_enabled_(false),
@@ -87,11 +91,18 @@ bool LinuxPlatform::initialize() {
         // fall back gracefully to simulation mode
     }
 
-    writer_ = std::make_unique<UInputWriter>(uinput_fd_, &received_keys_, verbose_);
+    writer_ = std::make_unique<UInputWriter>(uinput_fd_, &received_keys_, verbose_, emit_uinput_);
     engine_ = std::make_unique<tff::TFFEngine>(writer_.get());
 
     initialized_ = true;
     return true;
+}
+
+void LinuxPlatform::setEmitToUinput(bool emit) {
+    emit_uinput_ = emit;
+    if (writer_) {
+        static_cast<UInputWriter*>(writer_.get())->setEmitToUinput(emit);
+    }
 }
 
 void LinuxPlatform::setVerbose(bool verbose) {
@@ -871,6 +882,163 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
     }
 
     engine_->finish();
+}
+
+void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::MonitorOptions& options, std::ostream& out) {
+    if (!initialized_) {
+        initialize();
+    }
+
+    tff::EventMonitor monitor(options);
+    monitor.attachToEngine(*engine_);
+
+    if (devices_.empty()) {
+        auto discovered = discoverKeyboards();
+        if (discovered.empty()) {
+            out << "No keyboard devices currently connected in /dev/input/. Waiting for keyboards...\n";
+        } else {
+            openInputDevices(discovered, grabbed_);
+        }
+    }
+
+    if (hotplug_enabled_ && hotplug_wd_ < 0) {
+        setupInotify();
+    }
+
+    out << "Ten Flying Fingers (TFF) - Live Event Monitor & Debugger\n"
+        << "========================================================\n";
+    if (!config_file_.empty()) {
+        out << "Configuration: " << config_file_ << " ("
+            << engine_->getCombos().size() << " combos, "
+            << engine_->getTapHoldKeys().size() << " tap-hold, "
+            << engine_->getLayers().size() << " layers)\n";
+    }
+    out << "Monitoring " << devices_.size() << " keyboard device(s) ("
+        << (grabbed_ ? "exclusive grab" : "snooping mode, non-exclusive") << "):\n";
+    for (const auto& dev : devices_) {
+        std::string name = getDeviceName(dev.path);
+        out << "  -> " << dev.path;
+        if (!name.empty()) out << " (" << name << ")";
+        out << "\n";
+    }
+    out << "\nPress keys on your keyboard to monitor events. Press Ctrl+C to exit.\n"
+        << "--------------------------------------------------------------------------------\n";
+
+    while (!should_stop.load()) {
+        std::vector<struct pollfd> pfds;
+        if (inotify_fd_ >= 0) {
+            struct pollfd pfd;
+            pfd.fd = inotify_fd_;
+            pfd.events = POLLIN;
+            pfd.revents = 0;
+            pfds.push_back(pfd);
+        }
+        for (const auto& dev : devices_) {
+            if (dev.fd >= 0) {
+                struct pollfd pfd;
+                pfd.fd = dev.fd;
+                pfd.events = POLLIN;
+                pfd.revents = 0;
+                pfds.push_back(pfd);
+            }
+        }
+
+        if (pfds.empty()) {
+            usleep(100000);
+            continue;
+        }
+
+        int timeout_ms = -1;
+        if (engine_->hasActiveTimer()) {
+            struct timeval now;
+            gettimeofday(&now, nullptr);
+            tff::TimeVal now_tv{now.tv_sec, now.tv_usec};
+            tff::TimeVal target = engine_->getActiveTimerTime();
+            if (target <= now_tv) {
+                monitor.clearTrace();
+                engine_->onTimer(now_tv);
+                std::string t_str = monitor.formatTimer(now_tv);
+                if (!t_str.empty()) {
+                    out << t_str << std::flush;
+                }
+                continue;
+            }
+            int64_t diff_us = tff::timeSubMicros(now_tv, target);
+            timeout_ms = static_cast<int>(diff_us / 1000) + 1;
+            if (timeout_ms < 1) timeout_ms = 1;
+        }
+
+        int ret = poll(pfds.data(), pfds.size(), timeout_ms);
+        if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            break;
+        }
+
+        if (ret == 0) {
+            struct timeval now;
+            gettimeofday(&now, nullptr);
+            tff::TimeVal now_tv{now.tv_sec, now.tv_usec};
+            monitor.clearTrace();
+            engine_->onTimer(now_tv);
+            std::string t_str = monitor.formatTimer(now_tv);
+            if (!t_str.empty()) {
+                out << t_str << std::flush;
+            }
+            continue;
+        }
+
+        for (const auto& pfd : pfds) {
+            if (pfd.fd == inotify_fd_ && (pfd.revents & POLLIN)) {
+                processInotifyEvents();
+            }
+        }
+
+        for (const auto& pfd : pfds) {
+            if (pfd.fd == inotify_fd_ || (pfd.revents & POLLIN) == 0) {
+                continue;
+            }
+            std::string dev_label;
+            for (const auto& d : devices_) {
+                if (d.fd == pfd.fd) {
+                    size_t slash = d.path.rfind('/');
+                    dev_label = (slash != std::string::npos) ? d.path.substr(slash + 1) : d.path;
+                    break;
+                }
+            }
+
+            struct input_event ie;
+            while (true) {
+                ssize_t bytes = read(pfd.fd, &ie, sizeof(ie));
+                if (bytes <= 0) {
+                    if (bytes < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                        break;
+                    }
+                    detachInputDevice(pfd.fd);
+                    break;
+                }
+                if (bytes == sizeof(ie)) {
+                    if (ie.type == EV_KEY) {
+                        tff::Event ev;
+                        ev.time = tff::TimeVal{ie.time.tv_sec, ie.time.tv_usec};
+                        ev.type = ie.type;
+                        ev.code = ie.code;
+                        ev.value = ie.value;
+
+                        monitor.clearTrace();
+                        engine_->processEvent(ev);
+                        std::string line = monitor.formatEvent(ev, devices_.size() > 1 ? dev_label : "");
+                        out << line << std::flush;
+                    }
+                }
+            }
+        }
+    }
+
+    out << "\nStopping live event monitor...\n";
+    cleanup();
+    out << "Clean shutdown complete.\n";
 }
 
 bool LinuxPlatform::processEvent(const tff::Event& ev) {

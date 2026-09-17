@@ -484,6 +484,44 @@ tff cheatsheet --plain
 
 When piped or when the `NO_COLOR` environment variable is present, color codes are disabled automatically.
 
+## Interactive Live Event Monitor (`tff monitor`)
+
+When learning new combos or troubleshooting typing timing, `tff monitor` provides real-time visibility into the input stream, keycode mapping, timing deltas, chord candidate matching, active modal layers, and emitted virtual keys.
+
+```bash
+# Monitor all connected keyboards with default configuration:
+tff monitor
+
+# Monitor a specific device node (e.g. while debugging matrix rollover):
+tff monitor /dev/input/event8
+
+# Specify a custom combo configuration file:
+tff monitor my-combos.yaml
+
+# Disable ANSI color escapes (useful when redirecting to a log file):
+tff monitor --plain
+
+# Disable virtual emitted key lines or timing deltas:
+tff monitor --no-emitted
+tff monitor --no-deltas
+```
+
+### Example Live Terminal Output
+
+```text
+[14:23:01.120]  DOWN  'd' (code: 32)
+[14:23:01.145]  DOWN  'f' (code: 33)   (+25ms)  -> CHORD CANDIDATE: d + f
+[14:23:01.170]  DOWN  'j' (code: 36)   (+25ms)  -> CHORD CANDIDATE: d + f + j
+[14:23:01.210]  UP    'd' (code: 32)   (+40ms)  (swallowed)
+                                                -> TRIGGER COMBO: d + f + j -> esc
+                                                -> EMIT: esc (code: 1, DOWN)
+                                                -> EMIT: esc (code: 1, UP)
+[14:23:02.050]  DOWN  'capslock' (code: 58)     -> TAP-HOLD: pending hold
+[14:23:02.250]  TIMER EXPIRED                   -> TAP-HOLD: hold 'layer(nav)'
+```
+
+By default, `tff monitor` opens input devices in non-exclusive snooping mode (`grab = false`) with virtual keyboard emission disabled to avoid interfering with your active desktop session or terminal. Press `Ctrl+C` to cleanly exit at any time.
+
 ## Home-Row Mouse Keys via uinput
 
 TFF supports full mouse emulation directly from your keyboard without reaching for a physical mouse or trackpad. Mouse events are emitted natively through the Linux `uinput` virtual device (`EV_REL` relative motion axes `REL_X`, `REL_Y`, `REL_WHEEL`, `REL_HWHEEL`, and `EV_KEY` mouse button clicks `BTN_LEFT`, `BTN_RIGHT`, `BTN_MIDDLE`, `BTN_SIDE`, `BTN_EXTRA`).

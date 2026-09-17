@@ -29,11 +29,13 @@ void printHelp(const char* prog) {
               << "Usage:\n"
               << "  " << prog << " [options] [combos.yaml] [device1 device2 ...]\n"
               << "  " << prog << " combos [options] combos.yaml [device1 device2 ...]\n"
+              << "  " << prog << " monitor [options] [combos.yaml] [device1 device2 ...]\n"
               << "  " << prog << " cheatsheet [options] [combos.yaml]\n"
               << "  " << prog << " validate combos.yaml\n"
               << "  " << prog << " list\n\n"
               << "Commands:\n"
               << "  combos                  Run remapper with specified combos and devices\n"
+              << "  monitor                 Interactive live event monitor and chord debugger\n"
               << "  cheatsheet              Display visual terminal cheat sheet or markdown table\n"
               << "  validate                Validate a combos YAML configuration file\n"
               << "  list                    List all discovered keyboards with persistent paths\n"
@@ -47,7 +49,7 @@ void printHelp(const char* prog) {
               << "  -w, --watch-config      Watch configuration file for live changes via inotify\n"
               << "  -d, --device <path>     Path to input evdev device (e.g. /dev/input/event8)\n"
               << "                          (default: auto-discover all connected keyboards)\n"
-              << "  -g, --grab              Exclusively grab input device (default: true)\n"
+              << "  -g, --grab              Exclusively grab input device (default: true for daemon, false for monitor)\n"
               << "  --no-grab               Do not grab device (events still pass to OS)\n"
               << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: enabled)\n"
               << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
@@ -59,6 +61,9 @@ void printHelp(const char* prog) {
               << "  SIGINT, SIGTERM         Graceful shutdown and restore keyboards\n\n"
               << "Examples:\n"
               << "  " << prog << " config/tff-combos.yaml\n"
+              << "  " << prog << " monitor\n"
+              << "  " << prog << " monitor /dev/input/event8\n"
+              << "  " << prog << " monitor --plain\n"
               << "  " << prog << " cheatsheet\n"
               << "  " << prog << " cheatsheet --markdown\n"
               << "  " << prog << " --watch-config config/tff-combos.yaml\n"
@@ -79,6 +84,7 @@ int main(int argc, char* argv[]) {
     bool list_only = false;
     bool validate_only = false;
     bool cheatsheet_only = false;
+    bool monitor_only = false;
     bool cheatsheet_markdown = false;
     bool cheatsheet_color = true;
     bool verbose = false;
@@ -92,6 +98,8 @@ int main(int argc, char* argv[]) {
             list_only = true;
         } else if (arg == "validate") {
             validate_only = true;
+        } else if (arg == "monitor") {
+            monitor_only = true;
         } else if (arg == "cheatsheet" || arg == "--cheatsheet" || arg == "-s") {
             cheatsheet_only = true;
         } else if (arg == "--markdown" || arg == "--md") {
@@ -139,6 +147,12 @@ int main(int argc, char* argv[]) {
             // Positional arguments
             if (cheatsheet_only || validate_only) {
                 config_file = arg;
+            } else if (monitor_only) {
+                if (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos) {
+                    config_file = arg;
+                } else {
+                    device_paths.push_back(arg);
+                }
             } else if (config_file == "config/tff-combos.yaml" &&
                        (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos)) {
                 config_file = arg;
@@ -146,6 +160,10 @@ int main(int argc, char* argv[]) {
                 device_paths.push_back(arg);
             }
         }
+    }
+
+    if (monitor_only && !grab_explicit) {
+        grab = false; // default non-exclusive snooping for monitor mode
     }
 
     if (list_only) {
@@ -229,6 +247,48 @@ int main(int argc, char* argv[]) {
         opts.markdown = cheatsheet_markdown;
 
         std::cout << tff::Cheatsheet::generate(config, opts);
+        return 0;
+    }
+
+    if (monitor_only) {
+        struct sigaction sa;
+        std::memset(&sa, 0, sizeof(sa));
+        sa.sa_handler = signalHandler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sigaction(SIGINT, &sa, nullptr);
+        sigaction(SIGTERM, &sa, nullptr);
+
+        LinuxPlatform platform;
+        platform.setVerbose(verbose);
+        platform.setGrab(grab);
+        platform.setEmitToUinput(grab);
+        platform.enableHotplug(hotplug);
+
+        // Load configuration if available
+        if (!platform.loadConfiguration(config_file)) {
+            if (config_file == "config/tff-combos.yaml" && platform.loadConfiguration("../config/tff-combos.yaml")) {
+                // loaded from parent directory
+            }
+        }
+
+        if (!device_paths.empty()) {
+            if (!platform.openInputDevices(device_paths, grab)) {
+                std::cerr << "Error: Could not open specified input device(s).\n";
+                return 1;
+            }
+        }
+
+        const char* no_color = std::getenv("NO_COLOR");
+        bool color = cheatsheet_color;
+        if (!isatty(STDOUT_FILENO) || (no_color != nullptr && no_color[0] != '\0')) {
+            color = false;
+        }
+
+        tff::MonitorOptions opts;
+        opts.color = color;
+
+        platform.runMonitor(g_should_stop, opts, std::cout);
         return 0;
     }
 

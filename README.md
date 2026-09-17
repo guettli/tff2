@@ -51,6 +51,11 @@ tff --list
 tff cheatsheet
 tff cheatsheet --markdown
 
+# Live event monitor and chord debugger:
+tff monitor                       # Inspect live keypresses, timing deltas, and chord candidate matching
+tff monitor --plain               # Disable ANSI colors
+tff monitor /dev/input/eventX     # Monitor a specific input device
+
 # Validate combo configuration:
 tff validate /etc/tff/tff-combos.yaml
 
