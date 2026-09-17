@@ -56,6 +56,11 @@ tff monitor                       # Inspect live keypresses, timing deltas, and 
 tff monitor --plain               # Disable ANSI colors
 tff monitor /dev/input/eventX     # Monitor a specific input device
 
+# Validate non-root permissions or install udev rules:
+tff setup-udev                      # Check permissions and print diagnostics
+sudo tff setup-udev --install       # Install udev rules and reload udevadm
+tff setup-udev --print              # Print udev rules to stdout
+
 # Validate combo configuration:
 tff validate /etc/tff/tff-combos.yaml
 

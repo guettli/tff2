@@ -1,5 +1,6 @@
 #include "linux_platform.h"
 #include "tff_cheatsheet.h"
+#include "tff_udev.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -31,19 +32,25 @@ void printHelp(const char* prog) {
               << "  " << prog << " combos [options] combos.yaml [device1 device2 ...]\n"
               << "  " << prog << " monitor [options] [combos.yaml] [device1 device2 ...]\n"
               << "  " << prog << " cheatsheet [options] [combos.yaml]\n"
+              << "  " << prog << " setup-udev [options]\n"
               << "  " << prog << " validate combos.yaml\n"
               << "  " << prog << " list\n\n"
               << "Commands:\n"
               << "  combos                  Run remapper with specified combos and devices\n"
               << "  monitor                 Interactive live event monitor and chord debugger\n"
               << "  cheatsheet              Display visual terminal cheat sheet or markdown table\n"
+              << "  setup-udev              Check Linux permissions or install udev rules for non-root execution\n"
               << "  validate                Validate a combos YAML configuration file\n"
               << "  list                    List all discovered keyboards with persistent paths\n"
               << "  help                    Show this help message\n\n"
               << "Options:\n"
+              << "  -i, --install           Install udev rules to /etc/udev/rules.d/ and reload (requires sudo)\n"
+              << "  -p, --print             Print recommended udev rules to stdout and exit\n"
+              << "  --check                 Check user permissions and device status (default for setup-udev)\n"
+              << "  --rule-path <path>      Custom destination path for udev rules\n"
               << "  -s, --cheatsheet        Display cheat sheet of configured keys and layers\n"
               << "  --markdown, --md        Output cheat sheet formatted as GitHub Markdown tables\n"
-              << "  --plain, --no-color     Disable ANSI color codes in cheat sheet and monitor output\n"
+              << "  --plain, --no-color     Disable ANSI color codes in cheat sheet, monitor, and udev output\n"
               << "  --no-deltas             Disable timing deltas in live event monitor\n"
               << "  --no-emitted            Disable emitted virtual key lines in live event monitor\n"
               << "  -c, --config <file>     Path to combos YAML configuration file\n"
@@ -62,6 +69,9 @@ void printHelp(const char* prog) {
               << "  SIGHUP                  Hot-reload configuration file without dropping keyboard grabs\n"
               << "  SIGINT, SIGTERM         Graceful shutdown and restore keyboards\n\n"
               << "Examples:\n"
+              << "  " << prog << " setup-udev\n"
+              << "  sudo " << prog << " setup-udev --install\n"
+              << "  " << prog << " setup-udev --print\n"
               << "  " << prog << " config/tff-combos.yaml\n"
               << "  " << prog << " monitor\n"
               << "  " << prog << " monitor /dev/input/event8\n"
@@ -87,6 +97,8 @@ int main(int argc, char* argv[]) {
     bool validate_only = false;
     bool cheatsheet_only = false;
     bool monitor_only = false;
+    bool setup_udev_mode = false;
+    tff::udev::SetupUdevOptions udev_opts;
     bool monitor_show_deltas = true;
     bool monitor_show_emitted = true;
     bool cheatsheet_markdown = false;
@@ -104,12 +116,28 @@ int main(int argc, char* argv[]) {
             validate_only = true;
         } else if (arg == "monitor") {
             monitor_only = true;
+        } else if (arg == "setup-udev") {
+            setup_udev_mode = true;
+        } else if (arg == "-i" || arg == "--install") {
+            udev_opts.install = true;
+        } else if (arg == "-p" || arg == "--print") {
+            udev_opts.print_only = true;
+        } else if (arg == "--check") {
+            udev_opts.check_only = true;
+        } else if (arg == "--rule-path") {
+            if (i + 1 < argc) {
+                udev_opts.rule_path = argv[++i];
+            } else {
+                std::cerr << "Error: --rule-path requires a path argument\n";
+                return 1;
+            }
         } else if (arg == "cheatsheet" || arg == "--cheatsheet" || arg == "-s") {
             cheatsheet_only = true;
         } else if (arg == "--markdown" || arg == "--md") {
             cheatsheet_markdown = true;
         } else if (arg == "--plain" || arg == "--no-color") {
             cheatsheet_color = false;
+            udev_opts.color = false;
         } else if (arg == "--no-deltas") {
             monitor_show_deltas = false;
         } else if (arg == "--no-emitted") {
@@ -256,6 +284,36 @@ int main(int argc, char* argv[]) {
 
         std::cout << tff::Cheatsheet::generate(config, opts);
         return 0;
+    }
+
+    if (setup_udev_mode) {
+        if (udev_opts.print_only) {
+            std::cout << tff::udev::getUdevRuleContent();
+            return 0;
+        }
+
+        const char* no_color = std::getenv("NO_COLOR");
+        if (!isatty(STDOUT_FILENO) || (no_color != nullptr && no_color[0] != '\0')) {
+            udev_opts.color = false;
+        }
+
+        if (udev_opts.install) {
+            std::string err_msg;
+            if (!tff::udev::installUdevRule(udev_opts, err_msg)) {
+                std::cerr << "Error installing udev rules: " << err_msg << "\n";
+                return 1;
+            }
+            std::cout << "Successfully installed udev rule to " << udev_opts.rule_path << "\n";
+            std::cout << "Udev rules reloaded and triggered.\n\n";
+            auto res = tff::udev::checkPermissions(udev_opts.rule_path);
+            std::cout << tff::udev::formatDiagnosticReport(res, udev_opts);
+            return res.can_run_non_root ? 0 : 1;
+        }
+
+        // Default or --check: diagnostic report
+        auto res = tff::udev::checkPermissions(udev_opts.rule_path);
+        std::cout << tff::udev::formatDiagnosticReport(res, udev_opts);
+        return res.can_run_non_root ? 0 : 1;
     }
 
     if (monitor_only) {
