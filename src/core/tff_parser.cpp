@@ -273,6 +273,57 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
     return false;
 }
 
+void addAutoShiftPreset(const std::string& preset, std::vector<KeyCode>& keys) {
+    if (preset == "letters" || preset == "alpha") {
+        static const KeyCode letter_codes[] = {
+            Keys::KEY_A, Keys::KEY_B, Keys::KEY_C, Keys::KEY_D, Keys::KEY_E,
+            Keys::KEY_F, Keys::KEY_G, Keys::KEY_H, Keys::KEY_I, Keys::KEY_J,
+            Keys::KEY_K, Keys::KEY_L, Keys::KEY_M, Keys::KEY_N, Keys::KEY_O,
+            Keys::KEY_P, Keys::KEY_Q, Keys::KEY_R, Keys::KEY_S, Keys::KEY_T,
+            Keys::KEY_U, Keys::KEY_V, Keys::KEY_W, Keys::KEY_X, Keys::KEY_Y,
+            Keys::KEY_Z
+        };
+        for (KeyCode kc : letter_codes) keys.push_back(kc);
+    } else if (preset == "numbers" || preset == "digits") {
+        static const KeyCode number_codes[] = {
+            Keys::KEY_1, Keys::KEY_2, Keys::KEY_3, Keys::KEY_4, Keys::KEY_5,
+            Keys::KEY_6, Keys::KEY_7, Keys::KEY_8, Keys::KEY_9, Keys::KEY_0
+        };
+        for (KeyCode kc : number_codes) keys.push_back(kc);
+    } else if (preset == "symbols" || preset == "punctuation") {
+        static const KeyCode symbol_codes[] = {
+            Keys::KEY_MINUS, Keys::KEY_EQUAL, Keys::KEY_LEFTBRACE, Keys::KEY_RIGHTBRACE,
+            Keys::KEY_SEMICOLON, Keys::KEY_APOSTROPHE, Keys::KEY_GRAVE, Keys::KEY_BACKSLASH,
+            Keys::KEY_COMMA, Keys::KEY_DOT, Keys::KEY_SLASH
+        };
+        for (KeyCode kc : symbol_codes) keys.push_back(kc);
+    } else if (preset == "all") {
+        addAutoShiftPreset("letters", keys);
+        addAutoShiftPreset("numbers", keys);
+        addAutoShiftPreset("symbols", keys);
+    }
+}
+
+bool parseAutoShiftKeyItem(const std::string& item, std::vector<KeyCode>& out_keys, std::string& err_msg) {
+    std::string s = trim(item);
+    if (s.empty()) return true;
+    if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+        s = trim(s.substr(1, s.size() - 2));
+    }
+    if (s == "letters" || s == "alpha" || s == "numbers" || s == "digits" ||
+        s == "symbols" || s == "punctuation" || s == "all") {
+        addAutoShiftPreset(s, out_keys);
+        return true;
+    }
+    KeyCode kc = 0;
+    if (!wordToKeyCode(s, kc, err_msg)) {
+        err_msg = "unknown key or preset in auto_shift keys: " + s;
+        return false;
+    }
+    out_keys.push_back(kc);
+    return true;
+}
+
 } // namespace
 
 bool parseDurationMicros(const std::string& str, int64_t& out_us) {
@@ -510,6 +561,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_one_shot = false;
     bool in_leader = false;
     bool in_leader_sequences = false;
+    bool in_auto_shift = false;
+    bool in_auto_shift_keys_list = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
@@ -521,12 +574,15 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_layers_tag = false;
     bool has_one_shot_tag = false;
     bool has_leader_tag = false;
+    bool has_auto_shift_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
     size_t layers_base_indent = 0;
     size_t one_shot_base_indent = 0;
     size_t leader_base_indent = 0;
     size_t leader_sequences_indent = 0;
+    size_t auto_shift_base_indent = 0;
+    size_t auto_shift_keys_list_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
     std::string current_layer_name;
@@ -617,6 +673,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_one_shot = false;
             in_leader = false;
             in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -636,6 +694,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_one_shot = false;
             in_leader = false;
             in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
@@ -651,6 +711,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_one_shot = false;
             in_leader = false;
             in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
             has_layers_tag = true;
             layers_base_indent = current_indent;
             current_layer_name.clear();
@@ -670,6 +732,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_layers = false;
             in_leader = false;
             in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
             has_one_shot_tag = true;
             one_shot_base_indent = current_indent;
             continue;
@@ -688,10 +752,32 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_layers = false;
             in_one_shot = false;
             in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
             has_leader_tag = true;
             leader_base_indent = current_indent;
             continue;
         } else if (t.rfind("leader", 0) == 0 && t.find(':') == std::string::npos) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
+        }
+
+        if (t.rfind("auto_shift:", 0) == 0) {
+            if (!flush_pending_th()) return false;
+            if (!flush_pending_os()) return false;
+            if (!flush_pending_lseq()) return false;
+            in_auto_shift = true;
+            in_combos = false;
+            in_tap_hold = false;
+            in_layers = false;
+            in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
+            has_auto_shift_tag = true;
+            auto_shift_base_indent = current_indent;
+            config.auto_shift.enabled = true;
+            continue;
+        } else if (t.rfind("auto_shift", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
@@ -720,6 +806,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (!flush_pending_lseq()) return false;
             in_leader = false;
             in_leader_sequences = false;
+        }
+
+        if (in_auto_shift && current_indent <= auto_shift_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
         }
 
         if (in_layers) {
@@ -1290,6 +1381,80 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
         }
 
+        if (in_auto_shift) {
+            if (in_auto_shift_keys_list) {
+                if (current_indent <= auto_shift_keys_list_indent && t.rfind("-", 0) != 0) {
+                    in_auto_shift_keys_list = false;
+                } else if (t.rfind("-", 0) == 0) {
+                    std::string item = trim(t.substr(1));
+                    if (!parseAutoShiftKeyItem(item, config.auto_shift.keys, err_msg)) {
+                        return false;
+                    }
+                    continue;
+                }
+            }
+
+            auto colon = t.find(':');
+            if (colon == std::string::npos) {
+                if (t.rfind("-", 0) == 0) {
+                    std::string item = trim(t.substr(1));
+                    if (!parseAutoShiftKeyItem(item, config.auto_shift.keys, err_msg)) {
+                        return false;
+                    }
+                    continue;
+                }
+                continue;
+            }
+
+            std::string key_part = trim(t.substr(0, colon));
+            std::string val_part = trim(t.substr(colon + 1));
+
+            if (key_part == "enabled") {
+                if (val_part == "true" || val_part == "yes" || val_part == "on" || val_part == "1") {
+                    config.auto_shift.enabled = true;
+                } else if (val_part == "false" || val_part == "no" || val_part == "off" || val_part == "0") {
+                    config.auto_shift.enabled = false;
+                } else {
+                    err_msg = "invalid boolean for auto_shift enabled: " + val_part;
+                    return false;
+                }
+            } else if (key_part == "timeout_ms" || key_part == "timeout") {
+                try {
+                    long long v = std::stoll(val_part);
+                    if (v <= 0) {
+                        err_msg = "auto_shift timeout_ms must be positive: " + val_part;
+                        return false;
+                    }
+                    config.auto_shift.timeout_us = v * 1000LL;
+                } catch (...) {
+                    err_msg = "invalid auto_shift timeout value: " + val_part;
+                    return false;
+                }
+            } else if (key_part == "keys") {
+                if (val_part.empty()) {
+                    in_auto_shift_keys_list = true;
+                    auto_shift_keys_list_indent = current_indent;
+                } else {
+                    std::string vp = val_part;
+                    if (!vp.empty() && vp.front() == '[') {
+                        if (vp.back() == ']') vp.pop_back();
+                        vp = vp.substr(1);
+                        for (char& ch : vp) if (ch == ',') ch = ' ';
+                    }
+                    auto tokens = fields(vp);
+                    for (const auto& tok : tokens) {
+                        if (!parseAutoShiftKeyItem(tok, config.auto_shift.keys, err_msg)) {
+                            return false;
+                        }
+                    }
+                }
+            } else {
+                err_msg = "unknown auto_shift property: " + key_part;
+                return false;
+            }
+            continue;
+        }
+
         if (!in_combos) continue;
 
         // 1. Classic verbose format
@@ -1643,7 +1808,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !has_auto_shift_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
@@ -1848,6 +2013,20 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                 }
             }
+        }
+    }
+
+    if (has_auto_shift_tag) {
+        if (config.auto_shift.keys.empty()) {
+            addAutoShiftPreset("letters", config.auto_shift.keys);
+        }
+        std::sort(config.auto_shift.keys.begin(), config.auto_shift.keys.end());
+        config.auto_shift.keys.erase(
+            std::unique(config.auto_shift.keys.begin(), config.auto_shift.keys.end()),
+            config.auto_shift.keys.end());
+        if (config.auto_shift.timeout_us <= 0) {
+            err_msg = "auto_shift timeout_ms must be positive";
+            return false;
         }
     }
 

@@ -140,3 +140,14 @@ tap_hold:
 #     j: 1
 #     k: 2
 #     l: 3
+
+# Auto-Shift (Long-Press Key Capitalization):
+# Tap a key (< timeout_ms) to type lowercase character/symbol.
+# Hold a key (>= timeout_ms) to automatically emit shifted uppercase/symbol.
+# Typing fast immediately commits unshifted keys without any delay (no delay during fast typing!).
+# Physical or sticky modifiers (Ctrl, Alt, Super) automatically bypass Auto-Shift for zero-delay hotkeys.
+#
+# auto_shift:
+#   enabled: true
+#   timeout_ms: 175
+#   keys: letters   # letters (default), numbers, symbols, all, or explicit list like [a, b, c, comma]

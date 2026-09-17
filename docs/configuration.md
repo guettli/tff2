@@ -428,6 +428,31 @@ leader:
 - `timeout_ms` must be a positive integer.
 - A dedicated leader key cannot conflict with combo keys.
 
+## Auto-Shift (Long-Press Key Capitalization)
+
+Auto-Shift allows typing capitalized letters or shifted punctuation by holding a key slightly longer than a normal tap, eliminating the need to reach for the Shift key.
+
+- **Tap (< `timeout_ms`)**: Emits the unshifted character/symbol (e.g., `a`, `,`).
+- **Hold (>= `timeout_ms`)**: Emits the shifted character/symbol (e.g., `A`, `<`).
+- **Fast Typing Rollover**: If you press another key before the timeout expires (e.g. typing "the" quickly), the preceding key is immediately committed as an unshifted tap without waiting. Typing flow has zero lag.
+- **Modifier Hotkey Coexistence**: If physical or one-shot modifiers (Ctrl, Alt, Super) are active, Auto-Shift is bypassed so desktop shortcuts (e.g. `Ctrl+C`, `Alt+Tab`) trigger instantly.
+
+### Configuration Syntax
+
+```yaml
+auto_shift:
+  enabled: true
+  timeout_ms: 175
+  keys: letters
+```
+
+#### Supported Presets:
+- `letters` (or `alpha`): All 26 alphabet keys (`a`-`z`). This is the default if `keys` is omitted.
+- `numbers` (or `digits`): Digit keys `0` through `9`.
+- `symbols` (or `punctuation`): Common punctuation keys (`;`, `,`, `.`, `/`, `\`, `-`, `=`, `[`, `]`, `'`, `` ` ``).
+- `all`: Combines `letters`, `numbers`, and `symbols`.
+- **Explicit list or array**: e.g., `keys: [a, b, c, comma, period]` or YAML list format.
+
 ## Supported Key Names and Symbols
 
 Key names must be lowercase (e.g., `ctrl+s`, `esc`, `delete`) and are mapped to standard Linux input event codes:
