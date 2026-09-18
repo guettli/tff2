@@ -10,6 +10,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Usage: $0 [--sanitizers|--all]"
+    echo "Runs unified local verification: clang-format check, -Werror build, ctest,"
+    echo "cppcheck static analysis, and CLI smoke tests."
+    echo ""
+    echo "Options:"
+    echo "  --sanitizers, --all   Also run AddressSanitizer and UndefinedBehaviorSanitizer suite"
+    echo "  -h, --help            Show this help message"
+    exit 0
+fi
+
 COLOR_RESET="\033[0m"
 COLOR_GREEN="\033[1;32m"
 COLOR_YELLOW="\033[1;33m"
@@ -35,15 +46,21 @@ echo -e "${COLOR_BLUE}======================================================${CO
 
 # 1. Formatting Check
 step "Checking code formatting with clang-format..."
-if command -v clang-format &>/dev/null; then
-    CLANG_FORMAT_BIN="clang-format"
-elif [[ -x "${HOME}/.local/bin/clang-format" ]]; then
-    CLANG_FORMAT_BIN="${HOME}/.local/bin/clang-format"
-else
+CLANG_FORMAT_BIN=""
+for candidate in clang-format clang-format-18 clang-format-17 clang-format-16 clang-format-15 clang-format-14 "${HOME}/.local/bin/clang-format"; do
+    if command -v "$candidate" &>/dev/null; then
+        CLANG_FORMAT_BIN="$candidate"
+        break
+    fi
+done
+
+if [[ -z "${CLANG_FORMAT_BIN}" ]]; then
     fail "clang-format not found. Please install clang-format (e.g. via pip install clang-format or apt install clang-format)"
 fi
 
-find src include tests -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) | xargs "${CLANG_FORMAT_BIN}" --dry-run --Werror
+if ! find src include tests -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) -print0 | xargs -0 "${CLANG_FORMAT_BIN}" --dry-run --Werror; then
+    fail "Code formatting check failed. Run 'cmake --build build --target format' to reformat code automatically."
+fi
 success "Code formatting check passed"
 
 # 2. CMake Configuration (Release with Warnings as Errors)
@@ -53,13 +70,13 @@ success "CMake configuration successful"
 
 # 3. Build All Targets
 step "Building all targets..."
-cmake --build build -j"$(nproc)"
+cmake --build build --parallel
 success "All targets built cleanly with zero warnings"
 
 # 4. Run Unit and Integration Tests via CTest
 step "Running all unit and integration test suites..."
 ctest --test-dir build --output-on-failure
-success "All 15 test suites passed"
+success "All test suites passed"
 
 # 5. Run Static Analysis (Cppcheck)
 step "Running Cppcheck static analysis..."
@@ -82,8 +99,10 @@ success "CLI smoke tests passed"
 # 7. Optional Sanitizers check if requested
 if [[ "${1:-}" == "--sanitizers" || "${1:-}" == "--all" ]]; then
     step "Running AddressSanitizer & UndefinedBehaviorSanitizer checks..."
+    export ASAN_OPTIONS="detect_leaks=1:abort_on_error=1:fast_unwind_on_fatal=0"
+    export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
     cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
-    cmake --build build-asan -j"$(nproc)"
+    cmake --build build-asan --parallel
     ctest --test-dir build-asan --output-on-failure
     success "Sanitizers test suite passed with zero errors"
 fi

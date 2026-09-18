@@ -280,14 +280,17 @@ if(NOT PICO_BUILD)
     endif()
 
     # Code formatting with clang-format
-    find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format PATHS "$ENV{HOME}/.local/bin" /usr/bin /usr/local/bin)
+    find_program(CLANG_FORMAT_EXECUTABLE
+        NAMES clang-format clang-format-18 clang-format-17 clang-format-16 clang-format-15 clang-format-14
+        PATHS "$ENV{HOME}/.local/bin" /usr/bin /usr/local/bin)
     if(CLANG_FORMAT_EXECUTABLE)
-        file(GLOB_RECURSE CXX_FORMAT_FILES
+        file(GLOB_RECURSE CXX_FORMAT_FILES CONFIGURE_DEPENDS
             ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h
             ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
             ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h
         )
         add_custom_target(format
             COMMAND ${CLANG_FORMAT_EXECUTABLE} -i ${CXX_FORMAT_FILES}
