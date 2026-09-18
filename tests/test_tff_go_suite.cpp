@@ -16,16 +16,13 @@ class SliceWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 };
 
-static void requireEqual(const std::string& actual, const std::string& expected, const std::string& test_name) {
+static void requireEqual(const std::string& actual, const std::string& expected,
+                         const std::string& test_name) {
     std::string norm_actual = normalizeShortCsv(actual);
     std::string norm_expected = normalizeShortCsv(expected);
     if (norm_actual != norm_expected) {
@@ -37,9 +34,9 @@ static void requireEqual(const std::string& actual, const std::string& expected,
 }
 
 static void assertComboCSVInputOutput(const std::string& input_csv,
-                                     const std::string& expected_output,
-                                     const std::vector<Combo>& combos,
-                                     const std::string& test_name) {
+                                      const std::string& expected_output,
+                                      const std::vector<Combo>& combos,
+                                      const std::string& test_name) {
     SliceWriter writer;
     TFFEngine engine(&writer, combos);
     engine.setFakeActiveTimer(true);
@@ -64,9 +61,9 @@ static void assertComboCSVInputOutput(const std::string& input_csv,
 }
 
 static void assertComboStateStringInputOutput(const std::string& state_str,
-                                             const std::string& expected_output,
-                                             const std::vector<Combo>& combos,
-                                             const std::string& test_name) {
+                                              const std::string& expected_output,
+                                              const std::vector<Combo>& combos,
+                                              const std::string& test_name) {
     SliceWriter writer;
     TFFEngine engine(&writer, combos);
     engine.setFakeActiveTimer(true);
@@ -95,19 +92,19 @@ static void assertComboStateStringInputOutput(const std::string& state_str,
 // ---------------------------------------------------------
 
 static const std::vector<Combo> fjkCombos = {
-    { { Keys::KEY_F, Keys::KEY_J }, { Keys::KEY_X } },
-    { { Keys::KEY_F, Keys::KEY_K }, { Keys::KEY_Y } },
+    {{Keys::KEY_F, Keys::KEY_J}, {Keys::KEY_X}},
+    {{Keys::KEY_F, Keys::KEY_K}, {Keys::KEY_Y}},
 };
 
 static const std::vector<Combo> orderedCombos = {
-    { { Keys::KEY_F, Keys::KEY_J }, { Keys::KEY_X } },
-    { { Keys::KEY_J, Keys::KEY_F }, { Keys::KEY_A } },
-    { { Keys::KEY_F, Keys::KEY_K }, { Keys::KEY_Y } },
-    { { Keys::KEY_J, Keys::KEY_K }, { Keys::KEY_B } },
+    {{Keys::KEY_F, Keys::KEY_J}, {Keys::KEY_X}},
+    {{Keys::KEY_J, Keys::KEY_F}, {Keys::KEY_A}},
+    {{Keys::KEY_F, Keys::KEY_K}, {Keys::KEY_Y}},
+    {{Keys::KEY_J, Keys::KEY_K}, {Keys::KEY_B}},
 };
 
 static const std::vector<Combo> capslockCombos = {
-    { { Keys::KEY_CAPSLOCK, Keys::KEY_J }, { Keys::KEY_BACKSPACE } },
+    {{Keys::KEY_CAPSLOCK, Keys::KEY_J}, {Keys::KEY_BACKSPACE}},
 };
 
 static const std::string asdfTestEvents =
@@ -133,11 +130,11 @@ void test_runeToKeyCode() {
         std::string err_substr;
     };
     std::vector<Case> cases = {
-        { "x", Keys::KEY_X, false, "" },
-        { "1", Keys::KEY_1, false, "" },
-        { "capslock", Keys::KEY_CAPSLOCK, false, "" },
-        { "X", 0, true, "only lower case characters are allowed" },
-        { "ü", 0, true, "unknown key" },
+        {"x", Keys::KEY_X, false, ""},
+        {"1", Keys::KEY_1, false, ""},
+        {"capslock", Keys::KEY_CAPSLOCK, false, ""},
+        {"X", 0, true, "only lower case characters are allowed"},
+        {"ü", 0, true, "unknown key"},
     };
 
     for (const auto& tc : cases) {
@@ -184,10 +181,12 @@ void test_LoadYamlFromBytes_fail() {
         std::string expected_err;
     };
     std::vector<Case> cases = {
-        { "combos:\n  - keys: f j\n  - outKeys: a b c\n", "empty list in 'outKeys' is not allowed" },
-        { "combos:\n  - outKeys: a b c\n", "empty list in 'keys' is not allowed" },
-        { "combos\n  - keys: f j\n  - outKeys: a b c\n", "mapping values are not allowed in this context" },
-        { "combos:\n  - keys: f j\n    outKeys: a b key_not_existing\n", "failed to get key \"key_not_existing\"" },
+        {"combos:\n  - keys: f j\n  - outKeys: a b c\n", "empty list in 'outKeys' is not allowed"},
+        {"combos:\n  - outKeys: a b c\n", "empty list in 'keys' is not allowed"},
+        {"combos\n  - keys: f j\n  - outKeys: a b c\n",
+         "mapping values are not allowed in this context"},
+        {"combos:\n  - keys: f j\n    outKeys: a b key_not_existing\n",
+         "failed to get key \"key_not_existing\""},
     };
 
     for (const auto& tc : cases) {
@@ -195,7 +194,8 @@ void test_LoadYamlFromBytes_fail() {
         std::string err;
         bool ok = loadYamlCombos(tc.yaml, combos, err);
         if (ok || err.find(tc.expected_err) == std::string::npos) {
-            std::cerr << "\nFAIL: expected error substring [" << tc.expected_err << "], got ok=" << ok << " err=[" << err << "]\n";
+            std::cerr << "\nFAIL: expected error substring [" << tc.expected_err
+                      << "], got ok=" << ok << " err=[" << err << "]\n";
             assert(false);
         }
     }
@@ -223,12 +223,10 @@ void test_manInTheMiddle_noMatch() {
         assert(out_csv == asdfTestEvents);
     };
 
-    check_combos({ { { Keys::KEY_A, Keys::KEY_F }, { Keys::KEY_X } } });
-    check_combos({ { { Keys::KEY_G, Keys::KEY_H }, { Keys::KEY_X } } });
-    check_combos({
-        { { Keys::KEY_G, Keys::KEY_H }, { Keys::KEY_X } },
-        { { Keys::KEY_A, Keys::KEY_K }, { Keys::KEY_X } }
-    });
+    check_combos({{{Keys::KEY_A, Keys::KEY_F}, {Keys::KEY_X}}});
+    check_combos({{{Keys::KEY_G, Keys::KEY_H}, {Keys::KEY_X}}});
+    check_combos(
+        {{{Keys::KEY_G, Keys::KEY_H}, {Keys::KEY_X}}, {{Keys::KEY_A, Keys::KEY_K}, {Keys::KEY_X}}});
     std::cout << "PASS\n";
 }
 
@@ -489,9 +487,7 @@ void test_ShouldNotPanic() {
     bool ok = parseComboLog(log, events, err);
     assert(ok);
 
-    std::vector<Combo> combos = {
-        { { Keys::KEY_CAPSLOCK, Keys::KEY_N }, { Keys::KEY_DOWN } }
-    };
+    std::vector<Combo> combos = {{{Keys::KEY_CAPSLOCK, Keys::KEY_N}, {Keys::KEY_DOWN}}};
 
     SliceWriter writer;
     TFFEngine engine(&writer, combos);
@@ -523,9 +519,7 @@ void test_FJX_emits_f_but_should_not() {
     bool ok = parseComboLog(file, events, err);
     assert(ok);
 
-    std::vector<Combo> combos = {
-        { { Keys::KEY_F, Keys::KEY_J }, { Keys::KEY_X } }
-    };
+    std::vector<Combo> combos = {{{Keys::KEY_F, Keys::KEY_J}, {Keys::KEY_X}}};
 
     SliceWriter writer;
     TFFEngine engine(&writer, combos);

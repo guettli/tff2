@@ -12,13 +12,9 @@ class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 
     std::vector<Event> keyEvents() const {
         std::vector<Event> result;
@@ -39,7 +35,7 @@ static void test_tap_capslock_emits_esc() {
     thk.key = Keys::KEY_CAPSLOCK;
     thk.tap_key = Keys::KEY_ESC;
     thk.hold_key = Keys::KEY_LEFTMETA;
-    thk.timeout_us = 200000LL; // 200ms
+    thk.timeout_us = 200000LL;  // 200ms
     engine.setTapHoldKeys({thk});
 
     // Press CapsLock at t = 10ms
@@ -78,7 +74,7 @@ static void test_hold_capslock_emits_super() {
     thk.key = Keys::KEY_CAPSLOCK;
     thk.tap_key = Keys::KEY_ESC;
     thk.hold_key = Keys::KEY_LEFTMETA;
-    thk.timeout_us = 200000LL; // 200ms
+    thk.timeout_us = 200000LL;  // 200ms
     engine.setTapHoldKeys({thk});
 
     // Press CapsLock at t = 10ms

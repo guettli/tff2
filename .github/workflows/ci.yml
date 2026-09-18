@@ -21,6 +21,19 @@ permissions:
   contents: read
 
 jobs:
+  format-check:
+    name: Code Formatting (clang-format)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check C/C++ code formatting
+        run: |
+          find src include tests -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) | xargs clang-format --dry-run --Werror
+
   build-and-test:
     name: Build & Test (Linux GCC)
     runs-on: ubuntu-latest

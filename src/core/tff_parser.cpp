@@ -11,7 +11,8 @@ namespace {
 
 std::string trim(const std::string& s) {
     auto start = s.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
+    if (start == std::string::npos)
+        return "";
     auto end = s.find_last_not_of(" \t\r\n");
     return s.substr(start, end - start + 1);
 }
@@ -60,7 +61,8 @@ std::vector<std::string> parseOutputWords(const std::string& s) {
             auto sub_parts = split(token, '+');
             for (const auto& sp : sub_parts) {
                 std::string t = trim(sp);
-                if (!t.empty()) result.push_back(t);
+                if (!t.empty())
+                    result.push_back(t);
             }
         } else {
             result.push_back(token);
@@ -75,7 +77,7 @@ std::string stripComment(const std::string& line) {
     for (size_t i = 0; i < line.size(); ++i) {
         char c = line[i];
         if (c == '\\' && in_double_quote && i + 1 < line.size()) {
-            ++i; // skip escaped character
+            ++i;  // skip escaped character
             continue;
         }
         if (c == '"' && !in_single_quote) {
@@ -91,7 +93,8 @@ std::string stripComment(const std::string& line) {
 
 std::string unquoteAndUnescape(const std::string& s) {
     std::string str = trim(s);
-    if (str.empty()) return "";
+    if (str.empty())
+        return "";
 
     // Check for inline dictionary like { text: "..." } or { type: "..." }
     if (str.front() == '{' && str.back() == '}') {
@@ -111,13 +114,28 @@ std::string unquoteAndUnescape(const std::string& s) {
         for (size_t i = 1; i < end; ++i) {
             if (str[i] == '\\' && i + 1 < end) {
                 char next = str[i + 1];
-                if (next == 'n') { res += '\n'; ++i; }
-                else if (next == 't') { res += '\t'; ++i; }
-                else if (next == 'r') { res += '\r'; ++i; }
-                else if (next == '"') { res += '"'; ++i; }
-                else if (next == '\'') { res += '\''; ++i; }
-                else if (next == '\\') { res += '\\'; ++i; }
-                else { res += next; ++i; }
+                if (next == 'n') {
+                    res += '\n';
+                    ++i;
+                } else if (next == 't') {
+                    res += '\t';
+                    ++i;
+                } else if (next == 'r') {
+                    res += '\r';
+                    ++i;
+                } else if (next == '"') {
+                    res += '"';
+                    ++i;
+                } else if (next == '\'') {
+                    res += '\'';
+                    ++i;
+                } else if (next == '\\') {
+                    res += '\\';
+                    ++i;
+                } else {
+                    res += next;
+                    ++i;
+                }
             } else {
                 res += str[i];
             }
@@ -144,7 +162,8 @@ std::string unquoteAndUnescape(const std::string& s) {
 
 bool isTextSnippet(const std::string& val, std::string& text) {
     std::string s = trim(val);
-    if (s.empty()) return false;
+    if (s.empty())
+        return false;
 
     // Direct quoted string: "..." or '...'
     if ((s.size() >= 2 && s.front() == '"' && s.back() == '"') ||
@@ -179,10 +198,11 @@ bool isTextSnippet(const std::string& val, std::string& text) {
 bool isOneShotPattern(const std::string& str) {
     std::string s = trim(str);
     return !s.empty() && s.back() == ')' &&
-        (s.rfind("osm(", 0) == 0 || s.rfind("osl(", 0) == 0 || s.rfind("one_shot(", 0) == 0);
+           (s.rfind("osm(", 0) == 0 || s.rfind("osl(", 0) == 0 || s.rfind("one_shot(", 0) == 0);
 }
 
-bool parseOneShotTarget(const std::string& str, KeyCode& out_mod, std::string& out_layer, std::string& err_msg) {
+bool parseOneShotTarget(const std::string& str, KeyCode& out_mod, std::string& out_layer,
+                        std::string& err_msg) {
     std::string s = trim(str);
     if (!s.empty() && s.back() == ')') {
         if (s.rfind("osm(", 0) == 0) {
@@ -221,10 +241,12 @@ bool parseOneShotTarget(const std::string& str, KeyCode& out_mod, std::string& o
 
 bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std::string& err_msg) {
     std::string s = trim(str);
-    if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+    if (s.size() >= 2 &&
+        ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
         s = trim(s.substr(1, s.size() - 2));
     }
-    if (s.empty()) return false;
+    if (s.empty())
+        return false;
 
     // { toggle_layer: numpad } or { tg: numpad }
     if (s.front() == '{' && s.back() == '}') {
@@ -233,7 +255,8 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
         if (col != std::string::npos) {
             std::string key = trim(inner.substr(0, col));
             std::string val = trim(inner.substr(col + 1));
-            if (val.size() >= 2 && ((val.front() == '"' && val.back() == '"') || (val.front() == '\'' && val.back() == '\''))) {
+            if (val.size() >= 2 && ((val.front() == '"' && val.back() == '"') ||
+                                    (val.front() == '\'' && val.back() == '\''))) {
                 val = trim(val.substr(1, val.size() - 2));
             }
             if (key == "toggle_layer" || key == "tg") {
@@ -250,7 +273,8 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
     if (s.back() == ')') {
         if (s.rfind("toggle_layer(", 0) == 0) {
             std::string inner = trim(s.substr(13, s.size() - 14));
-            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') || (inner.front() == '\'' && inner.back() == '\''))) {
+            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') ||
+                                      (inner.front() == '\'' && inner.back() == '\''))) {
                 inner = trim(inner.substr(1, inner.size() - 2));
             }
             if (inner.empty()) {
@@ -262,7 +286,8 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
         }
         if (s.rfind("tg(", 0) == 0) {
             std::string inner = trim(s.substr(3, s.size() - 4));
-            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') || (inner.front() == '\'' && inner.back() == '\''))) {
+            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') ||
+                                      (inner.front() == '\'' && inner.back() == '\''))) {
                 inner = trim(inner.substr(1, inner.size() - 2));
             }
             if (inner.empty()) {
@@ -276,7 +301,8 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
 
     if (s.rfind("toggle_layer:", 0) == 0) {
         std::string inner = trim(s.substr(13));
-        if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') || (inner.front() == '\'' && inner.back() == '\''))) {
+        if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') ||
+                                  (inner.front() == '\'' && inner.back() == '\''))) {
             inner = trim(inner.substr(1, inner.size() - 2));
         }
         if (inner.empty()) {
@@ -292,27 +318,26 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
 void addAutoShiftPreset(const std::string& preset, std::vector<KeyCode>& keys) {
     if (preset == "letters" || preset == "alpha") {
         static const KeyCode letter_codes[] = {
-            Keys::KEY_A, Keys::KEY_B, Keys::KEY_C, Keys::KEY_D, Keys::KEY_E,
-            Keys::KEY_F, Keys::KEY_G, Keys::KEY_H, Keys::KEY_I, Keys::KEY_J,
-            Keys::KEY_K, Keys::KEY_L, Keys::KEY_M, Keys::KEY_N, Keys::KEY_O,
-            Keys::KEY_P, Keys::KEY_Q, Keys::KEY_R, Keys::KEY_S, Keys::KEY_T,
-            Keys::KEY_U, Keys::KEY_V, Keys::KEY_W, Keys::KEY_X, Keys::KEY_Y,
-            Keys::KEY_Z
-        };
-        for (KeyCode kc : letter_codes) keys.push_back(kc);
+            Keys::KEY_A, Keys::KEY_B, Keys::KEY_C, Keys::KEY_D, Keys::KEY_E, Keys::KEY_F,
+            Keys::KEY_G, Keys::KEY_H, Keys::KEY_I, Keys::KEY_J, Keys::KEY_K, Keys::KEY_L,
+            Keys::KEY_M, Keys::KEY_N, Keys::KEY_O, Keys::KEY_P, Keys::KEY_Q, Keys::KEY_R,
+            Keys::KEY_S, Keys::KEY_T, Keys::KEY_U, Keys::KEY_V, Keys::KEY_W, Keys::KEY_X,
+            Keys::KEY_Y, Keys::KEY_Z};
+        for (KeyCode kc : letter_codes)
+            keys.push_back(kc);
     } else if (preset == "numbers" || preset == "digits") {
-        static const KeyCode number_codes[] = {
-            Keys::KEY_1, Keys::KEY_2, Keys::KEY_3, Keys::KEY_4, Keys::KEY_5,
-            Keys::KEY_6, Keys::KEY_7, Keys::KEY_8, Keys::KEY_9, Keys::KEY_0
-        };
-        for (KeyCode kc : number_codes) keys.push_back(kc);
+        static const KeyCode number_codes[] = {Keys::KEY_1, Keys::KEY_2, Keys::KEY_3, Keys::KEY_4,
+                                               Keys::KEY_5, Keys::KEY_6, Keys::KEY_7, Keys::KEY_8,
+                                               Keys::KEY_9, Keys::KEY_0};
+        for (KeyCode kc : number_codes)
+            keys.push_back(kc);
     } else if (preset == "symbols" || preset == "punctuation") {
         static const KeyCode symbol_codes[] = {
-            Keys::KEY_MINUS, Keys::KEY_EQUAL, Keys::KEY_LEFTBRACE, Keys::KEY_RIGHTBRACE,
-            Keys::KEY_SEMICOLON, Keys::KEY_APOSTROPHE, Keys::KEY_GRAVE, Keys::KEY_BACKSLASH,
-            Keys::KEY_COMMA, Keys::KEY_DOT, Keys::KEY_SLASH
-        };
-        for (KeyCode kc : symbol_codes) keys.push_back(kc);
+            Keys::KEY_MINUS,     Keys::KEY_EQUAL,      Keys::KEY_LEFTBRACE, Keys::KEY_RIGHTBRACE,
+            Keys::KEY_SEMICOLON, Keys::KEY_APOSTROPHE, Keys::KEY_GRAVE,     Keys::KEY_BACKSLASH,
+            Keys::KEY_COMMA,     Keys::KEY_DOT,        Keys::KEY_SLASH};
+        for (KeyCode kc : symbol_codes)
+            keys.push_back(kc);
     } else if (preset == "all") {
         addAutoShiftPreset("letters", keys);
         addAutoShiftPreset("numbers", keys);
@@ -320,14 +345,17 @@ void addAutoShiftPreset(const std::string& preset, std::vector<KeyCode>& keys) {
     }
 }
 
-bool parseAutoShiftKeyItem(const std::string& item, std::vector<KeyCode>& out_keys, std::string& err_msg) {
+bool parseAutoShiftKeyItem(const std::string& item, std::vector<KeyCode>& out_keys,
+                           std::string& err_msg) {
     std::string s = trim(item);
-    if (s.empty()) return true;
-    if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+    if (s.empty())
+        return true;
+    if (s.size() >= 2 &&
+        ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
         s = trim(s.substr(1, s.size() - 2));
     }
-    if (s == "letters" || s == "alpha" || s == "numbers" || s == "digits" ||
-        s == "symbols" || s == "punctuation" || s == "all") {
+    if (s == "letters" || s == "alpha" || s == "numbers" || s == "digits" || s == "symbols" ||
+        s == "punctuation" || s == "all") {
         addAutoShiftPreset(s, out_keys);
         return true;
     }
@@ -340,15 +368,18 @@ bool parseAutoShiftKeyItem(const std::string& item, std::vector<KeyCode>& out_ke
     return true;
 }
 
-} // namespace
+}  // namespace
 
 bool parseDurationMicros(const std::string& str, int64_t& out_us) {
     std::string s = trim(str);
-    if (!s.empty() && s.front() == '(') s = s.substr(1);
-    if (!s.empty() && s.back() == ')') s.pop_back();
+    if (!s.empty() && s.front() == '(')
+        s = s.substr(1);
+    if (!s.empty() && s.back() == ')')
+        s.pop_back();
     s = trim(s);
 
-    if (s.empty()) return false;
+    if (s.empty())
+        return false;
 
     // Determine unit
     if (s.length() > 2 && s.substr(s.length() - 2) == "ms") {
@@ -432,7 +463,8 @@ bool csvToEvents(const std::string& csv_str, std::vector<Event>& events, std::st
     return true;
 }
 
-bool stateStringToEvents(const std::string& state_str, std::vector<Event>& events, std::string& err_msg) {
+bool stateStringToEvents(const std::string& state_str, std::vector<Event>& events,
+                         std::string& err_msg) {
     TimeVal current_time{1716752333, 0};
     auto parts = fields(state_str);
     if (parts.size() % 2 != 1) {
@@ -509,16 +541,21 @@ bool parseComboLog(const std::string& log_str, std::vector<Event>& events, std::
 std::string eventToCsvLine(const Event& ev) {
     std::string val_str;
     switch (ev.value) {
-    case KEY_VAL_DOWN: val_str = "down"; break;
-    case KEY_VAL_UP: val_str = "up"; break;
-    case KEY_VAL_REPEAT: val_str = "repeat"; break;
-    default: val_str = std::to_string(ev.value); break;
+        case KEY_VAL_DOWN:
+            val_str = "down";
+            break;
+        case KEY_VAL_UP:
+            val_str = "up";
+            break;
+        case KEY_VAL_REPEAT:
+            val_str = "repeat";
+            break;
+        default:
+            val_str = std::to_string(ev.value);
+            break;
     }
-    return std::to_string(ev.time.sec) + ";" +
-           std::to_string(ev.time.usec) + ";" +
-           typeName(ev.type) + ";" +
-           codeName(ev.type, ev.code) + ";" +
-           val_str + "\n";
+    return std::to_string(ev.time.sec) + ";" + std::to_string(ev.time.usec) + ";" +
+           typeName(ev.type) + ";" + codeName(ev.type, ev.code) + ";" + val_str + "\n";
 }
 
 std::string eventsToCsv(const std::vector<Event>& events) {
@@ -539,8 +576,8 @@ std::string eventsToShortCsv(const std::vector<Event>& events) {
             continue;
         }
         if (ev.type == EV_KEY) {
-            std::string line = keyCodeToShortName(ev.code) + "-" +
-                               (ev.value == KEY_VAL_DOWN ? "down" : "up");
+            std::string line =
+                keyCodeToShortName(ev.code) + "-" + (ev.value == KEY_VAL_DOWN ? "down" : "up");
             out += line + "\n";
         }
     }
@@ -620,7 +657,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     auto flush_pending_th = [&]() -> bool {
         if (has_pending_th) {
             if (pending_th.key != 0) {
-                if ((pending_th.tap_key == 0 && pending_th.tap_one_shot_modifier == 0 && pending_th.tap_one_shot_layer.empty() && !pending_th.tap_leader) ||
+                if ((pending_th.tap_key == 0 && pending_th.tap_one_shot_modifier == 0 &&
+                     pending_th.tap_one_shot_layer.empty() && !pending_th.tap_leader) ||
                     (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
                     err_msg = "tap_hold definition requires both 'tap' and 'hold'";
                     return false;
@@ -645,7 +683,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     if (isModifier(pending_os.key)) {
                         pending_os.modifier = pending_os.key;
                     } else {
-                        err_msg = "one_shot key '" + keyCodeToWord(pending_os.key) + "' requires a modifier or layer";
+                        err_msg = "one_shot key '" + keyCodeToWord(pending_os.key) +
+                                  "' requires a modifier or layer";
                         return false;
                     }
                 }
@@ -668,7 +707,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 err_msg = "leader sequence missing keys";
                 return false;
             }
-            if (pending_lseq.out_keys.empty() && pending_lseq.text.empty() && pending_lseq.toggle_layer.empty()) {
+            if (pending_lseq.out_keys.empty() && pending_lseq.text.empty() &&
+                pending_lseq.toggle_layer.empty()) {
                 err_msg = "leader sequence requires an action (text, keys, or toggle_layer)";
                 return false;
             }
@@ -683,14 +723,18 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         // Strip inline comment if any (preserving '#' inside quoted strings)
         std::string clean_line = stripComment(line);
         std::string t = trim(clean_line);
-        if (t.empty()) continue;
+        if (t.empty())
+            continue;
 
         size_t current_indent = line.find_first_not_of(" \t");
 
         if (t.rfind("combos:", 0) == 0) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_combos = true;
             in_tap_hold = false;
             in_layers = false;
@@ -711,9 +755,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (t.rfind("tap_hold:", 0) == 0) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_tap_hold = true;
             in_combos = false;
             in_layers = false;
@@ -730,9 +777,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (t.rfind("layers:", 0) == 0) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_layers = true;
             in_combos = false;
             in_tap_hold = false;
@@ -753,9 +803,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (t.rfind("one_shot:", 0) == 0) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_one_shot = true;
             in_combos = false;
             in_tap_hold = false;
@@ -775,9 +828,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (t.rfind("leader:", 0) == 0) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_leader = true;
             in_combos = false;
             in_tap_hold = false;
@@ -797,9 +853,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (t.rfind("auto_shift:", 0) == 0) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_auto_shift = true;
             in_combos = false;
             in_tap_hold = false;
@@ -819,9 +878,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (t.rfind("mouse:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_mouse = true;
             in_combos = false;
             in_tap_hold = false;
@@ -835,15 +897,19 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_mouse_tag = true;
             mouse_base_indent = current_indent;
             continue;
-        } else if (t.rfind("mouse", 0) == 0 && t.find(':') == std::string::npos && (!in_layers || current_indent <= layers_base_indent)) {
+        } else if (t.rfind("mouse", 0) == 0 && t.find(':') == std::string::npos &&
+                   (!in_layers || current_indent <= layers_base_indent)) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
         if (t.rfind("settings:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
-            if (!flush_pending_th()) return false;
-            if (!flush_pending_os()) return false;
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
             in_settings = true;
             in_combos = false;
             in_tap_hold = false;
@@ -857,53 +923,66 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_settings_tag = true;
             settings_base_indent = current_indent;
             continue;
-        } else if (t.rfind("settings", 0) == 0 && t.find(':') == std::string::npos && (!in_layers || current_indent <= layers_base_indent)) {
+        } else if (t.rfind("settings", 0) == 0 && t.find(':') == std::string::npos &&
+                   (!in_layers || current_indent <= layers_base_indent)) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (in_combos && current_indent <= combos_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+        if (in_combos && current_indent <= combos_base_indent && t.find(':') != std::string::npos &&
+            t.rfind("-", 0) != 0) {
             in_combos = false;
             current_leader.clear();
         }
 
-        if (in_tap_hold && current_indent <= tap_hold_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
-            if (!flush_pending_th()) return false;
+        if (in_tap_hold && current_indent <= tap_hold_base_indent &&
+            t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            if (!flush_pending_th())
+                return false;
             in_tap_hold = false;
         }
 
-        if (in_layers && current_indent <= layers_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+        if (in_layers && current_indent <= layers_base_indent && t.find(':') != std::string::npos &&
+            t.rfind("-", 0) != 0) {
             in_layers = false;
             current_layer_name.clear();
         }
 
-        if (in_one_shot && current_indent <= one_shot_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
-            if (!flush_pending_os()) return false;
+        if (in_one_shot && current_indent <= one_shot_base_indent &&
+            t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            if (!flush_pending_os())
+                return false;
             in_one_shot = false;
         }
 
-        if (in_leader && current_indent <= leader_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
-            if (!flush_pending_lseq()) return false;
+        if (in_leader && current_indent <= leader_base_indent && t.find(':') != std::string::npos &&
+            t.rfind("-", 0) != 0) {
+            if (!flush_pending_lseq())
+                return false;
             in_leader = false;
             in_leader_sequences = false;
         }
 
-        if (in_auto_shift && current_indent <= auto_shift_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+        if (in_auto_shift && current_indent <= auto_shift_base_indent &&
+            t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
         }
 
-        if (in_mouse && current_indent <= mouse_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+        if (in_mouse && current_indent <= mouse_base_indent && t.find(':') != std::string::npos &&
+            t.rfind("-", 0) != 0) {
             in_mouse = false;
         }
 
-        if (in_settings && current_indent <= settings_base_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+        if (in_settings && current_indent <= settings_base_indent &&
+            t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_settings = false;
         }
 
         if (in_settings) {
             auto colon = t.find(':');
-            if (colon == std::string::npos) continue;
+            if (colon == std::string::npos)
+                continue;
             std::string k = trim(t.substr(0, colon));
             std::string v = trim(t.substr(colon + 1));
             if (k == "combo_timeout_ms" || k == "combo_timeout" || k == "combo_window_ms") {
@@ -953,7 +1032,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (in_mouse) {
             auto colon = t.find(':');
-            if (colon == std::string::npos) continue;
+            if (colon == std::string::npos)
+                continue;
             std::string k = trim(t.substr(0, colon));
             std::string v = trim(t.substr(colon + 1));
             if (k == "speed" || k == "move_speed" || k == "mouse_speed") {
@@ -989,7 +1069,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (in_layers) {
             auto colon = t.find(':');
-            if (colon == std::string::npos) continue;
+            if (colon == std::string::npos)
+                continue;
 
             std::string key_part = trim(t.substr(0, colon));
             std::string val_part = trim(t.substr(colon + 1));
@@ -1020,13 +1101,16 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
-            if (config.layers.back().mappings.find(in_code) != config.layers.back().mappings.end()) {
-                err_msg = "duplicate mapping for key '" + key_part + "' in layer '" + current_layer_name + "'";
+            if (config.layers.back().mappings.find(in_code) !=
+                config.layers.back().mappings.end()) {
+                err_msg = "duplicate mapping for key '" + key_part + "' in layer '" +
+                          current_layer_name + "'";
                 return false;
             }
 
             if (val_part.empty()) {
-                err_msg = "empty mapping for key '" + key_part + "' in layer '" + current_layer_name + "'";
+                err_msg = "empty mapping for key '" + key_part + "' in layer '" +
+                          current_layer_name + "'";
                 return false;
             }
 
@@ -1044,7 +1128,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     KeyCode kc = 0;
                     bool shift = false;
                     if (!asciiToKeyStroke(ch, kc, shift)) {
-                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        err_msg =
+                            "unsupported character in text snippet: '" + std::string(1, ch) + "'";
                         return false;
                     }
                 }
@@ -1061,11 +1146,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             } else if (parseMouseAction(val_part, mouse_act, mouse_err)) {
                 LayerAction act;
                 if (mouse_act.isButton()) {
-                    KeyCode btn_code = (mouse_act.type == MouseActionType::BtnRight) ? Keys::BTN_RIGHT :
-                                       (mouse_act.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE :
-                                       (mouse_act.type == MouseActionType::BtnSide) ? Keys::BTN_SIDE :
-                                       (mouse_act.type == MouseActionType::BtnExtra) ? Keys::BTN_EXTRA :
-                                       Keys::BTN_LEFT;
+                    KeyCode btn_code =
+                        (mouse_act.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                        : (mouse_act.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                        : (mouse_act.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                        : (mouse_act.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                         : Keys::BTN_LEFT;
                     act.out_keys = {btn_code};
                 } else {
                     act.mouse = mouse_act;
@@ -1075,43 +1161,46 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 err_msg = mouse_err;
                 return false;
             } else {
-                    auto out_words = parseOutputWords(val_part);
-                    if (out_words.empty()) {
-                        err_msg = "empty list in 'outKeys' is not allowed";
+                auto out_words = parseOutputWords(val_part);
+                if (out_words.empty()) {
+                    err_msg = "empty list in 'outKeys' is not allowed";
+                    return false;
+                }
+                std::vector<KeyCode> out_codes;
+                for (const auto& w : out_words) {
+                    KeyCode code = 0;
+                    if (!wordToKeyCode(w, code, err_msg)) {
                         return false;
                     }
-                    std::vector<KeyCode> out_codes;
-                    for (const auto& w : out_words) {
-                        KeyCode code = 0;
-                        if (!wordToKeyCode(w, code, err_msg)) {
-                            return false;
-                        }
-                        out_codes.push_back(code);
-                    }
-                    LayerAction act;
-                    act.out_keys = out_codes;
-                    config.layers.back().mappings[in_code] = act;
+                    out_codes.push_back(code);
                 }
+                LayerAction act;
+                act.out_keys = out_codes;
+                config.layers.back().mappings[in_code] = act;
+            }
             continue;
         }
 
         if (in_tap_hold) {
             std::string line_content = t;
             if (line_content.rfind("- key:", 0) == 0) {
-                line_content = trim(line_content.substr(2)); // "key: ..."
-            } else if (line_content.rfind("- ", 0) == 0 && line_content.find(':') != std::string::npos) {
+                line_content = trim(line_content.substr(2));  // "key: ..."
+            } else if (line_content.rfind("- ", 0) == 0 &&
+                       line_content.find(':') != std::string::npos) {
                 line_content = trim(line_content.substr(2));
             }
 
             auto colon = line_content.find(':');
-            if (colon == std::string::npos) continue;
+            if (colon == std::string::npos)
+                continue;
 
             std::string key_part = trim(line_content.substr(0, colon));
             std::string val_part = trim(line_content.substr(colon + 1));
 
             // Check if this is a new "- key: space" list item
             if (key_part == "key") {
-                if (!flush_pending_th()) return false;
+                if (!flush_pending_th())
+                    return false;
                 KeyCode th_code = 0;
                 if (!wordToKeyCode(val_part, th_code, err_msg)) {
                     return false;
@@ -1123,7 +1212,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 continue;
             }
 
-            // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super", "layer: nav", "timeout_ms: 200")
+            // Check if this is a sub-property of pending_th (e.g. "tap: esc", "hold: super",
+            // "layer: nav", "timeout_ms: 200")
             if (has_pending_th && current_indent > pending_th_indent) {
                 if (key_part == "tap") {
                     std::string toggle_layer_name;
@@ -1136,13 +1226,15 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     } else if (val_part == "leader") {
                         pending_th.tap_leader = true;
                     } else if (isOneShotPattern(val_part)) {
-                        if (!parseOneShotTarget(val_part, pending_th.tap_one_shot_modifier, pending_th.tap_one_shot_layer, err_msg)) {
+                        if (!parseOneShotTarget(val_part, pending_th.tap_one_shot_modifier,
+                                                pending_th.tap_one_shot_layer, err_msg)) {
                             return false;
                         }
                     } else if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
                         return false;
                     }
-                } else if (key_part == "toggle_layer" || key_part == "tap_toggle_layer" || key_part == "tg") {
+                } else if (key_part == "toggle_layer" || key_part == "tap_toggle_layer" ||
+                           key_part == "tg") {
                     pending_th.tap_toggle_layer = val_part;
                 } else if (key_part == "hold") {
                     std::string dummy_err;
@@ -1174,7 +1266,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
 
             // New key under tap_hold
-            if (!flush_pending_th()) return false;
+            if (!flush_pending_th())
+                return false;
 
             KeyCode th_code = 0;
             if (!wordToKeyCode(key_part, th_code, err_msg)) {
@@ -1190,22 +1283,26 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             } else {
                 // Inline compact format: "capslock: [esc, super]" or "space: [space, nav, 200]"
                 std::string clean_val = val_part;
-                if (clean_val.front() == '[') clean_val = clean_val.substr(1);
-                if (!clean_val.empty() && clean_val.back() == ']') clean_val.pop_back();
+                if (clean_val.front() == '[')
+                    clean_val = clean_val.substr(1);
+                if (!clean_val.empty() && clean_val.back() == ']')
+                    clean_val.pop_back();
 
                 std::vector<std::string> parts;
                 if (clean_val.find(',') != std::string::npos) {
                     auto raw_parts = split(clean_val, ',');
                     for (const auto& p : raw_parts) {
                         std::string w = trim(p);
-                        if (!w.empty()) parts.push_back(w);
+                        if (!w.empty())
+                            parts.push_back(w);
                     }
                 } else {
                     parts = fields(clean_val);
                 }
 
                 if (parts.size() < 2) {
-                    err_msg = "tap_hold for key '" + key_part + "' requires at least tap and hold keys";
+                    err_msg =
+                        "tap_hold for key '" + key_part + "' requires at least tap and hold keys";
                     return false;
                 }
 
@@ -1222,7 +1319,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 } else if (parts[0] == "leader") {
                     thk.tap_leader = true;
                 } else if (isOneShotPattern(parts[0])) {
-                    if (!parseOneShotTarget(parts[0], thk.tap_one_shot_modifier, thk.tap_one_shot_layer, err_msg)) {
+                    if (!parseOneShotTarget(parts[0], thk.tap_one_shot_modifier,
+                                            thk.tap_one_shot_layer, err_msg)) {
                         return false;
                     }
                 } else if (!wordToKeyCode(parts[0], thk.tap_key, err_msg)) {
@@ -1261,20 +1359,23 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (in_one_shot) {
             std::string line_content = t;
             if (line_content.rfind("- key:", 0) == 0) {
-                line_content = trim(line_content.substr(2)); // "key: ..."
-            } else if (line_content.rfind("- ", 0) == 0 && line_content.find(':') != std::string::npos) {
+                line_content = trim(line_content.substr(2));  // "key: ..."
+            } else if (line_content.rfind("- ", 0) == 0 &&
+                       line_content.find(':') != std::string::npos) {
                 line_content = trim(line_content.substr(2));
             }
 
             auto colon = line_content.find(':');
-            if (colon == std::string::npos) continue;
+            if (colon == std::string::npos)
+                continue;
 
             std::string key_part = trim(line_content.substr(0, colon));
             std::string val_part = trim(line_content.substr(colon + 1));
 
             // Check if this is a new "- key: space" list item
             if (key_part == "key") {
-                if (!flush_pending_os()) return false;
+                if (!flush_pending_os())
+                    return false;
                 KeyCode os_code = 0;
                 if (!wordToKeyCode(val_part, os_code, err_msg)) {
                     return false;
@@ -1286,7 +1387,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 continue;
             }
 
-            // Check if this is a sub-property of pending_os (e.g. "modifier: shift", "layer: nav", "timeout_ms: 1500")
+            // Check if this is a sub-property of pending_os (e.g. "modifier: shift", "layer: nav",
+            // "timeout_ms: 1500")
             if (has_pending_os && current_indent > pending_os_indent) {
                 if (key_part == "modifier" || key_part == "mod") {
                     if (!wordToKeyCode(val_part, pending_os.modifier, err_msg)) {
@@ -1318,7 +1420,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
 
             // New key under one_shot
-            if (!flush_pending_os()) return false;
+            if (!flush_pending_os())
+                return false;
 
             KeyCode os_code = 0;
             if (!wordToKeyCode(key_part, os_code, err_msg)) {
@@ -1332,17 +1435,21 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 pending_os.key = os_code;
                 pending_os.timeout_us = 1500000LL;
             } else {
-                // Inline compact format: "leftshift: 1500", "space: [nav, 1500]", "capslock: [shift, 1500]"
+                // Inline compact format: "leftshift: 1500", "space: [nav, 1500]", "capslock:
+                // [shift, 1500]"
                 std::string clean_val = val_part;
-                if (clean_val.front() == '[') clean_val = clean_val.substr(1);
-                if (!clean_val.empty() && clean_val.back() == ']') clean_val.pop_back();
+                if (clean_val.front() == '[')
+                    clean_val = clean_val.substr(1);
+                if (!clean_val.empty() && clean_val.back() == ']')
+                    clean_val.pop_back();
 
                 std::vector<std::string> parts;
                 if (clean_val.find(',') != std::string::npos) {
                     auto raw_parts = split(clean_val, ',');
                     for (const auto& p : raw_parts) {
                         std::string w = trim(p);
-                        if (!w.empty()) parts.push_back(w);
+                        if (!w.empty())
+                            parts.push_back(w);
                     }
                 } else {
                     parts = fields(clean_val);
@@ -1366,7 +1473,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     } catch (...) {
                         std::string dummy_err;
                         KeyCode parsed_mod = 0;
-                        if (wordToKeyCode(parts[0], parsed_mod, dummy_err) && isModifier(parsed_mod)) {
+                        if (wordToKeyCode(parts[0], parsed_mod, dummy_err) &&
+                            isModifier(parsed_mod)) {
                             osk.modifier = parsed_mod;
                         } else {
                             osk.layer = parts[0];
@@ -1408,26 +1516,32 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
         if (in_leader) {
             if (in_leader_sequences) {
-                if (current_indent <= leader_sequences_indent && t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
-                    if (!flush_pending_lseq()) return false;
+                if (current_indent <= leader_sequences_indent && t.find(':') != std::string::npos &&
+                    t.rfind("-", 0) != 0) {
+                    if (!flush_pending_lseq())
+                        return false;
                     in_leader_sequences = false;
                 }
             }
 
             if (!in_leader_sequences) {
                 auto colon = t.find(':');
-                if (colon == std::string::npos) continue;
+                if (colon == std::string::npos)
+                    continue;
                 std::string prop = trim(t.substr(0, colon));
                 std::string val = trim(t.substr(colon + 1));
 
                 if (prop == "key") {
-                    if (!flush_pending_lseq()) return false;
+                    if (!flush_pending_lseq())
+                        return false;
                     KeyCode k = 0;
-                    if (!wordToKeyCode(val, k, err_msg)) return false;
+                    if (!wordToKeyCode(val, k, err_msg))
+                        return false;
                     config.leader.key = k;
                     continue;
                 } else if (prop == "timeout_ms" || prop == "timeout") {
-                    if (!flush_pending_lseq()) return false;
+                    if (!flush_pending_lseq())
+                        return false;
                     try {
                         long long v = std::stoll(val);
                         if (v <= 0) {
@@ -1441,7 +1555,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                     continue;
                 } else if (prop == "sequences") {
-                    if (!flush_pending_lseq()) return false;
+                    if (!flush_pending_lseq())
+                        return false;
                     in_leader_sequences = true;
                     leader_sequences_indent = current_indent;
                     continue;
@@ -1463,28 +1578,36 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             bool in_squote = false;
             for (size_t i = 0; i < line_content.size(); ++i) {
                 char c = line_content[i];
-                if (c == '"' && !in_squote) in_dquote = !in_dquote;
-                else if (c == '\'' && !in_dquote) in_squote = !in_squote;
+                if (c == '"' && !in_squote)
+                    in_dquote = !in_dquote;
+                else if (c == '\'' && !in_dquote)
+                    in_squote = !in_squote;
                 else if (c == ':' && !in_dquote && !in_squote) {
                     colon = i;
                     break;
                 }
             }
 
-            if (colon == std::string::npos) continue;
+            if (colon == std::string::npos)
+                continue;
 
             std::string key_part = trim(line_content.substr(0, colon));
             std::string val_part = trim(line_content.substr(colon + 1));
 
-            auto parse_seq_keys = [&](const std::string& str, std::vector<KeyCode>& out_keys) -> bool {
+            auto parse_seq_keys = [&](const std::string& str,
+                                      std::vector<KeyCode>& out_keys) -> bool {
                 std::string s = trim(str);
-                if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+                if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') ||
+                                      (s.front() == '\'' && s.back() == '\''))) {
                     s = trim(s.substr(1, s.size() - 2));
                 }
                 if (!s.empty() && s.front() == '[') {
-                    if (s.back() == ']') s.pop_back();
+                    if (s.back() == ']')
+                        s.pop_back();
                     s = s.substr(1);
-                    for (char& ch : s) if (ch == ',') ch = ' ';
+                    for (char& ch : s)
+                        if (ch == ',')
+                            ch = ' ';
                 }
                 auto key_tokens = fields(s);
                 if (key_tokens.empty()) {
@@ -1493,7 +1616,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
                 for (const auto& kt : key_tokens) {
                     KeyCode kc = 0;
-                    if (!wordToKeyCode(kt, kc, err_msg)) return false;
+                    if (!wordToKeyCode(kt, kc, err_msg))
+                        return false;
                     out_keys.push_back(kc);
                 }
                 return true;
@@ -1504,7 +1628,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     pending_lseq.toggle_layer = val_part;
                 } else if (key_part == "text" || key_part == "type") {
                     pending_lseq.text = unquoteAndUnescape(val_part);
-                } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out" || key_part == "action") {
+                } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out" ||
+                           key_part == "action") {
                     std::string toggle_layer_name;
                     std::string toggle_err;
                     MouseAction mouse_act;
@@ -1523,7 +1648,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         auto words = parseOutputWords(val_part);
                         for (const auto& w : words) {
                             KeyCode kc = 0;
-                            if (!wordToKeyCode(w, kc, err_msg)) return false;
+                            if (!wordToKeyCode(w, kc, err_msg))
+                                return false;
                             pending_lseq.out_keys.push_back(kc);
                         }
                     }
@@ -1535,19 +1661,23 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
 
             if (is_list_item && (key_part == "keys" || key_part == "seq" || key_part == "in")) {
-                if (!flush_pending_lseq()) return false;
+                if (!flush_pending_lseq())
+                    return false;
                 std::vector<KeyCode> sk;
-                if (!parse_seq_keys(val_part, sk)) return false;
+                if (!parse_seq_keys(val_part, sk))
+                    return false;
                 pending_lseq.keys = sk;
                 has_pending_lseq = true;
                 pending_lseq_indent = current_indent;
                 continue;
             }
 
-            if (!flush_pending_lseq()) return false;
+            if (!flush_pending_lseq())
+                return false;
 
             LeaderSequence seq;
-            if (!parse_seq_keys(key_part, seq.keys)) return false;
+            if (!parse_seq_keys(key_part, seq.keys))
+                return false;
 
             if (val_part.empty()) {
                 err_msg = "leader sequence '" + key_part + "' requires an action";
@@ -1575,7 +1705,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 auto words = parseOutputWords(val_part);
                 for (const auto& w : words) {
                     KeyCode kc = 0;
-                    if (!wordToKeyCode(w, kc, err_msg)) return false;
+                    if (!wordToKeyCode(w, kc, err_msg))
+                        return false;
                     seq.out_keys.push_back(kc);
                 }
             }
@@ -1612,9 +1743,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             std::string val_part = trim(t.substr(colon + 1));
 
             if (key_part == "enabled") {
-                if (val_part == "true" || val_part == "yes" || val_part == "on" || val_part == "1") {
+                if (val_part == "true" || val_part == "yes" || val_part == "on" ||
+                    val_part == "1") {
                     config.auto_shift.enabled = true;
-                } else if (val_part == "false" || val_part == "no" || val_part == "off" || val_part == "0") {
+                } else if (val_part == "false" || val_part == "no" || val_part == "off" ||
+                           val_part == "0") {
                     config.auto_shift.enabled = false;
                 } else {
                     err_msg = "invalid boolean for auto_shift enabled: " + val_part;
@@ -1639,9 +1772,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 } else {
                     std::string vp = val_part;
                     if (!vp.empty() && vp.front() == '[') {
-                        if (vp.back() == ']') vp.pop_back();
+                        if (vp.back() == ']')
+                            vp.pop_back();
                         vp = vp.substr(1);
-                        for (char& ch : vp) if (ch == ',') ch = ' ';
+                        for (char& ch : vp)
+                            if (ch == ',')
+                                ch = ' ';
                     }
                     auto tokens = fields(vp);
                     for (const auto& tok : tokens) {
@@ -1657,21 +1793,25 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
         }
 
-        if (!in_combos) continue;
+        if (!in_combos)
+            continue;
 
         // 1. Classic verbose format
         if (t.find("- keys:") != std::string::npos || t.find("- in:") != std::string::npos) {
-            if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer) {
+            if (!current_keys.empty() && current_outkeys.empty() && !has_text &&
+                !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
             auto colon = t.find(':');
             current_keys = trim(t.substr(colon + 1));
             if (!current_keys.empty() && current_keys.front() == '[') {
-                if (current_keys.back() == ']') current_keys.pop_back();
+                if (current_keys.back() == ']')
+                    current_keys.pop_back();
                 current_keys = current_keys.substr(1);
                 for (char& ch : current_keys) {
-                    if (ch == ',') ch = ' ';
+                    if (ch == ',')
+                        ch = ' ';
                 }
                 current_keys = trim(current_keys);
             }
@@ -1681,8 +1821,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_text = false;
             has_toggle_layer = false;
             continue;
-        } else if (t.find("- outKeys:") != std::string::npos || t.find("- out:") != std::string::npos) {
-            if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer) {
+        } else if (t.find("- outKeys:") != std::string::npos ||
+                   t.find("- out:") != std::string::npos) {
+            if (!current_keys.empty() && current_outkeys.empty() && !has_text &&
+                !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
                 return false;
             }
@@ -1753,7 +1895,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 auto raw_parts = split(current_keys, '+');
                 for (const auto& p : raw_parts) {
                     std::string word = trim(p);
-                    if (!word.empty()) chord_words.push_back(word);
+                    if (!word.empty())
+                        chord_words.push_back(word);
                 }
                 if (chord_words.size() < 2) {
                     err_msg = "symmetric combos with '+' require at least two keys";
@@ -1789,7 +1932,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     KeyCode kc = 0;
                     bool shift = false;
                     if (!asciiToKeyStroke(ch, kc, shift)) {
-                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        err_msg =
+                            "unsupported character in text snippet: '" + std::string(1, ch) + "'";
                         return false;
                     }
                 }
@@ -1883,7 +2027,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 auto raw_parts = split(key_part, '+');
                 for (const auto& p : raw_parts) {
                     std::string word = trim(p);
-                    if (!word.empty()) chord_words.push_back(word);
+                    if (!word.empty())
+                        chord_words.push_back(word);
                 }
                 if (chord_words.size() < 2) {
                     err_msg = "symmetric combos with '+' require at least two keys";
@@ -1933,7 +2078,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
             std::string toggle_layer_name;
             std::string toggle_err;
-            bool toggle_mode = !snippet_mode && parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err);
+            bool toggle_mode =
+                !snippet_mode && parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err);
             if (!toggle_err.empty()) {
                 err_msg = toggle_err;
                 return false;
@@ -1941,7 +2087,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
             MouseAction mouse_act;
             std::string mouse_err;
-            bool mouse_mode = !snippet_mode && !toggle_mode && parseMouseAction(val_part, mouse_act, mouse_err);
+            bool mouse_mode =
+                !snippet_mode && !toggle_mode && parseMouseAction(val_part, mouse_act, mouse_err);
             if (!mouse_err.empty()) {
                 err_msg = mouse_err;
                 return false;
@@ -1955,7 +2102,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     KeyCode kc = 0;
                     bool shift = false;
                     if (!asciiToKeyStroke(ch, kc, shift)) {
-                        err_msg = "unsupported character in text snippet: '" + std::string(1, ch) + "'";
+                        err_msg =
+                            "unsupported character in text snippet: '" + std::string(1, ch) + "'";
                         return false;
                     }
                 }
@@ -1986,7 +2134,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 for (KeyCode lk : leader_codes) {
                     for (KeyCode ck : chord_codes) {
                         if (lk == ck) {
-                            err_msg = "chord key '" + keyCodeToWord(ck) + "' conflicts with leader key";
+                            err_msg =
+                                "chord key '" + keyCodeToWord(ck) + "' conflicts with leader key";
                             return false;
                         }
                     }
@@ -2026,16 +2175,22 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
     }
 
-    if (!flush_pending_th()) return false;
-    if (!flush_pending_os()) return false;
-    if (!flush_pending_lseq()) return false;
+    if (!flush_pending_th())
+        return false;
+    if (!flush_pending_os())
+        return false;
+    if (!flush_pending_lseq())
+        return false;
 
-    if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer && !has_mouse) {
+    if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer &&
+        !has_mouse) {
         err_msg = "empty list in 'outKeys' is not allowed";
         return false;
     }
 
-    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag && !has_leader_tag && !has_auto_shift_tag && !has_mouse_tag && !has_settings_tag && !yaml_str.empty()) {
+    if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag &&
+        !has_leader_tag && !has_auto_shift_tag && !has_mouse_tag && !has_settings_tag &&
+        !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
@@ -2076,18 +2231,21 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
             if (!found_layer) {
-                err_msg = "unknown layer '" + th.tap_toggle_layer + "' referenced in tap_hold toggle_layer";
+                err_msg = "unknown layer '" + th.tap_toggle_layer +
+                          "' referenced in tap_hold toggle_layer";
                 return false;
             }
         }
         if (th.tap_one_shot_modifier != 0 && !isModifier(th.tap_one_shot_modifier)) {
-            err_msg = "invalid modifier key '" + keyCodeToWord(th.tap_one_shot_modifier) + "' in tap_hold osm";
+            err_msg = "invalid modifier key '" + keyCodeToWord(th.tap_one_shot_modifier) +
+                      "' in tap_hold osm";
             return false;
         }
         for (const auto& combo : config.combos) {
             for (KeyCode k : combo.keys) {
                 if (k == th.key) {
-                    err_msg = "key '" + keyCodeToWord(th.key) + "' cannot be used in both combos and tap_hold";
+                    err_msg = "key '" + keyCodeToWord(th.key) +
+                              "' cannot be used in both combos and tap_hold";
                     return false;
                 }
             }
@@ -2104,7 +2262,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
             if (!found_layer) {
-                err_msg = "unknown layer '" + combo.toggle_layer + "' referenced in combo toggle_layer";
+                err_msg =
+                    "unknown layer '" + combo.toggle_layer + "' referenced in combo toggle_layer";
                 return false;
             }
         }
@@ -2121,7 +2280,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                 }
                 if (!found_layer) {
-                    err_msg = "unknown layer '" + kv.second.toggle_layer + "' referenced in layer '" + lyr.name + "' toggle_layer";
+                    err_msg = "unknown layer '" + kv.second.toggle_layer +
+                              "' referenced in layer '" + lyr.name + "' toggle_layer";
                     return false;
                 }
             }
@@ -2154,14 +2314,16 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         seen_one_shot.push_back(osk.key);
         for (const auto& th : config.tap_hold_keys) {
             if (th.key == osk.key) {
-                err_msg = "key '" + keyCodeToWord(osk.key) + "' cannot be used in both tap_hold and one_shot";
+                err_msg = "key '" + keyCodeToWord(osk.key) +
+                          "' cannot be used in both tap_hold and one_shot";
                 return false;
             }
         }
         for (const auto& combo : config.combos) {
             for (KeyCode k : combo.keys) {
                 if (k == osk.key) {
-                    err_msg = "key '" + keyCodeToWord(osk.key) + "' cannot be used in both combos and one_shot";
+                    err_msg = "key '" + keyCodeToWord(osk.key) +
+                              "' cannot be used in both combos and one_shot";
                     return false;
                 }
             }
@@ -2198,7 +2360,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                 }
                 if (!found_layer) {
-                    err_msg = "unknown layer '" + seq.toggle_layer + "' referenced in leader toggle_layer";
+                    err_msg = "unknown layer '" + seq.toggle_layer +
+                              "' referenced in leader toggle_layer";
                     return false;
                 }
             }
@@ -2207,7 +2370,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     KeyCode kc = 0;
                     bool shift = false;
                     if (!asciiToKeyStroke(ch, kc, shift)) {
-                        err_msg = "unsupported character in leader text snippet: '" + std::string(1, ch) + "'";
+                        err_msg = "unsupported character in leader text snippet: '" +
+                                  std::string(1, ch) + "'";
                         return false;
                     }
                 }
@@ -2235,7 +2399,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             for (const auto& combo : config.combos) {
                 for (KeyCode k : combo.keys) {
                     if (k == config.leader.key) {
-                        err_msg = "key '" + keyCodeToWord(config.leader.key) + "' cannot be used in both combos and leader";
+                        err_msg = "key '" + keyCodeToWord(config.leader.key) +
+                                  "' cannot be used in both combos and leader";
                         return false;
                     }
                 }
@@ -2275,4 +2440,4 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
     return true;
 }
 
-} // namespace tff
+}  // namespace tff

@@ -28,7 +28,8 @@ std::string getUdevRuleContent() {
            "# to access keyboard devices and virtual input injection without sudo/root.\n"
            "\n"
            "# /dev/uinput: virtual keyboard and mouse event emission\n"
-           "KERNEL==\"uinput\", SUBSYSTEM==\"misc\", TAG+=\"uaccess\", OPTIONS+=\"static_node=uinput\", MODE=\"0660\", GROUP=\"input\"\n"
+           "KERNEL==\"uinput\", SUBSYSTEM==\"misc\", TAG+=\"uaccess\", "
+           "OPTIONS+=\"static_node=uinput\", MODE=\"0660\", GROUP=\"input\"\n"
            "\n"
            "# /dev/input/event*: physical keyboard event grabbing\n"
            "KERNEL==\"event*\", SUBSYSTEM==\"input\", MODE=\"0660\", GROUP=\"input\"\n";
@@ -84,8 +85,10 @@ PermissionCheckResult checkPermissions(const std::string& rule_path) {
             getgrouplist(res.username.c_str(), res.gid, nullptr, &n_conf);
             if (n_conf > 0) {
                 std::vector<gid_t> conf_groups(static_cast<size_t>(n_conf));
-                if (getgrouplist(res.username.c_str(), res.gid, conf_groups.data(), &n_conf) != -1) {
-                    if (std::find(conf_groups.begin(), conf_groups.end(), input_gid) != conf_groups.end()) {
+                if (getgrouplist(res.username.c_str(), res.gid, conf_groups.data(), &n_conf) !=
+                    -1) {
+                    if (std::find(conf_groups.begin(), conf_groups.end(), input_gid) !=
+                        conf_groups.end()) {
                         res.in_input_group_configured = true;
                     }
                 }
@@ -165,15 +168,18 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
     std::ostringstream oss;
 
     auto tag_ok = [&](const std::string& text) {
-        if (opts.color) return "\033[1;32m[OK]\033[0m " + text;
+        if (opts.color)
+            return "\033[1;32m[OK]\033[0m " + text;
         return "[OK] " + text;
     };
     auto tag_missing = [&](const std::string& text) {
-        if (opts.color) return "\033[1;31m[MISSING]\033[0m " + text;
+        if (opts.color)
+            return "\033[1;31m[MISSING]\033[0m " + text;
         return "[MISSING] " + text;
     };
     auto tag_warn = [&](const std::string& text) {
-        if (opts.color) return "\033[1;33m[WARNING]\033[0m " + text;
+        if (opts.color)
+            return "\033[1;33m[WARNING]\033[0m " + text;
         return "[WARNING] " + text;
     };
 
@@ -181,7 +187,8 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
     oss << "========================================================\n\n";
 
     // 1. User info
-    oss << "Current User:      " << res.username << " (UID: " << res.uid << ", GID: " << res.gid << ")";
+    oss << "Current User:      " << res.username << " (UID: " << res.uid << ", GID: " << res.gid
+        << ")";
     if (res.is_root && !res.sudo_user.empty()) {
         oss << " [invoked via sudo by '" << res.sudo_user << "']";
     }
@@ -202,7 +209,8 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
     // 3. /dev/uinput status
     oss << "/dev/uinput:       ";
     if (!res.uinput_exists) {
-        oss << tag_missing("Device node does not exist (kernel module 'uinput' not loaded)") << "\n";
+        oss << tag_missing("Device node does not exist (kernel module 'uinput' not loaded)")
+            << "\n";
     } else if (res.uinput_readable && res.uinput_writable) {
         oss << tag_ok("Accessible (read/write)") << "\n";
     } else {
@@ -214,12 +222,16 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
     if (res.event_devices_total == 0) {
         oss << tag_warn("No /dev/input/event* devices currently found") << "\n";
     } else if (res.event_devices_accessible == res.event_devices_total) {
-        oss << tag_ok("All " + std::to_string(res.event_devices_total) + " device(s) accessible") << "\n";
+        oss << tag_ok("All " + std::to_string(res.event_devices_total) + " device(s) accessible")
+            << "\n";
     } else if (res.event_devices_accessible > 0) {
         oss << tag_warn(std::to_string(res.event_devices_accessible) + " of " +
-                        std::to_string(res.event_devices_total) + " device(s) accessible") << "\n";
+                        std::to_string(res.event_devices_total) + " device(s) accessible")
+            << "\n";
     } else {
-        oss << tag_missing("0 of " + std::to_string(res.event_devices_total) + " device(s) accessible") << "\n";
+        oss << tag_missing("0 of " + std::to_string(res.event_devices_total) +
+                           " device(s) accessible")
+            << "\n";
     }
 
     // 5. udev rule status
@@ -300,7 +312,8 @@ bool installUdevRule(const SetupUdevOptions& opts, std::string& err_msg) {
         std::error_code ec;
         std::filesystem::create_directories(rule_p.parent_path(), ec);
         if (ec) {
-            err_msg = "Failed to create directory " + rule_p.parent_path().string() + ": " + ec.message();
+            err_msg =
+                "Failed to create directory " + rule_p.parent_path().string() + ": " + ec.message();
             return false;
         }
     }
@@ -334,7 +347,7 @@ bool installUdevRule(const SetupUdevOptions& opts, std::string& err_msg) {
     return true;
 }
 
-} // namespace udev
-} // namespace tff
+}  // namespace udev
+}  // namespace tff
 
-#endif // !defined(PICO_BUILD)
+#endif  // !defined(PICO_BUILD)

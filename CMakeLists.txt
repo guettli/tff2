@@ -278,4 +278,26 @@ if(NOT PICO_BUILD)
             COMMENT "Running Cppcheck static code analysis..."
         )
     endif()
+
+    # Code formatting with clang-format
+    find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format PATHS "$ENV{HOME}/.local/bin" /usr/bin /usr/local/bin)
+    if(CLANG_FORMAT_EXECUTABLE)
+        file(GLOB_RECURSE CXX_FORMAT_FILES
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp
+        )
+        add_custom_target(format
+            COMMAND ${CLANG_FORMAT_EXECUTABLE} -i ${CXX_FORMAT_FILES}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Formatting all C/C++ source code with clang-format..."
+        )
+        add_custom_target(format-check
+            COMMAND ${CLANG_FORMAT_EXECUTABLE} --dry-run --Werror ${CXX_FORMAT_FILES}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Checking code formatting with clang-format..."
+        )
+    endif()
 endif() # NOT PICO_BUILD

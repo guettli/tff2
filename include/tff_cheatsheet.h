@@ -9,7 +9,7 @@ namespace tff {
 
 struct CheatsheetOptions {
     bool color = true;      // Use ANSI escape colors
-    bool markdown = false;   // Render as GitHub-flavored Markdown
+    bool markdown = false;  // Render as GitHub-flavored Markdown
 };
 
 class Cheatsheet {
@@ -26,6 +26,6 @@ public:
     static std::string formatKey(KeyCode code);
 };
 
-} // namespace tff
+}  // namespace tff
 
-#endif // TFF_CHEATSHEET_H
+#endif  // TFF_CHEATSHEET_H

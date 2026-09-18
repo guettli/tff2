@@ -15,12 +15,16 @@ static void test_empty_config() {
 
     std::string out = Cheatsheet::generate(config, opts);
     assert(out.find("TEN FLYING FINGERS — CHEAT SHEET") != std::string::npos);
-    assert(out.find("(No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)") != std::string::npos);
+    assert(
+        out.find("(No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)") !=
+        std::string::npos);
 
     opts.markdown = true;
     std::string md = Cheatsheet::generate(config, opts);
     assert(md.find("# Ten Flying Fingers — Cheat Sheet") != std::string::npos);
-    assert(md.find("_No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured._") != std::string::npos);
+    assert(
+        md.find("_No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured._") !=
+        std::string::npos);
 
     std::cout << "test_empty_config: PASSED\n";
 }
@@ -67,7 +71,7 @@ static void test_terminal_cheatsheet_with_and_without_colors() {
     opts_plain.color = false;
     std::string plain = Cheatsheet::generate(config, opts_plain);
 
-    assert(plain.find("\033[") == std::string::npos); // No ANSI escape codes
+    assert(plain.find("\033[") == std::string::npos);  // No ANSI escape codes
     assert(plain.find("capslock") != std::string::npos);
     assert(plain.find("esc") != std::string::npos);
     assert(plain.find("super") != std::string::npos);
@@ -87,7 +91,7 @@ static void test_terminal_cheatsheet_with_and_without_colors() {
     CheatsheetOptions opts_col;
     opts_col.color = true;
     std::string colored = Cheatsheet::generate(config, opts_col);
-    assert(colored.find("\033[") != std::string::npos); // Has ANSI escape codes
+    assert(colored.find("\033[") != std::string::npos);  // Has ANSI escape codes
     assert(colored.find("capslock") != std::string::npos);
     assert(colored.find("[ One-Shot / Sticky Keys (OSM / OSL) ]") != std::string::npos);
 
@@ -124,7 +128,7 @@ static void test_markdown_cheatsheet() {
 
     Combo c2;
     c2.keys = {Keys::KEY_F, Keys::KEY_N};
-    c2.text = "hello | world"; // contains pipe to test escaping
+    c2.text = "hello | world";  // contains pipe to test escaping
     config.combos.push_back(c2);
 
     Layer nav;
@@ -143,10 +147,11 @@ static void test_markdown_cheatsheet() {
     assert(md.find("| `capslock` | `esc` | `super` | 200ms |") != std::string::npos);
     assert(md.find("| `space` | `space` | Layer: `nav` | 180ms |") != std::string::npos);
     assert(md.find("## One-Shot / Sticky Keys (OSM & OSL)") != std::string::npos);
-    assert(md.find("| `shift` | `shift` | One-Shot Modifier (OSM) | 1500ms |") != std::string::npos);
+    assert(md.find("| `shift` | `shift` | One-Shot Modifier (OSM) | 1500ms |") !=
+           std::string::npos);
     assert(md.find("## Home Row Combos & Chords") != std::string::npos);
     assert(md.find("| `j f` | `backspace` | Single Key |") != std::string::npos);
-    assert(md.find("hello \\| world") != std::string::npos); // escaped pipe
+    assert(md.find("hello \\| world") != std::string::npos);  // escaped pipe
     assert(md.find("## Modal Keyboard Layers") != std::string::npos);
     assert(md.find("### Layer: `nav`") != std::string::npos);
     assert(md.find("| `h` | `left` | Single Key |") != std::string::npos);

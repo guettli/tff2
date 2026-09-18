@@ -59,7 +59,8 @@ std::string getUdevRuleContent();
 std::string getModulesLoadContent();
 
 // Inspects current system permissions and device status
-PermissionCheckResult checkPermissions(const std::string& rule_path = "/etc/udev/rules.d/99-tff.rules");
+PermissionCheckResult checkPermissions(
+    const std::string& rule_path = "/etc/udev/rules.d/99-tff.rules");
 
 // Formats a human-readable diagnostic report
 std::string formatDiagnosticReport(const PermissionCheckResult& res, const SetupUdevOptions& opts);
@@ -67,12 +68,13 @@ std::string formatDiagnosticReport(const PermissionCheckResult& res, const Setup
 // Installs udev rule and modules-load file. Returns true on success, false on error with message.
 bool installUdevRule(const SetupUdevOptions& opts, std::string& err_msg);
 
-// Triggers udevadm reload and uinput modprobe. Returns true on success, false on error with message.
+// Triggers udevadm reload and uinput modprobe. Returns true on success, false on error with
+// message.
 bool reloadUdevRules(std::string& err_msg);
 
-} // namespace udev
-} // namespace tff
+}  // namespace udev
+}  // namespace tff
 
-#endif // !defined(PICO_BUILD)
+#endif  // !defined(PICO_BUILD)
 
-#endif // TFF_UDEV_H
+#endif  // TFF_UDEV_H

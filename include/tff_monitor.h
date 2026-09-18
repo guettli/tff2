@@ -13,10 +13,10 @@ namespace tff {
  * @brief Options for formatting live monitor events
  */
 struct MonitorOptions {
-    bool color = true;              ///< Enable ANSI terminal colors
-    bool show_deltas = true;        ///< Show (+Xms) timing deltas between events
-    bool show_emitted = true;       ///< Show emitted virtual keys and macros
-    int64_t max_delta_ms = 99999;   ///< Maximum delta to display before clamping
+    bool color = true;             ///< Enable ANSI terminal colors
+    bool show_deltas = true;       ///< Show (+Xms) timing deltas between events
+    bool show_emitted = true;      ///< Show emitted virtual keys and macros
+    int64_t max_delta_ms = 99999;  ///< Maximum delta to display before clamping
 };
 
 /**
@@ -85,6 +85,6 @@ private:
     std::vector<TraceEvent> pending_traces_;
 };
 
-} // namespace tff
+}  // namespace tff
 
-#endif // TFF_MONITOR_H
+#endif  // TFF_MONITOR_H

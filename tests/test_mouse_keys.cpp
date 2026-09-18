@@ -15,13 +15,9 @@ class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 
     std::vector<Event> keyEvents() const {
         std::vector<Event> result;
@@ -44,7 +40,7 @@ public:
     }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 static void test_mouse_action_parsing() {
     MouseAction act;
@@ -324,7 +320,7 @@ static void test_modal_layer_home_row_mouse_keys() {
 
     // 1. Hold Space to activate mouse layer (fast chord with H)
     engine.processEvent(Event{TimeVal{1, 0}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    assert(engine.getActiveLayers().empty()); // buffered
+    assert(engine.getActiveLayers().empty());  // buffered
 
     // Press H -> permissive hold activates mouse layer, H emits MoveLeft
     engine.processEvent(Event{TimeVal{1, 50000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
@@ -576,8 +572,10 @@ combos:
     assert(lyr.mappings.at(Keys::KEY_J).mouse.delta == 25);
     assert(lyr.mappings.at(Keys::KEY_U).mouse.type == MouseActionType::WheelUp);
     assert(lyr.mappings.at(Keys::KEY_D).mouse.delta == 2);
-    assert(lyr.mappings.at(Keys::KEY_F).out_keys.size() == 1 && lyr.mappings.at(Keys::KEY_F).out_keys[0] == Keys::BTN_LEFT);
-    assert(lyr.mappings.at(Keys::KEY_S).out_keys.size() == 1 && lyr.mappings.at(Keys::KEY_S).out_keys[0] == Keys::BTN_RIGHT);
+    assert(lyr.mappings.at(Keys::KEY_F).out_keys.size() == 1 &&
+           lyr.mappings.at(Keys::KEY_F).out_keys[0] == Keys::BTN_LEFT);
+    assert(lyr.mappings.at(Keys::KEY_S).out_keys.size() == 1 &&
+           lyr.mappings.at(Keys::KEY_S).out_keys[0] == Keys::BTN_RIGHT);
 
     // Combos
     // d+f symmetric -> 2 combos
@@ -585,7 +583,8 @@ combos:
     // f g classic -> 1 combo
     assert(config.combos.size() == 5);
     assert(config.combos[0].mouse.type == MouseActionType::BtnLeft);
-    assert(config.combos[2].mouse.type == MouseActionType::MoveUp && config.combos[2].mouse.delta == 30);
+    assert(config.combos[2].mouse.type == MouseActionType::MoveUp &&
+           config.combos[2].mouse.delta == 30);
     assert(config.combos[4].mouse.type == MouseActionType::MoveDown);
 
     std::cout << "test_yaml_parser_mouse_keys: PASSED\n";

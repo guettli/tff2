@@ -118,7 +118,8 @@ public:
     const tff::Settings& getSettings() const { return settings_; }
 
     /**
-     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader, auto-shift, mouse, settings)
+     * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader,
+     * auto-shift, mouse, settings)
      */
     void setConfig(const tff::Config& config);
 
@@ -206,7 +207,9 @@ public:
      * @param options Monitor formatting and display options
      * @param out Output stream to write monitor log to (defaults to std::cout)
      */
-    void runMonitor(std::atomic<bool>& should_stop, const tff::MonitorOptions& options = tff::MonitorOptions{}, std::ostream& out = std::cout);
+    void runMonitor(std::atomic<bool>& should_stop,
+                    const tff::MonitorOptions& options = tff::MonitorOptions{},
+                    std::ostream& out = std::cout);
 
     /**
      * @brief Process a single event through the platform
@@ -280,4 +283,4 @@ private:
     void processInotifyEvents();
 };
 
-#endif // LINUX_PLATFORM_H
+#endif  // LINUX_PLATFORM_H

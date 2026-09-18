@@ -25,7 +25,7 @@ tap_hold:
   capslock: [esc, super, 200]
 )";
 
-} // anonymous namespace
+}  // anonymous namespace
 
 class RP2040Platform::RP2040EventWriter : public tff::EventWriter {
 public:
@@ -88,8 +88,7 @@ RP2040Platform::RP2040Platform()
       engine_(nullptr),
       initialized_(false),
       running_(false),
-      test_timestamp_ms_(0) {
-}
+      test_timestamp_ms_(0) {}
 
 RP2040Platform::~RP2040Platform() {
     cleanup();
@@ -109,7 +108,8 @@ bool RP2040Platform::initialize() {
         config_.one_shot_keys.empty() && config_.leader.sequences.empty()) {
         std::string err_msg;
         if (!tff::loadYamlConfig(DEFAULT_YAML_CONFIG, config_, err_msg)) {
-            std::fprintf(stderr, "RP2040Platform: Failed to load default config: %s\n", err_msg.c_str());
+            std::fprintf(stderr, "RP2040Platform: Failed to load default config: %s\n",
+                         err_msg.c_str());
         }
     }
 
@@ -131,11 +131,15 @@ bool RP2040Platform::initialize() {
         return false;
     }
 
-    printf("RP2040Platform initialized successfully with TFFEngine (%zu combos, %zu tap-hold, %zu layers)\n",
-           config_.combos.size(), config_.tap_hold_keys.size(), config_.layers.size());
+    printf(
+        "RP2040Platform initialized successfully with TFFEngine (%zu combos, %zu tap-hold, %zu "
+        "layers)\n",
+        config_.combos.size(), config_.tap_hold_keys.size(), config_.layers.size());
 #else
-    printf("RP2040Platform initialized for testing with TFFEngine (%zu combos, %zu tap-hold, %zu layers)\n",
-           config_.combos.size(), config_.tap_hold_keys.size(), config_.layers.size());
+    printf(
+        "RP2040Platform initialized for testing with TFFEngine (%zu combos, %zu tap-hold, %zu "
+        "layers)\n",
+        config_.combos.size(), config_.tap_hold_keys.size(), config_.layers.size());
 #endif
 
     initialized_ = true;
@@ -332,115 +336,218 @@ uint32_t RP2040Platform::getCurrentTimestamp() {
 
 tff::KeyCode RP2040Platform::convertUsbToKeyCode(uint8_t usb_keycode) {
     switch (usb_keycode) {
-        case 0x04: return tff::Keys::KEY_A;
-        case 0x05: return tff::Keys::KEY_B;
-        case 0x06: return tff::Keys::KEY_C;
-        case 0x07: return tff::Keys::KEY_D;
-        case 0x08: return tff::Keys::KEY_E;
-        case 0x09: return tff::Keys::KEY_F;
-        case 0x0A: return tff::Keys::KEY_G;
-        case 0x0B: return tff::Keys::KEY_H;
-        case 0x0C: return tff::Keys::KEY_I;
-        case 0x0D: return tff::Keys::KEY_J;
-        case 0x0E: return tff::Keys::KEY_K;
-        case 0x0F: return tff::Keys::KEY_L;
-        case 0x10: return tff::Keys::KEY_M;
-        case 0x11: return tff::Keys::KEY_N;
-        case 0x12: return tff::Keys::KEY_O;
-        case 0x13: return tff::Keys::KEY_P;
-        case 0x14: return tff::Keys::KEY_Q;
-        case 0x15: return tff::Keys::KEY_R;
-        case 0x16: return tff::Keys::KEY_S;
-        case 0x17: return tff::Keys::KEY_T;
-        case 0x18: return tff::Keys::KEY_U;
-        case 0x19: return tff::Keys::KEY_V;
-        case 0x1A: return tff::Keys::KEY_W;
-        case 0x1B: return tff::Keys::KEY_X;
-        case 0x1C: return tff::Keys::KEY_Y;
-        case 0x1D: return tff::Keys::KEY_Z;
+        case 0x04:
+            return tff::Keys::KEY_A;
+        case 0x05:
+            return tff::Keys::KEY_B;
+        case 0x06:
+            return tff::Keys::KEY_C;
+        case 0x07:
+            return tff::Keys::KEY_D;
+        case 0x08:
+            return tff::Keys::KEY_E;
+        case 0x09:
+            return tff::Keys::KEY_F;
+        case 0x0A:
+            return tff::Keys::KEY_G;
+        case 0x0B:
+            return tff::Keys::KEY_H;
+        case 0x0C:
+            return tff::Keys::KEY_I;
+        case 0x0D:
+            return tff::Keys::KEY_J;
+        case 0x0E:
+            return tff::Keys::KEY_K;
+        case 0x0F:
+            return tff::Keys::KEY_L;
+        case 0x10:
+            return tff::Keys::KEY_M;
+        case 0x11:
+            return tff::Keys::KEY_N;
+        case 0x12:
+            return tff::Keys::KEY_O;
+        case 0x13:
+            return tff::Keys::KEY_P;
+        case 0x14:
+            return tff::Keys::KEY_Q;
+        case 0x15:
+            return tff::Keys::KEY_R;
+        case 0x16:
+            return tff::Keys::KEY_S;
+        case 0x17:
+            return tff::Keys::KEY_T;
+        case 0x18:
+            return tff::Keys::KEY_U;
+        case 0x19:
+            return tff::Keys::KEY_V;
+        case 0x1A:
+            return tff::Keys::KEY_W;
+        case 0x1B:
+            return tff::Keys::KEY_X;
+        case 0x1C:
+            return tff::Keys::KEY_Y;
+        case 0x1D:
+            return tff::Keys::KEY_Z;
 
-        case 0x1E: return tff::Keys::KEY_1;
-        case 0x1F: return tff::Keys::KEY_2;
-        case 0x20: return tff::Keys::KEY_3;
-        case 0x21: return tff::Keys::KEY_4;
-        case 0x22: return tff::Keys::KEY_5;
-        case 0x23: return tff::Keys::KEY_6;
-        case 0x24: return tff::Keys::KEY_7;
-        case 0x25: return tff::Keys::KEY_8;
-        case 0x26: return tff::Keys::KEY_9;
-        case 0x27: return tff::Keys::KEY_0;
+        case 0x1E:
+            return tff::Keys::KEY_1;
+        case 0x1F:
+            return tff::Keys::KEY_2;
+        case 0x20:
+            return tff::Keys::KEY_3;
+        case 0x21:
+            return tff::Keys::KEY_4;
+        case 0x22:
+            return tff::Keys::KEY_5;
+        case 0x23:
+            return tff::Keys::KEY_6;
+        case 0x24:
+            return tff::Keys::KEY_7;
+        case 0x25:
+            return tff::Keys::KEY_8;
+        case 0x26:
+            return tff::Keys::KEY_9;
+        case 0x27:
+            return tff::Keys::KEY_0;
 
-        case 0x28: return tff::Keys::KEY_ENTER;
-        case 0x29: return tff::Keys::KEY_ESC;
-        case 0x2A: return tff::Keys::KEY_BACKSPACE;
-        case 0x2B: return tff::Keys::KEY_TAB;
-        case 0x2C: return tff::Keys::KEY_SPACE;
-        case 0x2D: return tff::Keys::KEY_MINUS;
-        case 0x2E: return tff::Keys::KEY_EQUAL;
-        case 0x2F: return tff::Keys::KEY_LEFTBRACE;
-        case 0x30: return tff::Keys::KEY_RIGHTBRACE;
-        case 0x31: return tff::Keys::KEY_BACKSLASH;
-        case 0x33: return tff::Keys::KEY_SEMICOLON;
-        case 0x34: return tff::Keys::KEY_APOSTROPHE;
-        case 0x35: return tff::Keys::KEY_GRAVE;
-        case 0x36: return tff::Keys::KEY_COMMA;
-        case 0x37: return tff::Keys::KEY_DOT;
-        case 0x38: return tff::Keys::KEY_SLASH;
-        case 0x39: return tff::Keys::KEY_CAPSLOCK;
+        case 0x28:
+            return tff::Keys::KEY_ENTER;
+        case 0x29:
+            return tff::Keys::KEY_ESC;
+        case 0x2A:
+            return tff::Keys::KEY_BACKSPACE;
+        case 0x2B:
+            return tff::Keys::KEY_TAB;
+        case 0x2C:
+            return tff::Keys::KEY_SPACE;
+        case 0x2D:
+            return tff::Keys::KEY_MINUS;
+        case 0x2E:
+            return tff::Keys::KEY_EQUAL;
+        case 0x2F:
+            return tff::Keys::KEY_LEFTBRACE;
+        case 0x30:
+            return tff::Keys::KEY_RIGHTBRACE;
+        case 0x31:
+            return tff::Keys::KEY_BACKSLASH;
+        case 0x33:
+            return tff::Keys::KEY_SEMICOLON;
+        case 0x34:
+            return tff::Keys::KEY_APOSTROPHE;
+        case 0x35:
+            return tff::Keys::KEY_GRAVE;
+        case 0x36:
+            return tff::Keys::KEY_COMMA;
+        case 0x37:
+            return tff::Keys::KEY_DOT;
+        case 0x38:
+            return tff::Keys::KEY_SLASH;
+        case 0x39:
+            return tff::Keys::KEY_CAPSLOCK;
 
-        case 0x3A: return tff::Keys::KEY_F1;
-        case 0x3B: return tff::Keys::KEY_F2;
-        case 0x3C: return tff::Keys::KEY_F3;
-        case 0x3D: return tff::Keys::KEY_F4;
-        case 0x3E: return tff::Keys::KEY_F5;
-        case 0x3F: return tff::Keys::KEY_F6;
-        case 0x40: return tff::Keys::KEY_F7;
-        case 0x41: return tff::Keys::KEY_F8;
-        case 0x42: return tff::Keys::KEY_F9;
-        case 0x43: return tff::Keys::KEY_F10;
-        case 0x44: return tff::Keys::KEY_F11;
-        case 0x45: return tff::Keys::KEY_F12;
+        case 0x3A:
+            return tff::Keys::KEY_F1;
+        case 0x3B:
+            return tff::Keys::KEY_F2;
+        case 0x3C:
+            return tff::Keys::KEY_F3;
+        case 0x3D:
+            return tff::Keys::KEY_F4;
+        case 0x3E:
+            return tff::Keys::KEY_F5;
+        case 0x3F:
+            return tff::Keys::KEY_F6;
+        case 0x40:
+            return tff::Keys::KEY_F7;
+        case 0x41:
+            return tff::Keys::KEY_F8;
+        case 0x42:
+            return tff::Keys::KEY_F9;
+        case 0x43:
+            return tff::Keys::KEY_F10;
+        case 0x44:
+            return tff::Keys::KEY_F11;
+        case 0x45:
+            return tff::Keys::KEY_F12;
 
-        case 0x46: return tff::Keys::KEY_SYSRQ;
-        case 0x47: return tff::Keys::KEY_SCROLLLOCK;
-        case 0x48: return tff::Keys::KEY_PAUSE;
-        case 0x49: return tff::Keys::KEY_INSERT;
-        case 0x4A: return tff::Keys::KEY_HOME;
-        case 0x4B: return tff::Keys::KEY_PAGEUP;
-        case 0x4C: return tff::Keys::KEY_DELETE;
-        case 0x4D: return tff::Keys::KEY_END;
-        case 0x4E: return tff::Keys::KEY_PAGEDOWN;
-        case 0x4F: return tff::Keys::KEY_RIGHT;
-        case 0x50: return tff::Keys::KEY_LEFT;
-        case 0x51: return tff::Keys::KEY_DOWN;
-        case 0x52: return tff::Keys::KEY_UP;
+        case 0x46:
+            return tff::Keys::KEY_SYSRQ;
+        case 0x47:
+            return tff::Keys::KEY_SCROLLLOCK;
+        case 0x48:
+            return tff::Keys::KEY_PAUSE;
+        case 0x49:
+            return tff::Keys::KEY_INSERT;
+        case 0x4A:
+            return tff::Keys::KEY_HOME;
+        case 0x4B:
+            return tff::Keys::KEY_PAGEUP;
+        case 0x4C:
+            return tff::Keys::KEY_DELETE;
+        case 0x4D:
+            return tff::Keys::KEY_END;
+        case 0x4E:
+            return tff::Keys::KEY_PAGEDOWN;
+        case 0x4F:
+            return tff::Keys::KEY_RIGHT;
+        case 0x50:
+            return tff::Keys::KEY_LEFT;
+        case 0x51:
+            return tff::Keys::KEY_DOWN;
+        case 0x52:
+            return tff::Keys::KEY_UP;
 
-        case 0x53: return tff::Keys::KEY_NUMLOCK;
-        case 0x54: return tff::Keys::KEY_KPSLASH;
-        case 0x55: return tff::Keys::KEY_KPASTERISK;
-        case 0x56: return tff::Keys::KEY_KPMINUS;
-        case 0x57: return tff::Keys::KEY_KPPLUS;
-        case 0x58: return tff::Keys::KEY_KPENTER;
-        case 0x59: return tff::Keys::KEY_KP1;
-        case 0x5A: return tff::Keys::KEY_KP2;
-        case 0x5B: return tff::Keys::KEY_KP3;
-        case 0x5C: return tff::Keys::KEY_KP4;
-        case 0x5D: return tff::Keys::KEY_KP5;
-        case 0x5E: return tff::Keys::KEY_KP6;
-        case 0x5F: return tff::Keys::KEY_KP7;
-        case 0x60: return tff::Keys::KEY_KP8;
-        case 0x61: return tff::Keys::KEY_KP9;
-        case 0x62: return tff::Keys::KEY_KP0;
-        case 0x63: return tff::Keys::KEY_KPDOT;
+        case 0x53:
+            return tff::Keys::KEY_NUMLOCK;
+        case 0x54:
+            return tff::Keys::KEY_KPSLASH;
+        case 0x55:
+            return tff::Keys::KEY_KPASTERISK;
+        case 0x56:
+            return tff::Keys::KEY_KPMINUS;
+        case 0x57:
+            return tff::Keys::KEY_KPPLUS;
+        case 0x58:
+            return tff::Keys::KEY_KPENTER;
+        case 0x59:
+            return tff::Keys::KEY_KP1;
+        case 0x5A:
+            return tff::Keys::KEY_KP2;
+        case 0x5B:
+            return tff::Keys::KEY_KP3;
+        case 0x5C:
+            return tff::Keys::KEY_KP4;
+        case 0x5D:
+            return tff::Keys::KEY_KP5;
+        case 0x5E:
+            return tff::Keys::KEY_KP6;
+        case 0x5F:
+            return tff::Keys::KEY_KP7;
+        case 0x60:
+            return tff::Keys::KEY_KP8;
+        case 0x61:
+            return tff::Keys::KEY_KP9;
+        case 0x62:
+            return tff::Keys::KEY_KP0;
+        case 0x63:
+            return tff::Keys::KEY_KPDOT;
 
-        case 0xE0: return tff::Keys::KEY_LEFTCTRL;
-        case 0xE1: return tff::Keys::KEY_LEFTSHIFT;
-        case 0xE2: return tff::Keys::KEY_LEFTALT;
-        case 0xE3: return tff::Keys::KEY_LEFTMETA;
-        case 0xE4: return tff::Keys::KEY_RIGHTCTRL;
-        case 0xE5: return tff::Keys::KEY_RIGHTSHIFT;
-        case 0xE6: return tff::Keys::KEY_RIGHTALT;
-        case 0xE7: return tff::Keys::KEY_RIGHTMETA;
+        case 0xE0:
+            return tff::Keys::KEY_LEFTCTRL;
+        case 0xE1:
+            return tff::Keys::KEY_LEFTSHIFT;
+        case 0xE2:
+            return tff::Keys::KEY_LEFTALT;
+        case 0xE3:
+            return tff::Keys::KEY_LEFTMETA;
+        case 0xE4:
+            return tff::Keys::KEY_RIGHTCTRL;
+        case 0xE5:
+            return tff::Keys::KEY_RIGHTSHIFT;
+        case 0xE6:
+            return tff::Keys::KEY_RIGHTALT;
+        case 0xE7:
+            return tff::Keys::KEY_RIGHTMETA;
 
         default:
             return 0;
@@ -449,115 +556,218 @@ tff::KeyCode RP2040Platform::convertUsbToKeyCode(uint8_t usb_keycode) {
 
 uint8_t RP2040Platform::convertKeyCodeToUsb(tff::KeyCode internal_keycode) {
     switch (internal_keycode) {
-        case tff::Keys::KEY_A: return 0x04;
-        case tff::Keys::KEY_B: return 0x05;
-        case tff::Keys::KEY_C: return 0x06;
-        case tff::Keys::KEY_D: return 0x07;
-        case tff::Keys::KEY_E: return 0x08;
-        case tff::Keys::KEY_F: return 0x09;
-        case tff::Keys::KEY_G: return 0x0A;
-        case tff::Keys::KEY_H: return 0x0B;
-        case tff::Keys::KEY_I: return 0x0C;
-        case tff::Keys::KEY_J: return 0x0D;
-        case tff::Keys::KEY_K: return 0x0E;
-        case tff::Keys::KEY_L: return 0x0F;
-        case tff::Keys::KEY_M: return 0x10;
-        case tff::Keys::KEY_N: return 0x11;
-        case tff::Keys::KEY_O: return 0x12;
-        case tff::Keys::KEY_P: return 0x13;
-        case tff::Keys::KEY_Q: return 0x14;
-        case tff::Keys::KEY_R: return 0x15;
-        case tff::Keys::KEY_S: return 0x16;
-        case tff::Keys::KEY_T: return 0x17;
-        case tff::Keys::KEY_U: return 0x18;
-        case tff::Keys::KEY_V: return 0x19;
-        case tff::Keys::KEY_W: return 0x1A;
-        case tff::Keys::KEY_X: return 0x1B;
-        case tff::Keys::KEY_Y: return 0x1C;
-        case tff::Keys::KEY_Z: return 0x1D;
+        case tff::Keys::KEY_A:
+            return 0x04;
+        case tff::Keys::KEY_B:
+            return 0x05;
+        case tff::Keys::KEY_C:
+            return 0x06;
+        case tff::Keys::KEY_D:
+            return 0x07;
+        case tff::Keys::KEY_E:
+            return 0x08;
+        case tff::Keys::KEY_F:
+            return 0x09;
+        case tff::Keys::KEY_G:
+            return 0x0A;
+        case tff::Keys::KEY_H:
+            return 0x0B;
+        case tff::Keys::KEY_I:
+            return 0x0C;
+        case tff::Keys::KEY_J:
+            return 0x0D;
+        case tff::Keys::KEY_K:
+            return 0x0E;
+        case tff::Keys::KEY_L:
+            return 0x0F;
+        case tff::Keys::KEY_M:
+            return 0x10;
+        case tff::Keys::KEY_N:
+            return 0x11;
+        case tff::Keys::KEY_O:
+            return 0x12;
+        case tff::Keys::KEY_P:
+            return 0x13;
+        case tff::Keys::KEY_Q:
+            return 0x14;
+        case tff::Keys::KEY_R:
+            return 0x15;
+        case tff::Keys::KEY_S:
+            return 0x16;
+        case tff::Keys::KEY_T:
+            return 0x17;
+        case tff::Keys::KEY_U:
+            return 0x18;
+        case tff::Keys::KEY_V:
+            return 0x19;
+        case tff::Keys::KEY_W:
+            return 0x1A;
+        case tff::Keys::KEY_X:
+            return 0x1B;
+        case tff::Keys::KEY_Y:
+            return 0x1C;
+        case tff::Keys::KEY_Z:
+            return 0x1D;
 
-        case tff::Keys::KEY_1: return 0x1E;
-        case tff::Keys::KEY_2: return 0x1F;
-        case tff::Keys::KEY_3: return 0x20;
-        case tff::Keys::KEY_4: return 0x21;
-        case tff::Keys::KEY_5: return 0x22;
-        case tff::Keys::KEY_6: return 0x23;
-        case tff::Keys::KEY_7: return 0x24;
-        case tff::Keys::KEY_8: return 0x25;
-        case tff::Keys::KEY_9: return 0x26;
-        case tff::Keys::KEY_0: return 0x27;
+        case tff::Keys::KEY_1:
+            return 0x1E;
+        case tff::Keys::KEY_2:
+            return 0x1F;
+        case tff::Keys::KEY_3:
+            return 0x20;
+        case tff::Keys::KEY_4:
+            return 0x21;
+        case tff::Keys::KEY_5:
+            return 0x22;
+        case tff::Keys::KEY_6:
+            return 0x23;
+        case tff::Keys::KEY_7:
+            return 0x24;
+        case tff::Keys::KEY_8:
+            return 0x25;
+        case tff::Keys::KEY_9:
+            return 0x26;
+        case tff::Keys::KEY_0:
+            return 0x27;
 
-        case tff::Keys::KEY_ENTER:      return 0x28;
-        case tff::Keys::KEY_ESC:        return 0x29;
-        case tff::Keys::KEY_BACKSPACE:  return 0x2A;
-        case tff::Keys::KEY_TAB:        return 0x2B;
-        case tff::Keys::KEY_SPACE:      return 0x2C;
-        case tff::Keys::KEY_MINUS:      return 0x2D;
-        case tff::Keys::KEY_EQUAL:      return 0x2E;
-        case tff::Keys::KEY_LEFTBRACE:  return 0x2F;
-        case tff::Keys::KEY_RIGHTBRACE: return 0x30;
-        case tff::Keys::KEY_BACKSLASH:  return 0x31;
-        case tff::Keys::KEY_SEMICOLON:  return 0x33;
-        case tff::Keys::KEY_APOSTROPHE: return 0x34;
-        case tff::Keys::KEY_GRAVE:      return 0x35;
-        case tff::Keys::KEY_COMMA:      return 0x36;
-        case tff::Keys::KEY_DOT:        return 0x37;
-        case tff::Keys::KEY_SLASH:      return 0x38;
-        case tff::Keys::KEY_CAPSLOCK:   return 0x39;
+        case tff::Keys::KEY_ENTER:
+            return 0x28;
+        case tff::Keys::KEY_ESC:
+            return 0x29;
+        case tff::Keys::KEY_BACKSPACE:
+            return 0x2A;
+        case tff::Keys::KEY_TAB:
+            return 0x2B;
+        case tff::Keys::KEY_SPACE:
+            return 0x2C;
+        case tff::Keys::KEY_MINUS:
+            return 0x2D;
+        case tff::Keys::KEY_EQUAL:
+            return 0x2E;
+        case tff::Keys::KEY_LEFTBRACE:
+            return 0x2F;
+        case tff::Keys::KEY_RIGHTBRACE:
+            return 0x30;
+        case tff::Keys::KEY_BACKSLASH:
+            return 0x31;
+        case tff::Keys::KEY_SEMICOLON:
+            return 0x33;
+        case tff::Keys::KEY_APOSTROPHE:
+            return 0x34;
+        case tff::Keys::KEY_GRAVE:
+            return 0x35;
+        case tff::Keys::KEY_COMMA:
+            return 0x36;
+        case tff::Keys::KEY_DOT:
+            return 0x37;
+        case tff::Keys::KEY_SLASH:
+            return 0x38;
+        case tff::Keys::KEY_CAPSLOCK:
+            return 0x39;
 
-        case tff::Keys::KEY_F1:         return 0x3A;
-        case tff::Keys::KEY_F2:         return 0x3B;
-        case tff::Keys::KEY_F3:         return 0x3C;
-        case tff::Keys::KEY_F4:         return 0x3D;
-        case tff::Keys::KEY_F5:         return 0x3E;
-        case tff::Keys::KEY_F6:         return 0x3F;
-        case tff::Keys::KEY_F7:         return 0x40;
-        case tff::Keys::KEY_F8:         return 0x41;
-        case tff::Keys::KEY_F9:         return 0x42;
-        case tff::Keys::KEY_F10:        return 0x43;
-        case tff::Keys::KEY_F11:        return 0x44;
-        case tff::Keys::KEY_F12:        return 0x45;
+        case tff::Keys::KEY_F1:
+            return 0x3A;
+        case tff::Keys::KEY_F2:
+            return 0x3B;
+        case tff::Keys::KEY_F3:
+            return 0x3C;
+        case tff::Keys::KEY_F4:
+            return 0x3D;
+        case tff::Keys::KEY_F5:
+            return 0x3E;
+        case tff::Keys::KEY_F6:
+            return 0x3F;
+        case tff::Keys::KEY_F7:
+            return 0x40;
+        case tff::Keys::KEY_F8:
+            return 0x41;
+        case tff::Keys::KEY_F9:
+            return 0x42;
+        case tff::Keys::KEY_F10:
+            return 0x43;
+        case tff::Keys::KEY_F11:
+            return 0x44;
+        case tff::Keys::KEY_F12:
+            return 0x45;
 
-        case tff::Keys::KEY_SYSRQ:      return 0x46;
-        case tff::Keys::KEY_SCROLLLOCK: return 0x47;
-        case tff::Keys::KEY_PAUSE:      return 0x48;
-        case tff::Keys::KEY_INSERT:     return 0x49;
-        case tff::Keys::KEY_HOME:       return 0x4A;
-        case tff::Keys::KEY_PAGEUP:     return 0x4B;
-        case tff::Keys::KEY_DELETE:     return 0x4C;
-        case tff::Keys::KEY_END:        return 0x4D;
-        case tff::Keys::KEY_PAGEDOWN:   return 0x4E;
-        case tff::Keys::KEY_RIGHT:      return 0x4F;
-        case tff::Keys::KEY_LEFT:       return 0x50;
-        case tff::Keys::KEY_DOWN:       return 0x51;
-        case tff::Keys::KEY_UP:         return 0x52;
+        case tff::Keys::KEY_SYSRQ:
+            return 0x46;
+        case tff::Keys::KEY_SCROLLLOCK:
+            return 0x47;
+        case tff::Keys::KEY_PAUSE:
+            return 0x48;
+        case tff::Keys::KEY_INSERT:
+            return 0x49;
+        case tff::Keys::KEY_HOME:
+            return 0x4A;
+        case tff::Keys::KEY_PAGEUP:
+            return 0x4B;
+        case tff::Keys::KEY_DELETE:
+            return 0x4C;
+        case tff::Keys::KEY_END:
+            return 0x4D;
+        case tff::Keys::KEY_PAGEDOWN:
+            return 0x4E;
+        case tff::Keys::KEY_RIGHT:
+            return 0x4F;
+        case tff::Keys::KEY_LEFT:
+            return 0x50;
+        case tff::Keys::KEY_DOWN:
+            return 0x51;
+        case tff::Keys::KEY_UP:
+            return 0x52;
 
-        case tff::Keys::KEY_NUMLOCK:    return 0x53;
-        case tff::Keys::KEY_KPSLASH:    return 0x54;
-        case tff::Keys::KEY_KPASTERISK: return 0x55;
-        case tff::Keys::KEY_KPMINUS:    return 0x56;
-        case tff::Keys::KEY_KPPLUS:     return 0x57;
-        case tff::Keys::KEY_KPENTER:    return 0x58;
-        case tff::Keys::KEY_KP1:        return 0x59;
-        case tff::Keys::KEY_KP2:        return 0x5A;
-        case tff::Keys::KEY_KP3:        return 0x5B;
-        case tff::Keys::KEY_KP4:        return 0x5C;
-        case tff::Keys::KEY_KP5:        return 0x5D;
-        case tff::Keys::KEY_KP6:        return 0x5E;
-        case tff::Keys::KEY_KP7:        return 0x5F;
-        case tff::Keys::KEY_KP8:        return 0x60;
-        case tff::Keys::KEY_KP9:        return 0x61;
-        case tff::Keys::KEY_KP0:        return 0x62;
-        case tff::Keys::KEY_KPDOT:      return 0x63;
+        case tff::Keys::KEY_NUMLOCK:
+            return 0x53;
+        case tff::Keys::KEY_KPSLASH:
+            return 0x54;
+        case tff::Keys::KEY_KPASTERISK:
+            return 0x55;
+        case tff::Keys::KEY_KPMINUS:
+            return 0x56;
+        case tff::Keys::KEY_KPPLUS:
+            return 0x57;
+        case tff::Keys::KEY_KPENTER:
+            return 0x58;
+        case tff::Keys::KEY_KP1:
+            return 0x59;
+        case tff::Keys::KEY_KP2:
+            return 0x5A;
+        case tff::Keys::KEY_KP3:
+            return 0x5B;
+        case tff::Keys::KEY_KP4:
+            return 0x5C;
+        case tff::Keys::KEY_KP5:
+            return 0x5D;
+        case tff::Keys::KEY_KP6:
+            return 0x5E;
+        case tff::Keys::KEY_KP7:
+            return 0x5F;
+        case tff::Keys::KEY_KP8:
+            return 0x60;
+        case tff::Keys::KEY_KP9:
+            return 0x61;
+        case tff::Keys::KEY_KP0:
+            return 0x62;
+        case tff::Keys::KEY_KPDOT:
+            return 0x63;
 
-        case tff::Keys::KEY_LEFTCTRL:   return 0xE0;
-        case tff::Keys::KEY_LEFTSHIFT:  return 0xE1;
-        case tff::Keys::KEY_LEFTALT:    return 0xE2;
-        case tff::Keys::KEY_LEFTMETA:   return 0xE3;
-        case tff::Keys::KEY_RIGHTCTRL:  return 0xE4;
-        case tff::Keys::KEY_RIGHTSHIFT: return 0xE5;
-        case tff::Keys::KEY_RIGHTALT:   return 0xE6;
-        case tff::Keys::KEY_RIGHTMETA:  return 0xE7;
+        case tff::Keys::KEY_LEFTCTRL:
+            return 0xE0;
+        case tff::Keys::KEY_LEFTSHIFT:
+            return 0xE1;
+        case tff::Keys::KEY_LEFTALT:
+            return 0xE2;
+        case tff::Keys::KEY_LEFTMETA:
+            return 0xE3;
+        case tff::Keys::KEY_RIGHTCTRL:
+            return 0xE4;
+        case tff::Keys::KEY_RIGHTSHIFT:
+            return 0xE5;
+        case tff::Keys::KEY_RIGHTALT:
+            return 0xE6;
+        case tff::Keys::KEY_RIGHTMETA:
+            return 0xE7;
 
         default:
             return 0;
@@ -566,16 +776,18 @@ uint8_t RP2040Platform::convertKeyCodeToUsb(tff::KeyCode internal_keycode) {
 
 #ifdef PICO_BUILD
 extern "C" {
-    void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*desc_report*/, uint16_t /*desc_len*/) {
-        printf("HID device mounted: addr=%u, instance=%u\n", dev_addr, instance);
-    }
+void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*desc_report*/,
+                      uint16_t /*desc_len*/) {
+    printf("HID device mounted: addr=%u, instance=%u\n", dev_addr, instance);
+}
 
-    void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
-        printf("HID device unmounted: addr=%u, instance=%u\n", dev_addr, instance);
-    }
+void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
+    printf("HID device unmounted: addr=%u, instance=%u\n", dev_addr, instance);
+}
 
-    void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*report*/, uint16_t len) {
-        printf("HID report received: addr=%u, instance=%u, len=%u\n", dev_addr, instance, len);
-    }
+void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*report*/,
+                                uint16_t len) {
+    printf("HID report received: addr=%u, instance=%u, len=%u\n", dev_addr, instance, len);
+}
 }
 #endif

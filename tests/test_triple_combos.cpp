@@ -17,19 +17,13 @@ class VectorWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 };
 
-static void runAndCheck(const std::vector<Event>& input_events,
-                        const std::vector<Combo>& combos,
-                        const std::string& expected_output,
-                        const std::string& test_name) {
+static void runAndCheck(const std::vector<Event>& input_events, const std::vector<Combo>& combos,
+                        const std::string& expected_output, const std::string& test_name) {
     VectorWriter writer;
     TFFEngine engine(&writer, combos);
     engine.setFakeActiveTimer(true);
@@ -63,7 +57,7 @@ void test_all_6_arrival_permutations() {
     assert(loadYamlCombos(yaml, combos, err));
     assert(combos.size() == 6);
 
-    std::vector<KeyCode> keys = { Keys::KEY_D, Keys::KEY_F, Keys::KEY_J };
+    std::vector<KeyCode> keys = {Keys::KEY_D, Keys::KEY_F, Keys::KEY_J};
     std::vector<std::vector<KeyCode>> perms;
     std::sort(keys.begin(), keys.end());
     do {
@@ -79,10 +73,10 @@ void test_all_6_arrival_permutations() {
         // Down in permutation order
         for (KeyCode k : order) {
             events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, k, KEY_VAL_DOWN});
-            t_us += 15000; // 15ms apart
+            t_us += 15000;  // 15ms apart
         }
 
-        t_us += 50000; // hold for 50ms
+        t_us += 50000;  // hold for 50ms
 
         // Up in reverse order
         for (auto it = order.rbegin(); it != order.rend(); ++it) {
@@ -111,10 +105,10 @@ void test_different_release_orders() {
     KeyCode k3 = Keys::KEY_J;
 
     std::vector<std::vector<KeyCode>> release_orders = {
-        { k1, k2, k3 }, // 1st released first
-        { k3, k2, k1 }, // 3rd released first
-        { k2, k1, k3 }, // 2nd released first
-        { k2, k3, k1 }  // 2nd released first, then 3rd
+        {k1, k2, k3},  // 1st released first
+        {k3, k2, k1},  // 3rd released first
+        {k2, k1, k3},  // 2nd released first
+        {k2, k3, k1}   // 2nd released first, then 3rd
     };
 
     for (size_t r = 0; r < release_orders.size(); ++r) {
@@ -154,7 +148,7 @@ void test_quadruple_combo() {
     assert(combos.size() == 24);
 
     // Arbitrary touchdown order: S, F, A, D
-    std::vector<KeyCode> down_order = { Keys::KEY_S, Keys::KEY_F, Keys::KEY_A, Keys::KEY_D };
+    std::vector<KeyCode> down_order = {Keys::KEY_S, Keys::KEY_F, Keys::KEY_A, Keys::KEY_D};
     std::vector<Event> events;
     int64_t t_us = 3000000;
 
@@ -166,7 +160,7 @@ void test_quadruple_combo() {
     t_us += 50000;
 
     // Release in different order: A, D, S, F
-    std::vector<KeyCode> up_order = { Keys::KEY_A, Keys::KEY_D, Keys::KEY_S, Keys::KEY_F };
+    std::vector<KeyCode> up_order = {Keys::KEY_A, Keys::KEY_D, Keys::KEY_S, Keys::KEY_F};
     for (KeyCode k : up_order) {
         events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, k, KEY_VAL_UP});
         t_us += 10000;
@@ -269,9 +263,7 @@ void test_repo_config_triple_combo() {
     // Verify d + f + j -> esc is present in combos
     bool found_dfj = false;
     for (const auto& c : config.combos) {
-        if (c.keys.size() == 3 &&
-            c.out_keys.size() == 1 &&
-            c.out_keys[0] == Keys::KEY_ESC) {
+        if (c.keys.size() == 3 && c.out_keys.size() == 1 && c.out_keys[0] == Keys::KEY_ESC) {
             std::vector<KeyCode> sorted = c.keys;
             std::sort(sorted.begin(), sorted.end());
             if (sorted[0] == Keys::KEY_D && sorted[1] == Keys::KEY_F && sorted[2] == Keys::KEY_J) {

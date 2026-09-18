@@ -14,13 +14,9 @@ class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 
     std::vector<Event> keyEvents() const {
         std::vector<Event> result;
@@ -126,9 +122,10 @@ static void test_multi_step_sequence() {
 
     LeaderConfig lcfg;
     lcfg.key = Keys::KEY_CAPSLOCK;
-    lcfg.timeout_us = 500000LL; // 500ms
+    lcfg.timeout_us = 500000LL;  // 500ms
     lcfg.sequences.push_back(LeaderSequence({Keys::KEY_G, Keys::KEY_S}, {}, "git status\n"));
-    lcfg.sequences.push_back(LeaderSequence({Keys::KEY_G, Keys::KEY_C, Keys::KEY_M}, {}, "git commit -m \"\"\n"));
+    lcfg.sequences.push_back(
+        LeaderSequence({Keys::KEY_G, Keys::KEY_C, Keys::KEY_M}, {}, "git commit -m \"\"\n"));
     engine.setLeaderConfig(lcfg);
 
     // Tap CapsLock
@@ -162,7 +159,7 @@ static void test_inactivity_timeout_and_replay() {
 
     LeaderConfig lcfg;
     lcfg.key = Keys::KEY_CAPSLOCK;
-    lcfg.timeout_us = 500000LL; // 500ms
+    lcfg.timeout_us = 500000LL;  // 500ms
     lcfg.sequences.push_back(LeaderSequence({Keys::KEY_W, Keys::KEY_Q}, {}, ":wq\n"));
     engine.setLeaderConfig(lcfg);
 
@@ -232,8 +229,10 @@ static void test_mismatch_cancellation_and_replay() {
     bool found_x_down = false;
     bool found_x_up = false;
     for (const auto& k : all_keys) {
-        if (k.code == Keys::KEY_X && k.value == KEY_VAL_DOWN) found_x_down = true;
-        if (k.code == Keys::KEY_X && k.value == KEY_VAL_UP) found_x_up = true;
+        if (k.code == Keys::KEY_X && k.value == KEY_VAL_DOWN)
+            found_x_down = true;
+        if (k.code == Keys::KEY_X && k.value == KEY_VAL_UP)
+            found_x_up = true;
     }
     assert(found_x_down && found_x_up);
 
@@ -272,7 +271,7 @@ static void test_dual_role_tap_leader() {
     th.key = Keys::KEY_CAPSLOCK;
     th.tap_leader = true;
     th.hold_key = Keys::KEY_LEFTMETA;
-    th.timeout_us = 200000LL; // 200ms
+    th.timeout_us = 200000LL;  // 200ms
     engine.setTapHoldKeys({th});
 
     LeaderConfig lcfg;
@@ -298,7 +297,7 @@ static void test_dual_role_tap_leader() {
 
     // 2. Long hold on CapsLock (>200ms) -> emits Super, leader NOT activated!
     engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
-    engine.onTimer(TimeVal{0, 550000}); // expire after 200ms
+    engine.onTimer(TimeVal{0, 550000});  // expire after 200ms
     auto hold_keys = writer.keyEvents();
     assert(hold_keys.size() == 1);
     assert(hold_keys[0].code == Keys::KEY_LEFTMETA && hold_keys[0].value == KEY_VAL_DOWN);
@@ -334,7 +333,8 @@ leader:
     assert(cfg1.leader.sequences[0].keys == std::vector<KeyCode>({Keys::KEY_W, Keys::KEY_Q}));
     assert(cfg1.leader.sequences[0].text == ":wq\n");
     assert(cfg1.leader.sequences[2].keys == std::vector<KeyCode>({Keys::KEY_B}));
-    assert(cfg1.leader.sequences[2].out_keys == std::vector<KeyCode>({Keys::KEY_LEFTCTRL, Keys::KEY_B}));
+    assert(cfg1.leader.sequences[2].out_keys ==
+           std::vector<KeyCode>({Keys::KEY_LEFTCTRL, Keys::KEY_B}));
 
     // 2. Valid list format, quoted bracketed keys, and compact tap_hold
     const std::string valid_list_yaml = R"(
@@ -354,7 +354,7 @@ leader:
     assert(loadYamlConfig(valid_list_yaml, cfg2, err));
     assert(cfg2.tap_hold_keys.size() == 1);
     assert(cfg2.tap_hold_keys[0].tap_leader);
-    assert(cfg2.leader.key == Keys::KEY_CAPSLOCK); // Auto-bound from tap_leader!
+    assert(cfg2.leader.key == Keys::KEY_CAPSLOCK);  // Auto-bound from tap_leader!
     assert(cfg2.leader.timeout_us == 1200000LL);
     assert(cfg2.leader.sequences.size() == 2);
     assert(cfg2.leader.sequences[0].keys == std::vector<KeyCode>({Keys::KEY_W, Keys::KEY_Q}));

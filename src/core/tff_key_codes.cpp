@@ -620,7 +620,7 @@ const KeyTable& getTable() {
     return table;
 }
 
-} // namespace
+}  // namespace
 
 bool wordToKeyCode(const std::string& word, KeyCode& out_code, std::string& err_msg) {
     if (word.empty()) {
@@ -663,20 +663,27 @@ std::string keyCodeToShortName(KeyCode code) {
 
 std::string codeName(uint16_t type, uint16_t code) {
     if (type == EV_SYN) {
-        if (code == SYN_REPORT) return "SYN_REPORT";
+        if (code == SYN_REPORT)
+            return "SYN_REPORT";
         return "SYN_" + std::to_string(code);
     }
     if (type == EV_MSC) {
-        if (code == MSC_SCAN) return "MSC_SCAN";
+        if (code == MSC_SCAN)
+            return "MSC_SCAN";
         return "MSC_" + std::to_string(code);
     }
     if (type == EV_REL) {
         switch (code) {
-            case RelCodes::REL_X: return "REL_X";
-            case RelCodes::REL_Y: return "REL_Y";
-            case RelCodes::REL_HWHEEL: return "REL_HWHEEL";
-            case RelCodes::REL_WHEEL: return "REL_WHEEL";
-            default: return "REL_" + std::to_string(code);
+            case RelCodes::REL_X:
+                return "REL_X";
+            case RelCodes::REL_Y:
+                return "REL_Y";
+            case RelCodes::REL_HWHEEL:
+                return "REL_HWHEEL";
+            case RelCodes::REL_WHEEL:
+                return "REL_WHEEL";
+            default:
+                return "REL_" + std::to_string(code);
         }
     }
     if (type == EV_KEY) {
@@ -686,18 +693,34 @@ std::string codeName(uint16_t type, uint16_t code) {
 }
 
 std::string typeName(uint16_t type) {
-    if (type == EV_KEY) return "EV_KEY";
-    if (type == EV_SYN) return "EV_SYN";
-    if (type == EV_MSC) return "EV_MSC";
-    if (type == EV_REL) return "EV_REL";
+    if (type == EV_KEY)
+        return "EV_KEY";
+    if (type == EV_SYN)
+        return "EV_SYN";
+    if (type == EV_MSC)
+        return "EV_MSC";
+    if (type == EV_REL)
+        return "EV_REL";
     return "EV_" + std::to_string(type);
 }
 
 bool parseTypeName(const std::string& name, uint16_t& out_type) {
-    if (name == "EV_KEY") { out_type = EV_KEY; return true; }
-    if (name == "EV_SYN") { out_type = EV_SYN; return true; }
-    if (name == "EV_MSC") { out_type = EV_MSC; return true; }
-    if (name == "EV_REL") { out_type = EV_REL; return true; }
+    if (name == "EV_KEY") {
+        out_type = EV_KEY;
+        return true;
+    }
+    if (name == "EV_SYN") {
+        out_type = EV_SYN;
+        return true;
+    }
+    if (name == "EV_MSC") {
+        out_type = EV_MSC;
+        return true;
+    }
+    if (name == "EV_REL") {
+        out_type = EV_REL;
+        return true;
+    }
     return false;
 }
 
@@ -711,10 +734,22 @@ bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code) {
         return true;
     }
     if (type == EV_REL) {
-        if (name == "REL_X") { out_code = RelCodes::REL_X; return true; }
-        if (name == "REL_Y") { out_code = RelCodes::REL_Y; return true; }
-        if (name == "REL_HWHEEL") { out_code = RelCodes::REL_HWHEEL; return true; }
-        if (name == "REL_WHEEL") { out_code = RelCodes::REL_WHEEL; return true; }
+        if (name == "REL_X") {
+            out_code = RelCodes::REL_X;
+            return true;
+        }
+        if (name == "REL_Y") {
+            out_code = RelCodes::REL_Y;
+            return true;
+        }
+        if (name == "REL_HWHEEL") {
+            out_code = RelCodes::REL_HWHEEL;
+            return true;
+        }
+        if (name == "REL_WHEEL") {
+            out_code = RelCodes::REL_WHEEL;
+            return true;
+        }
     }
     if (type == EV_KEY) {
         const auto& table = getTable();
@@ -733,13 +768,10 @@ bool asciiToKeyStroke(char c, KeyCode& code, bool& shift) {
 
     // Lowercase letters (a-z)
     static const KeyCode LOWER_LETTERS[26] = {
-        Keys::KEY_A, Keys::KEY_B, Keys::KEY_C, Keys::KEY_D, Keys::KEY_E,
-        Keys::KEY_F, Keys::KEY_G, Keys::KEY_H, Keys::KEY_I, Keys::KEY_J,
-        Keys::KEY_K, Keys::KEY_L, Keys::KEY_M, Keys::KEY_N, Keys::KEY_O,
-        Keys::KEY_P, Keys::KEY_Q, Keys::KEY_R, Keys::KEY_S, Keys::KEY_T,
-        Keys::KEY_U, Keys::KEY_V, Keys::KEY_W, Keys::KEY_X, Keys::KEY_Y,
-        Keys::KEY_Z
-    };
+        Keys::KEY_A, Keys::KEY_B, Keys::KEY_C, Keys::KEY_D, Keys::KEY_E, Keys::KEY_F, Keys::KEY_G,
+        Keys::KEY_H, Keys::KEY_I, Keys::KEY_J, Keys::KEY_K, Keys::KEY_L, Keys::KEY_M, Keys::KEY_N,
+        Keys::KEY_O, Keys::KEY_P, Keys::KEY_Q, Keys::KEY_R, Keys::KEY_S, Keys::KEY_T, Keys::KEY_U,
+        Keys::KEY_V, Keys::KEY_W, Keys::KEY_X, Keys::KEY_Y, Keys::KEY_Z};
 
     if (uc >= 'a' && uc <= 'z') {
         code = LOWER_LETTERS[uc - 'a'];
@@ -767,51 +799,140 @@ bool asciiToKeyStroke(char c, KeyCode& code, bool& shift) {
     }
 
     // Whitespace
-    if (uc == ' ') { code = Keys::KEY_SPACE; shift = false; return true; }
-    if (uc == '\t') { code = Keys::KEY_TAB; shift = false; return true; }
-    if (uc == '\n') { code = Keys::KEY_ENTER; shift = false; return true; }
+    if (uc == ' ') {
+        code = Keys::KEY_SPACE;
+        shift = false;
+        return true;
+    }
+    if (uc == '\t') {
+        code = Keys::KEY_TAB;
+        shift = false;
+        return true;
+    }
+    if (uc == '\n') {
+        code = Keys::KEY_ENTER;
+        shift = false;
+        return true;
+    }
 
     // Unshifted punctuation
     switch (uc) {
-    case '-': code = Keys::KEY_MINUS; shift = false; return true;
-    case '=': code = Keys::KEY_EQUAL; shift = false; return true;
-    case '[': code = Keys::KEY_LEFTBRACE; shift = false; return true;
-    case ']': code = Keys::KEY_RIGHTBRACE; shift = false; return true;
-    case '\\': code = Keys::KEY_BACKSLASH; shift = false; return true;
-    case ';': code = Keys::KEY_SEMICOLON; shift = false; return true;
-    case '\'': code = Keys::KEY_APOSTROPHE; shift = false; return true;
-    case '`': code = Keys::KEY_GRAVE; shift = false; return true;
-    case ',': code = Keys::KEY_COMMA; shift = false; return true;
-    case '.': code = Keys::KEY_DOT; shift = false; return true;
-    case '/': code = Keys::KEY_SLASH; shift = false; return true;
-    default: break;
+        case '-':
+            code = Keys::KEY_MINUS;
+            shift = false;
+            return true;
+        case '=':
+            code = Keys::KEY_EQUAL;
+            shift = false;
+            return true;
+        case '[':
+            code = Keys::KEY_LEFTBRACE;
+            shift = false;
+            return true;
+        case ']':
+            code = Keys::KEY_RIGHTBRACE;
+            shift = false;
+            return true;
+        case '\\':
+            code = Keys::KEY_BACKSLASH;
+            shift = false;
+            return true;
+        case ';':
+            code = Keys::KEY_SEMICOLON;
+            shift = false;
+            return true;
+        case '\'':
+            code = Keys::KEY_APOSTROPHE;
+            shift = false;
+            return true;
+        case '`':
+            code = Keys::KEY_GRAVE;
+            shift = false;
+            return true;
+        case ',':
+            code = Keys::KEY_COMMA;
+            shift = false;
+            return true;
+        case '.':
+            code = Keys::KEY_DOT;
+            shift = false;
+            return true;
+        case '/':
+            code = Keys::KEY_SLASH;
+            shift = false;
+            return true;
+        default:
+            break;
     }
 
     // Shifted punctuation
     shift = true;
     switch (uc) {
-    case '!': code = Keys::KEY_1; return true;
-    case '@': code = Keys::KEY_2; return true;
-    case '#': code = Keys::KEY_3; return true;
-    case '$': code = Keys::KEY_4; return true;
-    case '%': code = Keys::KEY_5; return true;
-    case '^': code = Keys::KEY_6; return true;
-    case '&': code = Keys::KEY_7; return true;
-    case '*': code = Keys::KEY_8; return true;
-    case '(': code = Keys::KEY_9; return true;
-    case ')': code = Keys::KEY_0; return true;
-    case '_': code = Keys::KEY_MINUS; return true;
-    case '+': code = Keys::KEY_EQUAL; return true;
-    case '{': code = Keys::KEY_LEFTBRACE; return true;
-    case '}': code = Keys::KEY_RIGHTBRACE; return true;
-    case '|': code = Keys::KEY_BACKSLASH; return true;
-    case ':': code = Keys::KEY_SEMICOLON; return true;
-    case '"': code = Keys::KEY_APOSTROPHE; return true;
-    case '~': code = Keys::KEY_GRAVE; return true;
-    case '<': code = Keys::KEY_COMMA; return true;
-    case '>': code = Keys::KEY_DOT; return true;
-    case '?': code = Keys::KEY_SLASH; return true;
-    default: break;
+        case '!':
+            code = Keys::KEY_1;
+            return true;
+        case '@':
+            code = Keys::KEY_2;
+            return true;
+        case '#':
+            code = Keys::KEY_3;
+            return true;
+        case '$':
+            code = Keys::KEY_4;
+            return true;
+        case '%':
+            code = Keys::KEY_5;
+            return true;
+        case '^':
+            code = Keys::KEY_6;
+            return true;
+        case '&':
+            code = Keys::KEY_7;
+            return true;
+        case '*':
+            code = Keys::KEY_8;
+            return true;
+        case '(':
+            code = Keys::KEY_9;
+            return true;
+        case ')':
+            code = Keys::KEY_0;
+            return true;
+        case '_':
+            code = Keys::KEY_MINUS;
+            return true;
+        case '+':
+            code = Keys::KEY_EQUAL;
+            return true;
+        case '{':
+            code = Keys::KEY_LEFTBRACE;
+            return true;
+        case '}':
+            code = Keys::KEY_RIGHTBRACE;
+            return true;
+        case '|':
+            code = Keys::KEY_BACKSLASH;
+            return true;
+        case ':':
+            code = Keys::KEY_SEMICOLON;
+            return true;
+        case '"':
+            code = Keys::KEY_APOSTROPHE;
+            return true;
+        case '~':
+            code = Keys::KEY_GRAVE;
+            return true;
+        case '<':
+            code = Keys::KEY_COMMA;
+            return true;
+        case '>':
+            code = Keys::KEY_DOT;
+            return true;
+        case '?':
+            code = Keys::KEY_SLASH;
+            return true;
+        default:
+            break;
     }
 
     shift = false;
@@ -836,12 +957,10 @@ bool parseMouseAction(const std::string& raw_word, MouseAction& out_mouse, std::
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
 
-    bool starts_with_mouse_prefix = (lower.rfind("mouse", 0) == 0 ||
-                                     lower.rfind("cursor", 0) == 0 ||
-                                     lower.rfind("wheel", 0) == 0 ||
-                                     lower.rfind("scroll", 0) == 0 ||
-                                     lower.rfind("ms_", 0) == 0 ||
-                                     lower.rfind("btn_", 0) == 0);
+    bool starts_with_mouse_prefix =
+        (lower.rfind("mouse", 0) == 0 || lower.rfind("cursor", 0) == 0 ||
+         lower.rfind("wheel", 0) == 0 || lower.rfind("scroll", 0) == 0 ||
+         lower.rfind("ms_", 0) == 0 || lower.rfind("btn_", 0) == 0);
     if (!starts_with_mouse_prefix) {
         return false;
     }
@@ -880,11 +999,13 @@ bool parseMouseAction(const std::string& raw_word, MouseAction& out_mouse, std::
         }
     }
 
-    if (base == "mouse_left" || base == "mouse_move_left" || base == "cursor_left" || base == "ms_left") {
+    if (base == "mouse_left" || base == "mouse_move_left" || base == "cursor_left" ||
+        base == "ms_left") {
         out_mouse = MouseAction{MouseActionType::MoveLeft, delta};
         return true;
     }
-    if (base == "mouse_right" || base == "mouse_move_right" || base == "cursor_right" || base == "ms_right") {
+    if (base == "mouse_right" || base == "mouse_move_right" || base == "cursor_right" ||
+        base == "ms_right") {
         out_mouse = MouseAction{MouseActionType::MoveRight, delta};
         return true;
     }
@@ -892,23 +1013,28 @@ bool parseMouseAction(const std::string& raw_word, MouseAction& out_mouse, std::
         out_mouse = MouseAction{MouseActionType::MoveUp, delta};
         return true;
     }
-    if (base == "mouse_down" || base == "mouse_move_down" || base == "cursor_down" || base == "ms_down") {
+    if (base == "mouse_down" || base == "mouse_move_down" || base == "cursor_down" ||
+        base == "ms_down") {
         out_mouse = MouseAction{MouseActionType::MoveDown, delta};
         return true;
     }
-    if (base == "mouse_wheel_up" || base == "wheel_up" || base == "scroll_up" || base == "ms_wheel_up") {
+    if (base == "mouse_wheel_up" || base == "wheel_up" || base == "scroll_up" ||
+        base == "ms_wheel_up") {
         out_mouse = MouseAction{MouseActionType::WheelUp, delta};
         return true;
     }
-    if (base == "mouse_wheel_down" || base == "wheel_down" || base == "scroll_down" || base == "ms_wheel_down") {
+    if (base == "mouse_wheel_down" || base == "wheel_down" || base == "scroll_down" ||
+        base == "ms_wheel_down") {
         out_mouse = MouseAction{MouseActionType::WheelDown, delta};
         return true;
     }
-    if (base == "mouse_wheel_left" || base == "wheel_left" || base == "scroll_left" || base == "ms_wheel_left") {
+    if (base == "mouse_wheel_left" || base == "wheel_left" || base == "scroll_left" ||
+        base == "ms_wheel_left") {
         out_mouse = MouseAction{MouseActionType::WheelLeft, delta};
         return true;
     }
-    if (base == "mouse_wheel_right" || base == "wheel_right" || base == "scroll_right" || base == "ms_wheel_right") {
+    if (base == "mouse_wheel_right" || base == "wheel_right" || base == "scroll_right" ||
+        base == "ms_wheel_right") {
         out_mouse = MouseAction{MouseActionType::WheelRight, delta};
         return true;
     }
@@ -939,20 +1065,47 @@ bool parseMouseAction(const std::string& raw_word, MouseAction& out_mouse, std::
 std::string mouseActionToWord(const MouseAction& action) {
     std::string base;
     switch (action.type) {
-        case MouseActionType::MoveLeft: base = "mouse_left"; break;
-        case MouseActionType::MoveRight: base = "mouse_right"; break;
-        case MouseActionType::MoveUp: base = "mouse_up"; break;
-        case MouseActionType::MoveDown: base = "mouse_down"; break;
-        case MouseActionType::WheelUp: base = "mouse_wheel_up"; break;
-        case MouseActionType::WheelDown: base = "mouse_wheel_down"; break;
-        case MouseActionType::WheelLeft: base = "mouse_wheel_left"; break;
-        case MouseActionType::WheelRight: base = "mouse_wheel_right"; break;
-        case MouseActionType::BtnLeft: base = "mouse_btn_left"; break;
-        case MouseActionType::BtnRight: base = "mouse_btn_right"; break;
-        case MouseActionType::BtnMiddle: base = "mouse_btn_middle"; break;
-        case MouseActionType::BtnSide: base = "mouse_btn_side"; break;
-        case MouseActionType::BtnExtra: base = "mouse_btn_extra"; break;
-        default: return "(none)";
+        case MouseActionType::MoveLeft:
+            base = "mouse_left";
+            break;
+        case MouseActionType::MoveRight:
+            base = "mouse_right";
+            break;
+        case MouseActionType::MoveUp:
+            base = "mouse_up";
+            break;
+        case MouseActionType::MoveDown:
+            base = "mouse_down";
+            break;
+        case MouseActionType::WheelUp:
+            base = "mouse_wheel_up";
+            break;
+        case MouseActionType::WheelDown:
+            base = "mouse_wheel_down";
+            break;
+        case MouseActionType::WheelLeft:
+            base = "mouse_wheel_left";
+            break;
+        case MouseActionType::WheelRight:
+            base = "mouse_wheel_right";
+            break;
+        case MouseActionType::BtnLeft:
+            base = "mouse_btn_left";
+            break;
+        case MouseActionType::BtnRight:
+            base = "mouse_btn_right";
+            break;
+        case MouseActionType::BtnMiddle:
+            base = "mouse_btn_middle";
+            break;
+        case MouseActionType::BtnSide:
+            base = "mouse_btn_side";
+            break;
+        case MouseActionType::BtnExtra:
+            base = "mouse_btn_extra";
+            break;
+        default:
+            return "(none)";
     }
     if (action.delta != 0) {
         return base + "(" + std::to_string(action.delta) + ")";
@@ -960,4 +1113,4 @@ std::string mouseActionToWord(const MouseAction& action) {
     return base;
 }
 
-} // namespace tff
+}  // namespace tff
