@@ -16,11 +16,8 @@ static void test_initialization() {
     // Verify default combos are present
     bool found_jf = false;
     for (const auto& c : config.combos) {
-        if (c.keys.size() == 2 &&
-            c.keys[0] == tff::Keys::KEY_J &&
-            c.keys[1] == tff::Keys::KEY_F &&
-            !c.out_keys.empty() &&
-            c.out_keys[0] == tff::Keys::KEY_BACKSPACE) {
+        if (c.keys.size() == 2 && c.keys[0] == tff::Keys::KEY_J && c.keys[1] == tff::Keys::KEY_F &&
+            !c.out_keys.empty() && c.out_keys[0] == tff::Keys::KEY_BACKSPACE) {
             found_jf = true;
             break;
         }
@@ -30,8 +27,7 @@ static void test_initialization() {
     // Verify tap-hold capslock is present
     bool found_caps = false;
     for (const auto& th : config.tap_hold_keys) {
-        if (th.key == tff::Keys::KEY_CAPSLOCK &&
-            th.tap_key == tff::Keys::KEY_ESC &&
+        if (th.key == tff::Keys::KEY_CAPSLOCK && th.tap_key == tff::Keys::KEY_ESC &&
             th.hold_key == tff::Keys::KEY_LEFTMETA) {
             found_caps = true;
             break;
@@ -39,8 +35,8 @@ static void test_initialization() {
     }
     assert(found_caps);
 
-    std::cout << "PASSED (" << config.combos.size() << " combos, "
-              << config.tap_hold_keys.size() << " tap-hold keys)\n";
+    std::cout << "PASSED (" << config.combos.size() << " combos, " << config.tap_hold_keys.size()
+              << " tap-hold keys)\n";
 }
 
 static void test_keycode_conversion() {
@@ -137,11 +133,11 @@ static void test_combos_processing() {
     platform.setTimestamp(100);
     platform.processHostKeyEvent(0x0D, true);  // USB J down
     platform.setTimestamp(120);
-    platform.processHostKeyEvent(0x09, true);  // USB F down (chord!)
-    platform.setTimestamp(180);                // Overlap > 40ms
-    platform.processHostKeyEvent(0x0D, false); // USB J up
+    platform.processHostKeyEvent(0x09, true);   // USB F down (chord!)
+    platform.setTimestamp(180);                 // Overlap > 40ms
+    platform.processHostKeyEvent(0x0D, false);  // USB J up
     platform.setTimestamp(200);
-    platform.processHostKeyEvent(0x09, false); // USB F up
+    platform.processHostKeyEvent(0x09, false);  // USB F up
 
     const auto& emitted1 = platform.getEmittedKeys();
     assert(!emitted1.empty());
@@ -172,12 +168,12 @@ static void test_triple_combos() {
 
     platform.clearEmittedKeys();
     platform.setTimestamp(1000);
-    platform.processHostKeyEvent(0x07, true); // USB D down
+    platform.processHostKeyEvent(0x07, true);  // USB D down
     platform.setTimestamp(1020);
-    platform.processHostKeyEvent(0x09, true); // USB F down
+    platform.processHostKeyEvent(0x09, true);  // USB F down
     platform.setTimestamp(1040);
-    platform.processHostKeyEvent(0x0D, true); // USB J down (triple chord!)
-    platform.setTimestamp(1100);              // Overlap > 40ms
+    platform.processHostKeyEvent(0x0D, true);  // USB J down (triple chord!)
+    platform.setTimestamp(1100);               // Overlap > 40ms
     platform.processHostKeyEvent(0x07, false);
     platform.setTimestamp(1120);
     platform.processHostKeyEvent(0x09, false);
@@ -199,9 +195,9 @@ static void test_tap_hold() {
     // 1) Quick tap -> should emit Esc
     platform.clearEmittedKeys();
     platform.setTimestamp(2000);
-    platform.processHostKeyEvent(0x39, true);  // USB CapsLock down
-    platform.setTimestamp(2050);               // 50ms later (< 200ms)
-    platform.processHostKeyEvent(0x39, false); // USB CapsLock up -> TAP!
+    platform.processHostKeyEvent(0x39, true);   // USB CapsLock down
+    platform.setTimestamp(2050);                // 50ms later (< 200ms)
+    platform.processHostKeyEvent(0x39, false);  // USB CapsLock up -> TAP!
 
     const auto& emitted_tap = platform.getEmittedKeys();
     assert(!emitted_tap.empty());
@@ -216,7 +212,7 @@ static void test_tap_hold() {
 
     const auto& emitted_chord = platform.getEmittedKeys();
     assert(!emitted_chord.empty());
-    assert(emitted_chord[0] == tff::Keys::KEY_LEFTMETA); // Super down
+    assert(emitted_chord[0] == tff::Keys::KEY_LEFTMETA);  // Super down
 
     platform.setTimestamp(3080);
     platform.processHostKeyEvent(0x2C, false);
@@ -231,7 +227,7 @@ static void test_tap_hold() {
 
     const auto& emitted_hold = platform.getEmittedKeys();
     assert(!emitted_hold.empty());
-    assert(emitted_hold[0] == tff::Keys::KEY_LEFTMETA); // Super down
+    assert(emitted_hold[0] == tff::Keys::KEY_LEFTMETA);  // Super down
 
     platform.setTimestamp(4300);
     platform.processHostKeyEvent(0x39, false);
@@ -291,10 +287,10 @@ combos:
 
     platform.clearEmittedKeys();
     platform.setTimestamp(6000);
-    platform.processHostKeyEvent(0x0D, true); // USB J down
+    platform.processHostKeyEvent(0x0D, true);  // USB J down
     platform.setTimestamp(6020);
-    platform.processHostKeyEvent(0x0E, true); // USB K down
-    platform.setTimestamp(6080);              // Overlap > 40ms
+    platform.processHostKeyEvent(0x0E, true);  // USB K down
+    platform.setTimestamp(6080);               // Overlap > 40ms
     platform.processHostKeyEvent(0x0D, false);
     platform.setTimestamp(6100);
     platform.processHostKeyEvent(0x0E, false);
@@ -349,7 +345,7 @@ static void test_unmapped_keys_and_auto_init() {
     platform.setTimestamp(7100);
     platform.processHostKeyEvent(0x3A, true);  // F1 down
     platform.setTimestamp(7150);
-    platform.processHostKeyEvent(0x3A, false); // F1 up
+    platform.processHostKeyEvent(0x3A, false);  // F1 up
     const auto& emitted = platform.getEmittedKeys();
     assert(emitted.size() == 1);
     assert(emitted[0] == tff::Keys::KEY_F1);

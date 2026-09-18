@@ -12,13 +12,9 @@ class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 
     std::vector<Event> keyEvents() const {
         std::vector<Event> result;
@@ -110,8 +106,10 @@ static void test_key_passthrough_in_active_layer() {
     bool saw_a_down = false;
     bool saw_a_up = false;
     for (const auto& ev : key_evs) {
-        if (ev.code == Keys::KEY_A && ev.value == KEY_VAL_DOWN) saw_a_down = true;
-        if (ev.code == Keys::KEY_A && ev.value == KEY_VAL_UP) saw_a_up = true;
+        if (ev.code == Keys::KEY_A && ev.value == KEY_VAL_DOWN)
+            saw_a_down = true;
+        if (ev.code == Keys::KEY_A && ev.value == KEY_VAL_UP)
+            saw_a_up = true;
     }
     assert(saw_a_down && saw_a_up);
 
@@ -153,8 +151,10 @@ static void test_layer_deactivation_on_release() {
     bool saw_h_down = false;
     bool saw_h_up = false;
     for (const auto& ev : key_evs) {
-        if (ev.code == Keys::KEY_H && ev.value == KEY_VAL_DOWN) saw_h_down = true;
-        if (ev.code == Keys::KEY_H && ev.value == KEY_VAL_UP) saw_h_up = true;
+        if (ev.code == Keys::KEY_H && ev.value == KEY_VAL_DOWN)
+            saw_h_down = true;
+        if (ev.code == Keys::KEY_H && ev.value == KEY_VAL_UP)
+            saw_h_up = true;
         assert(ev.code != Keys::KEY_LEFT);
     }
     assert(saw_h_down && saw_h_up);
@@ -184,7 +184,8 @@ static void test_key_release_after_layer_deactivation() {
     // H down at t=30ms (remapped to Left Down)
     engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFT && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFT &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     // Space up at t=50ms (layer deactivates, but H is still physically held down!)
     engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
@@ -398,12 +399,14 @@ static void test_timeout_hold_activation() {
     // Press H -> Left Down
     engine.processEvent(Event{TimeVal{0, 230000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFT && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFT &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     // Release H -> Left Up
     engine.processEvent(Event{TimeVal{0, 240000}, EV_KEY, Keys::KEY_H, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[1].code == Keys::KEY_LEFT && writer.keyEvents()[1].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[1].code == Keys::KEY_LEFT &&
+           writer.keyEvents()[1].value == KEY_VAL_UP);
 
     // Release Space -> deactivates nav
     engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
@@ -416,9 +419,12 @@ static void test_layer_stack_management_api() {
     MockWriter writer;
     TFFEngine engine(&writer);
 
-    Layer nav; nav.name = "nav";
-    Layer numpad; numpad.name = "numpad";
-    Layer fn; fn.name = "fn";
+    Layer nav;
+    nav.name = "nav";
+    Layer numpad;
+    numpad.name = "numpad";
+    Layer fn;
+    fn.name = "fn";
     engine.setLayers({nav, numpad, fn});
 
     assert(engine.getActiveLayers().empty());
@@ -621,7 +627,7 @@ layers:
 
     // Numpad layer must now be locked ON!
     assert(engine.isLayerActive("numpad"));
-    assert(writer.events.empty()); // Both keys swallowed cleanly on release
+    assert(writer.events.empty());  // Both keys swallowed cleanly on release
 
     // 2. Type while locked in numpad without holding any key down!
     // Press 'm' -> emits text "1"
@@ -671,8 +677,10 @@ layers:
     bool saw_m_down = false;
     bool saw_m_up = false;
     for (const auto& ev : k4) {
-        if (ev.code == Keys::KEY_M && ev.value == KEY_VAL_DOWN) saw_m_down = true;
-        if (ev.code == Keys::KEY_M && ev.value == KEY_VAL_UP) saw_m_up = true;
+        if (ev.code == Keys::KEY_M && ev.value == KEY_VAL_DOWN)
+            saw_m_down = true;
+        if (ev.code == Keys::KEY_M && ev.value == KEY_VAL_UP)
+            saw_m_up = true;
         assert(ev.code != Keys::KEY_1);
     }
     assert(saw_m_down && saw_m_up);
@@ -686,8 +694,8 @@ static void test_toggle_layer_key_release_safety() {
 
     Layer numpad;
     numpad.name = "numpad";
-    numpad.mappings[Keys::KEY_K] = LayerAction({Keys::KEY_UP}); // 'k' maps to UP arrow
-    numpad.mappings[Keys::KEY_ESC] = LayerAction({}, "", "numpad"); // 'esc' toggles numpad
+    numpad.mappings[Keys::KEY_K] = LayerAction({Keys::KEY_UP});      // 'k' maps to UP arrow
+    numpad.mappings[Keys::KEY_ESC] = LayerAction({}, "", "numpad");  // 'esc' toggles numpad
     engine.setLayers({numpad});
 
     // Toggle on
@@ -697,14 +705,15 @@ static void test_toggle_layer_key_release_safety() {
     // Press and HOLD 'k' at t=10ms
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_K, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_UP && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_UP &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
     writer.clear();
 
     // While 'k' is physically held down, toggle layer OFF via 'esc'
     engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_ESC, KEY_VAL_DOWN});
     engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_ESC, KEY_VAL_UP});
     assert(!engine.isLayerActive("numpad"));
-    assert(writer.keyEvents().empty()); // 'esc' swallowed cleanly
+    assert(writer.keyEvents().empty());  // 'esc' swallowed cleanly
 
     // Now release 'k' at t=60ms
     engine.processEvent(Event{TimeVal{0, 60000}, EV_KEY, Keys::KEY_K, KEY_VAL_UP});
@@ -736,7 +745,7 @@ layers:
     engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
 
     assert(engine.isLayerActive("numpad"));
-    assert(writer.keyEvents().empty()); // No raw capslock output
+    assert(writer.keyEvents().empty());  // No raw capslock output
 
     // 2. Type 'j' in numpad -> "4"
     engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
@@ -754,13 +763,15 @@ layers:
 
     // 4. Long hold on CapsLock (>200ms) -> emits Super
     engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
-    engine.onTimer(TimeVal{0, 510000}); // Hold timeout triggers
+    engine.onTimer(TimeVal{0, 510000});  // Hold timeout triggers
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTMETA && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTMETA &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     engine.processEvent(Event{TimeVal{0, 550000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[1].code == Keys::KEY_LEFTMETA && writer.keyEvents()[1].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[1].code == Keys::KEY_LEFTMETA &&
+           writer.keyEvents()[1].value == KEY_VAL_UP);
 
     std::cout << "test_toggle_layer_tap_hold: PASSED\n";
 }
@@ -798,7 +809,7 @@ layers:
 
     assert(!engine.isLeaderActive());
     assert(engine.isLayerActive("numpad"));
-    assert(writer.keyEvents().empty()); // Sequence swallowed, no stray keys
+    assert(writer.keyEvents().empty());  // Sequence swallowed, no stray keys
 
     // Press 'j' -> emits "4"
     engine.processEvent(Event{TimeVal{0, 200000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
@@ -847,11 +858,13 @@ layers:
     // Fast chord 'j' -> nav layer has 'j: down', taking LIFO precedence over numpad!
     engine.processEvent(Event{TimeVal{0, 120000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     engine.processEvent(Event{TimeVal{0, 140000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[1].code == Keys::KEY_DOWN && writer.keyEvents()[1].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[1].code == Keys::KEY_DOWN &&
+           writer.keyEvents()[1].value == KEY_VAL_UP);
     writer.clear();
 
     // Release Space -> nav layer deactivates, numpad remains active!
@@ -881,7 +894,8 @@ layers:
     j: "4"
 )";
     assert(!loadYamlConfig(bad_combo, config, err));
-    assert(err.find("unknown layer 'nonexistent' referenced in combo toggle_layer") != std::string::npos);
+    assert(err.find("unknown layer 'nonexistent' referenced in combo toggle_layer") !=
+           std::string::npos);
 
     // 2. Unknown layer in layer mapping
     const std::string bad_map = R"(
@@ -890,7 +904,8 @@ layers:
     esc: toggle_layer(nonexistent)
 )";
     assert(!loadYamlConfig(bad_map, config, err));
-    assert(err.find("unknown layer 'nonexistent' referenced in layer 'numpad' toggle_layer") != std::string::npos);
+    assert(err.find("unknown layer 'nonexistent' referenced in layer 'numpad' toggle_layer") !=
+           std::string::npos);
 
     // 3. Unknown layer in tap_hold
     const std::string bad_th = R"(
@@ -901,7 +916,8 @@ layers:
     j: "4"
 )";
     assert(!loadYamlConfig(bad_th, config, err));
-    assert(err.find("unknown layer 'nonexistent' referenced in tap_hold toggle_layer") != std::string::npos);
+    assert(err.find("unknown layer 'nonexistent' referenced in tap_hold toggle_layer") !=
+           std::string::npos);
 
     // 4. Unknown layer in leader
     const std::string bad_leader = R"(
@@ -913,7 +929,8 @@ layers:
     j: "4"
 )";
     assert(!loadYamlConfig(bad_leader, config, err));
-    assert(err.find("unknown layer 'nonexistent' referenced in leader toggle_layer") != std::string::npos);
+    assert(err.find("unknown layer 'nonexistent' referenced in leader toggle_layer") !=
+           std::string::npos);
 
     // 5. Empty layer name in toggle_layer()
     const std::string empty_tl = R"(

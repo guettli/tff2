@@ -8,14 +8,10 @@
 
 namespace tff {
 
-EventMonitor::EventMonitor(const MonitorOptions& options)
-    : options_(options) {
-}
+EventMonitor::EventMonitor(const MonitorOptions& options) : options_(options) {}
 
 void EventMonitor::attachToEngine(TFFEngine& engine) {
-    engine.setTraceCallback([this](const TraceEvent& trace) {
-        this->recordTrace(trace);
-    });
+    engine.setTraceCallback([this](const TraceEvent& trace) { this->recordTrace(trace); });
 }
 
 void EventMonitor::recordTrace(const TraceEvent& trace) {
@@ -32,9 +28,8 @@ std::string EventMonitor::formatTimestamp(TimeVal time) {
         std::time_t s = static_cast<std::time_t>(time.sec);
         struct tm tm_info;
         localtime_r(&s, &tm_info);
-        std::snprintf(buf, sizeof(buf), "[%02d:%02d:%02d.%03d]",
-                      tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec,
-                      static_cast<int>((time.usec / 1000) % 1000));
+        std::snprintf(buf, sizeof(buf), "[%02d:%02d:%02d.%03d]", tm_info.tm_hour, tm_info.tm_min,
+                      tm_info.tm_sec, static_cast<int>((time.usec / 1000) % 1000));
     } else {
         int64_t total_ms = time.usec / 1000;
         int ms = static_cast<int>(total_ms % 1000);
@@ -76,7 +71,7 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
     if (prev_event_time_us_ > 0 && curr_us >= prev_event_time_us_) {
         delta_ms = (curr_us - prev_event_time_us_) / 1000;
         if (delta_ms > options_.max_delta_ms) {
-            delta_ms = -1; // Reset delta after long idle
+            delta_ms = -1;  // Reset delta after long idle
         }
     }
     prev_event_time_us_ = curr_us;
@@ -103,9 +98,12 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
 
     // 2. Action (DOWN, UP, REPEAT)
     std::string action_plain;
-    if (ev.value == KEY_VAL_DOWN) action_plain = "DOWN";
-    else if (ev.value == KEY_VAL_UP) action_plain = "UP";
-    else action_plain = "REPEAT";
+    if (ev.value == KEY_VAL_DOWN)
+        action_plain = "DOWN";
+    else if (ev.value == KEY_VAL_UP)
+        action_plain = "UP";
+    else
+        action_plain = "REPEAT";
 
     if (options_.color) {
         if (ev.value == KEY_VAL_DOWN) {
@@ -148,24 +146,26 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
             oss << delta_plain;
         }
         int dpad = 8 - static_cast<int>(delta_plain.size());
-        if (dpad < 0) dpad = 0;
+        if (dpad < 0)
+            dpad = 0;
         oss << std::string(dpad, ' ');
     } else {
-        oss << "        "; // 8 spaces
+        oss << "        ";  // 8 spaces
     }
     oss << "  ";
 
     // Calculate indent width for secondary lines
     // ts (14) + 2 + [dev] + action (6) + 2 + actual_key_col + 2 + delta (8) + 2
-    int base_indent = 14 + 2 + (device_label.empty() ? 0 : (static_cast<int>(device_label.size()) + 3)) + 6 + 2 + actual_key_col + 2 + 8 + 2;
+    int base_indent = 14 + 2 +
+                      (device_label.empty() ? 0 : (static_cast<int>(device_label.size()) + 3)) + 6 +
+                      2 + actual_key_col + 2 + 8 + 2;
 
     // 5. Annotations
     std::vector<const TraceEvent*> annot_traces;
     std::vector<const TraceEvent*> emit_traces;
 
     for (const auto& tr : pending_traces_) {
-        if (tr.kind == TraceEvent::Kind::EmitKey ||
-            tr.kind == TraceEvent::Kind::EmitText ||
+        if (tr.kind == TraceEvent::Kind::EmitKey || tr.kind == TraceEvent::Kind::EmitText ||
             tr.kind == TraceEvent::Kind::EmitMouse) {
             emit_traces.push_back(&tr);
         } else {
@@ -247,8 +247,7 @@ std::string EventMonitor::formatTimer(TimeVal time) {
     std::vector<const TraceEvent*> emit_traces;
 
     for (const auto& tr : pending_traces_) {
-        if (tr.kind == TraceEvent::Kind::EmitKey ||
-            tr.kind == TraceEvent::Kind::EmitText ||
+        if (tr.kind == TraceEvent::Kind::EmitKey || tr.kind == TraceEvent::Kind::EmitText ||
             tr.kind == TraceEvent::Kind::EmitMouse) {
             emit_traces.push_back(&tr);
         } else {
@@ -312,4 +311,4 @@ std::string EventMonitor::formatTimer(TimeVal time) {
     return oss.str();
 }
 
-} // namespace tff
+}  // namespace tff

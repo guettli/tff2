@@ -25,65 +25,73 @@ void signalHandler(int sig) {
 }
 
 void printHelp(const char* prog) {
-    std::cout << "Ten Flying Fingers (TFF) - Linux Keyboard Remapper\n"
-              << "https://github.com/guettli/tff2\n\n"
-              << "Usage:\n"
-              << "  " << prog << " [options] [combos.yaml] [device1 device2 ...]\n"
-              << "  " << prog << " combos [options] combos.yaml [device1 device2 ...]\n"
-              << "  " << prog << " monitor [options] [combos.yaml] [device1 device2 ...]\n"
-              << "  " << prog << " cheatsheet [options] [combos.yaml]\n"
-              << "  " << prog << " setup-udev [options]\n"
-              << "  " << prog << " validate combos.yaml\n"
-              << "  " << prog << " list\n\n"
-              << "Commands:\n"
-              << "  combos                  Run remapper with specified combos and devices\n"
-              << "  monitor                 Interactive live event monitor and chord debugger\n"
-              << "  cheatsheet              Display visual terminal cheat sheet or markdown table\n"
-              << "  setup-udev              Check Linux permissions or install udev rules for non-root execution\n"
-              << "  validate                Validate a combos YAML configuration file\n"
-              << "  list                    List all discovered keyboards with persistent paths\n"
-              << "  help                    Show this help message\n\n"
-              << "Options:\n"
-              << "  -i, --install           Install udev rules to /etc/udev/rules.d/ and reload (requires sudo)\n"
-              << "  -p, --print             Print recommended udev rules to stdout and exit\n"
-              << "  --check                 Check user permissions and device status (default for setup-udev)\n"
-              << "  --rule-path <path>      Custom destination path for udev rules\n"
-              << "  -s, --cheatsheet        Display cheat sheet of configured keys and layers\n"
-              << "  --markdown, --md        Output cheat sheet formatted as GitHub Markdown tables\n"
-              << "  --plain, --no-color     Disable ANSI color codes in cheat sheet, monitor, and udev output\n"
-              << "  --no-deltas             Disable timing deltas in live event monitor\n"
-              << "  --no-emitted            Disable emitted virtual key lines in live event monitor\n"
-              << "  -c, --config <file>     Path to combos YAML configuration file\n"
-              << "                          (default: config/tff-combos.yaml)\n"
-              << "  -w, --watch-config      Watch configuration file for live changes via inotify\n"
-              << "  -d, --device <path>     Path to input evdev device (e.g. /dev/input/event8)\n"
-              << "                          (default: auto-discover all connected keyboards)\n"
-              << "  -g, --grab              Exclusively grab input device (default: true for daemon, false for monitor)\n"
-              << "  --no-grab               Do not grab device (events still pass to OS)\n"
-              << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: enabled)\n"
-              << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
-              << "  -l, --list              List all discovered keyboards and exit\n"
-              << "  -v, --verbose           Print detailed key down/up event logs\n"
-              << "  -h, --help              Show this help message\n\n"
-              << "Signals:\n"
-              << "  SIGHUP                  Hot-reload configuration file without dropping keyboard grabs\n"
-              << "  SIGINT, SIGTERM         Graceful shutdown and restore keyboards\n\n"
-              << "Examples:\n"
-              << "  " << prog << " setup-udev\n"
-              << "  sudo " << prog << " setup-udev --install\n"
-              << "  " << prog << " setup-udev --print\n"
-              << "  " << prog << " config/tff-combos.yaml\n"
-              << "  " << prog << " monitor\n"
-              << "  " << prog << " monitor /dev/input/event8\n"
-              << "  " << prog << " monitor --plain\n"
-              << "  " << prog << " cheatsheet\n"
-              << "  " << prog << " cheatsheet --markdown\n"
-              << "  " << prog << " --watch-config config/tff-combos.yaml\n"
-              << "  " << prog << " --list\n"
-              << "  " << prog << " combos my-combos.yaml /dev/input/by-id/usb-*-event-kbd\n"
-              << "  " << prog << " validate config/tff-combos.yaml\n";
+    std::cout
+        << "Ten Flying Fingers (TFF) - Linux Keyboard Remapper\n"
+        << "https://github.com/guettli/tff2\n\n"
+        << "Usage:\n"
+        << "  " << prog << " [options] [combos.yaml] [device1 device2 ...]\n"
+        << "  " << prog << " combos [options] combos.yaml [device1 device2 ...]\n"
+        << "  " << prog << " monitor [options] [combos.yaml] [device1 device2 ...]\n"
+        << "  " << prog << " cheatsheet [options] [combos.yaml]\n"
+        << "  " << prog << " setup-udev [options]\n"
+        << "  " << prog << " validate combos.yaml\n"
+        << "  " << prog << " list\n\n"
+        << "Commands:\n"
+        << "  combos                  Run remapper with specified combos and devices\n"
+        << "  monitor                 Interactive live event monitor and chord debugger\n"
+        << "  cheatsheet              Display visual terminal cheat sheet or markdown table\n"
+        << "  setup-udev              Check Linux permissions or install udev rules for non-root "
+           "execution\n"
+        << "  validate                Validate a combos YAML configuration file\n"
+        << "  list                    List all discovered keyboards with persistent paths\n"
+        << "  help                    Show this help message\n\n"
+        << "Options:\n"
+        << "  -i, --install           Install udev rules to /etc/udev/rules.d/ and reload "
+           "(requires sudo)\n"
+        << "  -p, --print             Print recommended udev rules to stdout and exit\n"
+        << "  --check                 Check user permissions and device status (default for "
+           "setup-udev)\n"
+        << "  --rule-path <path>      Custom destination path for udev rules\n"
+        << "  -s, --cheatsheet        Display cheat sheet of configured keys and layers\n"
+        << "  --markdown, --md        Output cheat sheet formatted as GitHub Markdown tables\n"
+        << "  --plain, --no-color     Disable ANSI color codes in cheat sheet, monitor, and udev "
+           "output\n"
+        << "  --no-deltas             Disable timing deltas in live event monitor\n"
+        << "  --no-emitted            Disable emitted virtual key lines in live event monitor\n"
+        << "  -c, --config <file>     Path to combos YAML configuration file\n"
+        << "                          (default: config/tff-combos.yaml)\n"
+        << "  -w, --watch-config      Watch configuration file for live changes via inotify\n"
+        << "  -d, --device <path>     Path to input evdev device (e.g. /dev/input/event8)\n"
+        << "                          (default: auto-discover all connected keyboards)\n"
+        << "  -g, --grab              Exclusively grab input device (default: true for daemon, "
+           "false for monitor)\n"
+        << "  --no-grab               Do not grab device (events still pass to OS)\n"
+        << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: "
+           "enabled)\n"
+        << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
+        << "  -l, --list              List all discovered keyboards and exit\n"
+        << "  -v, --verbose           Print detailed key down/up event logs\n"
+        << "  -h, --help              Show this help message\n\n"
+        << "Signals:\n"
+        << "  SIGHUP                  Hot-reload configuration file without dropping keyboard "
+           "grabs\n"
+        << "  SIGINT, SIGTERM         Graceful shutdown and restore keyboards\n\n"
+        << "Examples:\n"
+        << "  " << prog << " setup-udev\n"
+        << "  sudo " << prog << " setup-udev --install\n"
+        << "  " << prog << " setup-udev --print\n"
+        << "  " << prog << " config/tff-combos.yaml\n"
+        << "  " << prog << " monitor\n"
+        << "  " << prog << " monitor /dev/input/event8\n"
+        << "  " << prog << " monitor --plain\n"
+        << "  " << prog << " cheatsheet\n"
+        << "  " << prog << " cheatsheet --markdown\n"
+        << "  " << prog << " --watch-config config/tff-combos.yaml\n"
+        << "  " << prog << " --list\n"
+        << "  " << prog << " combos my-combos.yaml /dev/input/by-id/usb-*-event-kbd\n"
+        << "  " << prog << " validate config/tff-combos.yaml\n";
 }
-} // anonymous namespace
+}  // anonymous namespace
 
 int main(int argc, char* argv[]) {
     std::string config_file = "config/tff-combos.yaml";
@@ -187,13 +195,15 @@ int main(int argc, char* argv[]) {
             if (cheatsheet_only || validate_only) {
                 config_file = arg;
             } else if (monitor_only) {
-                if (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos) {
+                if (arg.find(".yaml") != std::string::npos ||
+                    arg.find(".yml") != std::string::npos) {
                     config_file = arg;
                 } else {
                     device_paths.push_back(arg);
                 }
             } else if (config_file == "config/tff-combos.yaml" &&
-                       (arg.find(".yaml") != std::string::npos || arg.find(".yml") != std::string::npos)) {
+                       (arg.find(".yaml") != std::string::npos ||
+                        arg.find(".yml") != std::string::npos)) {
                 config_file = arg;
             } else {
                 device_paths.push_back(arg);
@@ -202,7 +212,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (monitor_only && !grab_explicit) {
-        grab = false; // default non-exclusive snooping for monitor mode
+        grab = false;  // default non-exclusive snooping for monitor mode
     }
 
     if (list_only) {
@@ -225,7 +235,8 @@ int main(int argc, char* argv[]) {
                 }
                 std::cout << "\n";
             }
-            std::cout << "Hint: In systemd service files, use the persistent Alias path to survive reboots/replugs.\n";
+            std::cout << "Hint: In systemd service files, use the persistent Alias path to survive "
+                         "reboots/replugs.\n";
         }
         return 0;
     }
@@ -251,10 +262,14 @@ int main(int argc, char* argv[]) {
                   << config.tap_hold_keys.size() << " tap-hold key(s), "
                   << config.one_shot_keys.size() << " one-shot key(s), "
                   << config.leader.sequences.size() << " leader sequence(s), "
-                  << (config.auto_shift.enabled ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) + " keys), ") : "")
-                  << config.layers.size() << " layer(s), and settings (combo: "
-                  << config.settings.combo_timeout_ms << "ms, tap-hold: "
-                  << config.settings.tap_hold_timeout_ms << "ms) from " << config_file << "\n";
+                  << (config.auto_shift.enabled
+                          ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) +
+                             " keys), ")
+                          : "")
+                  << config.layers.size()
+                  << " layer(s), and settings (combo: " << config.settings.combo_timeout_ms
+                  << "ms, tap-hold: " << config.settings.tap_hold_timeout_ms << "ms) from "
+                  << config_file << "\n";
         return 0;
     }
 
@@ -337,7 +352,8 @@ int main(int argc, char* argv[]) {
         // Load configuration if available
         bool config_loaded = platform.loadConfiguration(config_file);
         if (!config_loaded) {
-            if (config_file == "config/tff-combos.yaml" && platform.loadConfiguration("../config/tff-combos.yaml")) {
+            if (config_file == "config/tff-combos.yaml" &&
+                platform.loadConfiguration("../config/tff-combos.yaml")) {
                 config_loaded = true;
             }
         }
@@ -390,7 +406,8 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Loading configuration: " << config_file << "\n";
     if (!platform.loadConfiguration(config_file)) {
-        if (config_file == "config/tff-combos.yaml" && platform.loadConfiguration("../config/tff-combos.yaml")) {
+        if (config_file == "config/tff-combos.yaml" &&
+            platform.loadConfiguration("../config/tff-combos.yaml")) {
             std::cout << "Loaded configuration from ../config/tff-combos.yaml\n";
         } else {
             std::cerr << "Failed to load combo configuration file: " << config_file << "\n";
@@ -403,9 +420,9 @@ int main(int argc, char* argv[]) {
               << engine.getTapHoldKeys().size() << " tap-hold key(s), "
               << engine.getOneShotKeys().size() << " one-shot key(s), "
               << engine.getLeaderConfig().sequences.size() << " leader sequence(s), "
-              << engine.getLayers().size() << " layer(s), settings (combo: "
-              << platform.getSettings().combo_timeout_ms << "ms, tap-hold: "
-              << platform.getSettings().tap_hold_timeout_ms << "ms)\n";
+              << engine.getLayers().size()
+              << " layer(s), settings (combo: " << platform.getSettings().combo_timeout_ms
+              << "ms, tap-hold: " << platform.getSettings().tap_hold_timeout_ms << "ms)\n";
 
     if (!grab_explicit) {
         grab = platform.getSettings().exclusive_grab;
@@ -423,8 +440,9 @@ int main(int argc, char* argv[]) {
         device_paths = LinuxPlatform::discoverKeyboards();
         if (device_paths.empty()) {
             if (hotplug) {
-                std::cout << "No keyboard devices currently found in /dev/input/.\n"
-                          << "Dynamic hotplugging active: waiting for keyboards to be plugged in...\n";
+                std::cout
+                    << "No keyboard devices currently found in /dev/input/.\n"
+                    << "Dynamic hotplugging active: waiting for keyboards to be plugged in...\n";
             } else {
                 std::cerr << "Error: No keyboard devices found in /dev/input/\n";
                 return 1;
@@ -433,13 +451,14 @@ int main(int argc, char* argv[]) {
     }
 
     if (!device_paths.empty()) {
-        std::cout << "Opening " << device_paths.size() << " input keyboard device(s) (grab="
-                  << (grab ? "yes" : "no") << "):\n";
+        std::cout << "Opening " << device_paths.size()
+                  << " input keyboard device(s) (grab=" << (grab ? "yes" : "no") << "):\n";
         for (const auto& p : device_paths) {
             std::string name = LinuxPlatform::getDeviceName(p);
             std::string alias = LinuxPlatform::getDeviceAlias(p);
             std::cout << "  -> " << p;
-            if (!name.empty()) std::cout << " (" << name << ")";
+            if (!name.empty())
+                std::cout << " (" << name << ")";
             std::cout << "\n";
             if (!alias.empty()) {
                 std::cout << "     Alias: " << alias << "\n";

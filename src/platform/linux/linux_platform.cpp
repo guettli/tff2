@@ -19,12 +19,18 @@
 
 namespace {
 
-#define TEST_BIT_EV(bit, arr) (((arr)[(bit) / (sizeof(unsigned long) * 8)] & (1UL << ((bit) % (sizeof(unsigned long) * 8)))) != 0)
+#define TEST_BIT_EV(bit, arr)                                                                      \
+    (((arr)[(bit) / (sizeof(unsigned long) * 8)] &                                                 \
+      (1UL << ((bit) % (sizeof(unsigned long) * 8)))) != 0)
 
 class UInputWriter : public tff::EventWriter {
 public:
-    UInputWriter(int uinput_fd, std::vector<uint32_t>* received_keys, bool verbose = false, bool emit_uinput = true)
-        : uinput_fd_(uinput_fd), received_keys_(received_keys), verbose_(verbose), emit_uinput_(emit_uinput) {}
+    UInputWriter(int uinput_fd, std::vector<uint32_t>* received_keys, bool verbose = false,
+                 bool emit_uinput = true)
+        : uinput_fd_(uinput_fd),
+          received_keys_(received_keys),
+          verbose_(verbose),
+          emit_uinput_(emit_uinput) {}
 
     void setUinputFd(int fd) { uinput_fd_ = fd; }
     void setVerbose(bool verbose) { verbose_ = verbose; }
@@ -33,8 +39,7 @@ public:
 
     void writeOne(const tff::Event& ev) override {
         if (verbose_ && ev.type == EV_KEY) {
-            std::cout << "[TFF Out] " << tff::keyCodeToWord(ev.code)
-                      << " (" << ev.code << ") "
+            std::cout << "[TFF Out] " << tff::keyCodeToWord(ev.code) << " (" << ev.code << ") "
                       << (ev.value == tff::KEY_VAL_DOWN ? "DOWN" : "UP") << "\n";
         }
         if (ev.type == EV_KEY && ev.value == tff::KEY_VAL_DOWN && received_keys_) {
@@ -60,7 +65,7 @@ private:
     bool emit_uinput_;
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 LinuxPlatform::LinuxPlatform()
     : uinput_fd_(-1),
@@ -73,8 +78,7 @@ LinuxPlatform::LinuxPlatform()
       config_watch_enabled_(false),
       inotify_fd_(-1),
       hotplug_wd_(-1),
-      config_wd_(-1) {
-}
+      config_wd_(-1) {}
 
 LinuxPlatform::~LinuxPlatform() {
     cleanup();
@@ -272,13 +276,12 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
 
     config_file_ = resolved;
     setConfig(config);
-    std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved
-              << " (" << config.combos.size() << " combo(s), "
-              << config.tap_hold_keys.size() << " tap-hold key(s), "
-              << config.one_shot_keys.size() << " one-shot key(s), "
+    std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved << " ("
+              << config.combos.size() << " combo(s), " << config.tap_hold_keys.size()
+              << " tap-hold key(s), " << config.one_shot_keys.size() << " one-shot key(s), "
               << config.leader.sequences.size() << " leader sequence(s), "
-              << (config.auto_shift.enabled ? std::to_string(config.auto_shift.keys.size()) : "0") << " auto-shift key(s), "
-              << config.layers.size() << " layer(s) active)\n";
+              << (config.auto_shift.enabled ? std::to_string(config.auto_shift.keys.size()) : "0")
+              << " auto-shift key(s), " << config.layers.size() << " layer(s) active)\n";
     return true;
 }
 
@@ -299,21 +302,22 @@ bool LinuxPlatform::isKeyboardDevice(const std::string& dev_path, std::string* o
         return false;
     }
 
-    unsigned long ev_bits[(EV_MAX + sizeof(unsigned long) * 8 - 1) / (sizeof(unsigned long) * 8)] = {0};
+    unsigned long ev_bits[(EV_MAX + sizeof(unsigned long) * 8 - 1) / (sizeof(unsigned long) * 8)] =
+        {0};
     if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) < 0 || !TEST_BIT_EV(EV_KEY, ev_bits)) {
         close(fd);
         return false;
     }
 
-    unsigned long key_bits[(KEY_MAX + sizeof(unsigned long) * 8 - 1) / (sizeof(unsigned long) * 8)] = {0};
+    unsigned long
+        key_bits[(KEY_MAX + sizeof(unsigned long) * 8 - 1) / (sizeof(unsigned long) * 8)] = {0};
     if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(key_bits)), key_bits) < 0) {
         close(fd);
         return false;
     }
 
     // Must support typical alphanumeric keyboard keys
-    bool is_kbd = TEST_BIT_EV(KEY_A, key_bits) &&
-                  TEST_BIT_EV(KEY_SPACE, key_bits) &&
+    bool is_kbd = TEST_BIT_EV(KEY_A, key_bits) && TEST_BIT_EV(KEY_SPACE, key_bits) &&
                   TEST_BIT_EV(KEY_ENTER, key_bits);
     if (is_kbd && out_name) {
         *out_name = name_str;
@@ -361,7 +365,8 @@ std::vector<std::string> LinuxPlatform::discoverKeyboards() {
 
 std::string LinuxPlatform::getDeviceName(const std::string& dev_path) {
     int fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (fd < 0) return "";
+    if (fd < 0)
+        return "";
     char name[256] = {0};
     ioctl(fd, EVIOCGNAME(sizeof(name) - 1), name);
     close(fd);
@@ -378,10 +383,12 @@ std::string LinuxPlatform::getDeviceAlias(const std::string& dev_path) {
     const std::vector<std::string> base_dirs = {"/dev/input/by-id", "/dev/input/by-path"};
     for (const auto& base_dir : base_dirs) {
         DIR* dir = opendir(base_dir.c_str());
-        if (!dir) continue;
+        if (!dir)
+            continue;
         const struct dirent* ent;
         while ((ent = readdir(dir)) != nullptr) {
-            if (ent->d_name[0] == '.') continue;
+            if (ent->d_name[0] == '.')
+                continue;
             std::string full_path = base_dir + "/" + ent->d_name;
             char real_entry[PATH_MAX];
             if (realpath(full_path.c_str(), real_entry)) {
@@ -432,14 +439,16 @@ bool LinuxPlatform::attachInputDevice(const std::string& device_path, bool grab)
     int fd = open(device_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (fd < 0) {
         if (verbose_) {
-            std::cerr << "Failed to open input device " << device_path << ": " << strerror(errno) << "\n";
+            std::cerr << "Failed to open input device " << device_path << ": " << strerror(errno)
+                      << "\n";
         }
         return false;
     }
 
     if (grab) {
         if (ioctl(fd, EVIOCGRAB, 1) < 0) {
-            std::cerr << "Warning: Failed to grab device " << device_path << ": " << strerror(errno) << "\n";
+            std::cerr << "Warning: Failed to grab device " << device_path << ": " << strerror(errno)
+                      << "\n";
         }
     }
 
@@ -452,8 +461,8 @@ bool LinuxPlatform::attachInputDevice(const std::string& device_path, bool grab)
     grabbed_ = grab;
 
     if (verbose_) {
-        std::cout << "[TFF Hotplug] Attached keyboard: " << device_path
-                  << " (" << name_str << ")\n";
+        std::cout << "[TFF Hotplug] Attached keyboard: " << device_path << " (" << name_str
+                  << ")\n";
     }
 
     return true;
@@ -461,7 +470,7 @@ bool LinuxPlatform::attachInputDevice(const std::string& device_path, bool grab)
 
 bool LinuxPlatform::detachInputDevice(int fd) {
     auto it = std::find_if(devices_.begin(), devices_.end(),
-                          [fd](const DeviceInfo& d) { return d.fd == fd; });
+                           [fd](const DeviceInfo& d) { return d.fd == fd; });
     if (it == devices_.end()) {
         return false;
     }
@@ -537,8 +546,8 @@ void LinuxPlatform::setupInotify() {
     }
     hotplug_wd_ = inotify_add_watch(inotify_fd_, "/dev/input", IN_CREATE | IN_ATTRIB);
     if (hotplug_wd_ < 0) {
-        std::cerr << "Warning: Failed to watch /dev/input for hotplugging: "
-                  << strerror(errno) << "\n";
+        std::cerr << "Warning: Failed to watch /dev/input for hotplugging: " << strerror(errno)
+                  << "\n";
         if (config_wd_ < 0) {
             close(inotify_fd_);
             inotify_fd_ = -1;
@@ -649,7 +658,8 @@ void LinuxPlatform::teardownConfigWatch() {
 }
 
 void LinuxPlatform::processInotifyEvents() {
-    if (inotify_fd_ < 0) return;
+    if (inotify_fd_ < 0)
+        return;
 
     alignas(struct inotify_event) char buffer[4096];
     while (true) {
@@ -659,7 +669,8 @@ void LinuxPlatform::processInotifyEvents() {
         }
 
         for (ssize_t i = 0; i < bytes;) {
-            const struct inotify_event* event = reinterpret_cast<const struct inotify_event*>(buffer + i);
+            const struct inotify_event* event =
+                reinterpret_cast<const struct inotify_event*>(buffer + i);
             if (hotplug_wd_ >= 0 && event->wd == hotplug_wd_) {
                 if (event->len > 0) {
                     std::string entry_name(event->name);
@@ -672,8 +683,10 @@ void LinuxPlatform::processInotifyEvents() {
                             if (test_fd < 0 && (errno == EACCES || errno == ENOENT)) {
                                 for (int attempt = 0; attempt < 3; ++attempt) {
                                     usleep(15000);
-                                    test_fd = open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-                                    if (test_fd >= 0) break;
+                                    test_fd =
+                                        open(dev_path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+                                    if (test_fd >= 0)
+                                        break;
                                 }
                             }
                             if (test_fd >= 0) {
@@ -721,7 +734,8 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
     if (devices_.empty()) {
         auto discovered = discoverKeyboards();
         if (discovered.empty()) {
-            std::cout << "No keyboard devices currently connected in /dev/input/. Waiting for keyboards...\n";
+            std::cout << "No keyboard devices currently connected in /dev/input/. Waiting for "
+                         "keyboards...\n";
         } else {
             std::cout << "Auto-discovered " << discovered.size() << " keyboard(s):\n";
             for (const auto& p : discovered) {
@@ -778,7 +792,8 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
             }
             int64_t diff_us = tff::timeSubMicros(now_tv, target);
             timeout_ms = static_cast<int>(diff_us / 1000) + 1;
-            if (timeout_ms < 1) timeout_ms = 1;
+            if (timeout_ms < 1)
+                timeout_ms = 1;
         }
 
         int ret = poll(pfds.data(), pfds.size(), timeout_ms);
@@ -835,7 +850,8 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
                 continue;
             }
             // Skip devices already marked for detachment
-            if (std::find(fds_to_detach.begin(), fds_to_detach.end(), pfd.fd) != fds_to_detach.end()) {
+            if (std::find(fds_to_detach.begin(), fds_to_detach.end(), pfd.fd) !=
+                fds_to_detach.end()) {
                 continue;
             }
 
@@ -869,10 +885,12 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
                     ev.value = ie.value;
 
                     if (verbose_ && ev.type == EV_KEY) {
-                        std::cout << "[TFF In] " << tff::keyCodeToWord(ev.code)
-                                  << " (" << ev.code << ") "
-                                  << (ev.value == tff::KEY_VAL_DOWN ? "DOWN" :
-                                     (ev.value == tff::KEY_VAL_UP ? "UP" : "REPEAT")) << "\n";
+                        std::cout << "[TFF In] " << tff::keyCodeToWord(ev.code) << " (" << ev.code
+                                  << ") "
+                                  << (ev.value == tff::KEY_VAL_DOWN
+                                          ? "DOWN"
+                                          : (ev.value == tff::KEY_VAL_UP ? "UP" : "REPEAT"))
+                                  << "\n";
                     }
 
                     engine_->processEvent(ev);
@@ -884,7 +902,8 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
     engine_->finish();
 }
 
-void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::MonitorOptions& options, std::ostream& out) {
+void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::MonitorOptions& options,
+                               std::ostream& out) {
     if (!initialized_) {
         initialize();
     }
@@ -895,7 +914,8 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
     if (devices_.empty()) {
         auto discovered = discoverKeyboards();
         if (discovered.empty()) {
-            out << "No keyboard devices currently connected in /dev/input/. Waiting for keyboards...\n";
+            out << "No keyboard devices currently connected in /dev/input/. Waiting for "
+                   "keyboards...\n";
         } else {
             openInputDevices(discovered, grabbed_);
         }
@@ -908,9 +928,8 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
     out << "Ten Flying Fingers (TFF) - Live Event Monitor & Debugger\n"
         << "========================================================\n";
     if (!config_file_.empty()) {
-        out << "Configuration: " << config_file_ << " ("
-            << engine_->getCombos().size() << " combos, "
-            << engine_->getTapHoldKeys().size() << " tap-hold, "
+        out << "Configuration: " << config_file_ << " (" << engine_->getCombos().size()
+            << " combos, " << engine_->getTapHoldKeys().size() << " tap-hold, "
             << engine_->getLayers().size() << " layers)\n";
     }
     out << "Monitoring " << devices_.size() << " keyboard device(s) ("
@@ -918,7 +937,8 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
     for (const auto& dev : devices_) {
         std::string name = getDeviceName(dev.path);
         out << "  -> " << dev.path;
-        if (!name.empty()) out << " (" << name << ")";
+        if (!name.empty())
+            out << " (" << name << ")";
         out << "\n";
     }
     out << "\nPress keys on your keyboard to monitor events. Press Ctrl+C to exit.\n"
@@ -965,7 +985,8 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
             }
             int64_t diff_us = tff::timeSubMicros(now_tv, target);
             timeout_ms = static_cast<int>(diff_us / 1000) + 1;
-            if (timeout_ms < 1) timeout_ms = 1;
+            if (timeout_ms < 1)
+                timeout_ms = 1;
         }
 
         int ret = poll(pfds.data(), pfds.size(), timeout_ms);
@@ -1015,7 +1036,8 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
             if (pfd.fd == inotify_fd_ || (pfd.revents & POLLIN) == 0) {
                 continue;
             }
-            if (std::find(fds_to_detach.begin(), fds_to_detach.end(), pfd.fd) != fds_to_detach.end()) {
+            if (std::find(fds_to_detach.begin(), fds_to_detach.end(), pfd.fd) !=
+                fds_to_detach.end()) {
                 continue;
             }
             std::string dev_label;
@@ -1054,7 +1076,8 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
 
                         monitor.clearTrace();
                         engine_->processEvent(ev);
-                        std::string line = monitor.formatEvent(ev, devices_.size() > 1 ? dev_label : "");
+                        std::string line =
+                            monitor.formatEvent(ev, devices_.size() > 1 ? dev_label : "");
                         out << line << std::flush;
                     }
                 }
@@ -1139,10 +1162,8 @@ int LinuxPlatform::createVirtualKeyboard(const std::string& device_name) {
         return -1;
     }
 
-    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 ||
-        ioctl(fd, UI_SET_EVBIT, EV_SYN) < 0 ||
-        ioctl(fd, UI_SET_EVBIT, EV_MSC) < 0 ||
-        ioctl(fd, UI_SET_EVBIT, EV_REP) < 0 ||
+    if (ioctl(fd, UI_SET_EVBIT, EV_KEY) < 0 || ioctl(fd, UI_SET_EVBIT, EV_SYN) < 0 ||
+        ioctl(fd, UI_SET_EVBIT, EV_MSC) < 0 || ioctl(fd, UI_SET_EVBIT, EV_REP) < 0 ||
         ioctl(fd, UI_SET_EVBIT, EV_REL) < 0) {
         close(fd);
         return -1;

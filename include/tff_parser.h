@@ -15,7 +15,8 @@ bool csvLineToEvent(const std::string& line, Event& ev, std::string& err_msg);
 bool csvToEvents(const std::string& csv_str, std::vector<Event>& events, std::string& err_msg);
 
 // Parses state string (e.g. "capslock_ (259.006ms) j_ (105.844ms) j/ (721.7ms) capslock/")
-bool stateStringToEvents(const std::string& state_str, std::vector<Event>& events, std::string& err_msg);
+bool stateStringToEvents(const std::string& state_str, std::vector<Event>& events,
+                         std::string& err_msg);
 
 // Parses combo log with |>> prefix lines into vector of Events
 bool parseComboLog(std::istream& in, std::vector<Event>& events, std::string& err_msg);
@@ -42,6 +43,6 @@ bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std
 // Loads complete YAML configuration including combos and tap_hold settings
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg);
 
-} // namespace tff
+}  // namespace tff
 
-#endif // TFF_PARSER_H
+#endif  // TFF_PARSER_H

@@ -63,9 +63,9 @@ combos:
         assert(ok);
         assert(!config.combos.empty());
         assert(!config.tap_hold_keys.empty());
-        std::cout << "✓ Test 3 passed: loadYamlConfig loads tff-combos.yaml (" 
-                  << config.combos.size() << " combos, "
-                  << config.tap_hold_keys.size() << " tap-hold keys)\n";
+        std::cout << "✓ Test 3 passed: loadYamlConfig loads tff-combos.yaml ("
+                  << config.combos.size() << " combos, " << config.tap_hold_keys.size()
+                  << " tap-hold keys)\n";
     }
 
     // Test 4: Compact dictionary syntax with ALL literal punctuation symbols
@@ -89,14 +89,14 @@ combos:
         bool ok = tff::loadYamlCombos(compact_yaml, combos, err_msg);
         assert(ok);
         assert(combos.size() == 11);
-        assert(combos[0].keys[0] == 39); // KEY_SEMICOLON
-        assert(combos[4].keys[1] == 53); // KEY_SLASH
-        assert(combos[5].keys[1] == 43); // KEY_BACKSLASH
-        assert(combos[6].keys[1] == 13); // KEY_EQUAL
-        assert(combos[7].keys[1] == 26); // KEY_LEFTBRACE
-        assert(combos[8].keys[1] == 27); // KEY_RIGHTBRACE
-        assert(combos[9].keys[1] == 40); // KEY_APOSTROPHE
-        assert(combos[10].keys[1] == 41); // KEY_GRAVE
+        assert(combos[0].keys[0] == 39);   // KEY_SEMICOLON
+        assert(combos[4].keys[1] == 53);   // KEY_SLASH
+        assert(combos[5].keys[1] == 43);   // KEY_BACKSLASH
+        assert(combos[6].keys[1] == 13);   // KEY_EQUAL
+        assert(combos[7].keys[1] == 26);   // KEY_LEFTBRACE
+        assert(combos[8].keys[1] == 27);   // KEY_RIGHTBRACE
+        assert(combos[9].keys[1] == 40);   // KEY_APOSTROPHE
+        assert(combos[10].keys[1] == 41);  // KEY_GRAVE
         std::cout << "✓ Test 4 passed: all literal punctuation symbols supported\n";
     }
 
@@ -112,10 +112,10 @@ combos:
         bool ok = tff::loadYamlCombos(minus_yaml, combos, err_msg);
         assert(ok);
         assert(combos.size() == 2);
-        assert(combos[0].keys[0] == 12); // KEY_MINUS
-        assert(combos[0].keys[1] == 30); // KEY_A
-        assert(combos[1].keys[0] == 30); // KEY_A
-        assert(combos[1].keys[1] == 12); // KEY_MINUS
+        assert(combos[0].keys[0] == 12);  // KEY_MINUS
+        assert(combos[0].keys[1] == 30);  // KEY_A
+        assert(combos[1].keys[0] == 30);  // KEY_A
+        assert(combos[1].keys[1] == 12);  // KEY_MINUS
         std::cout << "✓ Test 5 passed: minus key '-' correctly parsed as first and second key\n";
     }
 
@@ -132,21 +132,21 @@ combos:
         assert(ok);
         assert(combos.size() == 4);
         // c1: g h -> esc
-        assert(combos[0].keys[0] == 34); // KEY_G
-        assert(combos[0].keys[1] == 35); // KEY_H
-        assert(combos[0].out_keys[0] == 1); // KEY_ESC
+        assert(combos[0].keys[0] == 34);     // KEY_G
+        assert(combos[0].keys[1] == 35);     // KEY_H
+        assert(combos[0].out_keys[0] == 1);  // KEY_ESC
         // c2: h g -> esc
-        assert(combos[1].keys[0] == 35); // KEY_H
-        assert(combos[1].keys[1] == 34); // KEY_G
-        assert(combos[1].out_keys[0] == 1); // KEY_ESC
+        assert(combos[1].keys[0] == 35);     // KEY_H
+        assert(combos[1].keys[1] == 34);     // KEY_G
+        assert(combos[1].out_keys[0] == 1);  // KEY_ESC
         // c3: j k -> enter
-        assert(combos[2].keys[0] == 36); // KEY_J
-        assert(combos[2].keys[1] == 37); // KEY_K
-        assert(combos[2].out_keys[0] == 28); // KEY_ENTER
+        assert(combos[2].keys[0] == 36);      // KEY_J
+        assert(combos[2].keys[1] == 37);      // KEY_K
+        assert(combos[2].out_keys[0] == 28);  // KEY_ENTER
         // c4: k j -> enter
-        assert(combos[3].keys[0] == 37); // KEY_K
-        assert(combos[3].keys[1] == 36); // KEY_J
-        assert(combos[3].out_keys[0] == 28); // KEY_ENTER
+        assert(combos[3].keys[0] == 37);      // KEY_K
+        assert(combos[3].keys[1] == 36);      // KEY_J
+        assert(combos[3].out_keys[0] == 28);  // KEY_ENTER
         std::cout << "✓ Test 6 passed: symmetric combos with and without spaces\n";
     }
 
@@ -164,16 +164,16 @@ combos:
         assert(combos.size() == 2);
         // c1: f g h -> esc
         assert(combos[0].keys.size() == 3);
-        assert(combos[0].keys[0] == 33); // KEY_F
-        assert(combos[0].keys[1] == 34); // KEY_G
-        assert(combos[0].keys[2] == 35); // KEY_H
-        assert(combos[0].out_keys[0] == 1); // KEY_ESC
+        assert(combos[0].keys[0] == 33);     // KEY_F
+        assert(combos[0].keys[1] == 34);     // KEY_G
+        assert(combos[0].keys[2] == 35);     // KEY_H
+        assert(combos[0].out_keys[0] == 1);  // KEY_ESC
         // c2: f h g -> esc
         assert(combos[1].keys.size() == 3);
-        assert(combos[1].keys[0] == 33); // KEY_F
-        assert(combos[1].keys[1] == 35); // KEY_H
-        assert(combos[1].keys[2] == 34); // KEY_G
-        assert(combos[1].out_keys[0] == 1); // KEY_ESC
+        assert(combos[1].keys[0] == 33);     // KEY_F
+        assert(combos[1].keys[1] == 35);     // KEY_H
+        assert(combos[1].keys[2] == 34);     // KEY_G
+        assert(combos[1].out_keys[0] == 1);  // KEY_ESC
         std::cout << "✓ Test 7 passed: symmetric combos nested under leader key\n";
     }
 
@@ -193,13 +193,13 @@ combos:
         assert(combos.size() == 3);
         // f n -> down
         assert(combos[0].keys.size() == 2);
-        assert(combos[0].keys[0] == 33); // KEY_F
-        assert(combos[0].keys[1] == 49); // KEY_N
-        assert(combos[0].out_keys[0] == 108); // KEY_DOWN
+        assert(combos[0].keys[0] == 33);       // KEY_F
+        assert(combos[0].keys[1] == 49);       // KEY_N
+        assert(combos[0].out_keys[0] == 108);  // KEY_DOWN
         // j k -> backspace (no leader)
         assert(combos[2].keys.size() == 2);
-        assert(combos[2].keys[0] == 36); // KEY_J
-        assert(combos[2].keys[1] == 37); // KEY_K
+        assert(combos[2].keys[0] == 36);  // KEY_J
+        assert(combos[2].keys[1] == 37);  // KEY_K
         std::cout << "✓ Test 8 passed: leader key grouping and un-indentation\n";
     }
 
@@ -215,7 +215,8 @@ combos:
 
         // Classic format with '+' also generates permutations
         combos.clear();
-        bool ok_classic = tff::loadYamlCombos("combos:\n  - keys: d + f + j\n    outKeys: esc\n", combos, err_msg);
+        bool ok_classic = tff::loadYamlCombos("combos:\n  - keys: d + f + j\n    outKeys: esc\n",
+                                              combos, err_msg);
         assert(ok_classic);
         assert(combos.size() == 6);
 
@@ -244,7 +245,8 @@ combos:
         combos.clear();
         assert(!tff::loadYamlCombos("combos:\n  g +: esc\n", combos, err_msg));
         assert(err_msg.find("require at least two keys") != std::string::npos);
-        std::cout << "✓ Test 9 passed: N-key symmetric combos (3-key, 4-key), max limit, duplicate detection, and validation\n";
+        std::cout << "✓ Test 9 passed: N-key symmetric combos (3-key, 4-key), max limit, duplicate "
+                     "detection, and validation\n";
     }
 
     // Test 10: Hotkey modifier output syntax (ctrl+s, alt+tab)
@@ -260,8 +262,8 @@ combos:
         assert(ok);
         assert(combos.size() == 2);
         assert(combos[0].out_keys.size() == 2);
-        assert(combos[0].out_keys[0] == 29); // KEY_LEFTCTRL
-        assert(combos[0].out_keys[1] == 31); // KEY_S
+        assert(combos[0].out_keys[0] == 29);  // KEY_LEFTCTRL
+        assert(combos[0].out_keys[1] == 31);  // KEY_S
         std::cout << "✓ Test 10 passed: hotkey output syntax (ctrl+s)\n";
     }
 
@@ -280,12 +282,12 @@ combos:
         bool ok = tff::loadYamlCombos(alias_yaml, combos, err_msg);
         assert(ok);
         assert(combos.size() == 5);
-        assert(combos[0].keys[0] == 58); // KEY_CAPSLOCK
-        assert(combos[0].out_keys[0] == 125); // KEY_LEFTMETA
-        assert(combos[1].out_keys[0] == 111); // KEY_DELETE
-        assert(combos[2].out_keys[0] == 28); // KEY_ENTER
-        assert(combos[3].out_keys[0] == 104); // KEY_PAGEUP
-        assert(combos[4].out_keys[0] == 109); // KEY_PAGEDOWN
+        assert(combos[0].keys[0] == 58);       // KEY_CAPSLOCK
+        assert(combos[0].out_keys[0] == 125);  // KEY_LEFTMETA
+        assert(combos[1].out_keys[0] == 111);  // KEY_DELETE
+        assert(combos[2].out_keys[0] == 28);   // KEY_ENTER
+        assert(combos[3].out_keys[0] == 104);  // KEY_PAGEUP
+        assert(combos[4].out_keys[0] == 109);  // KEY_PAGEDOWN
         std::cout << "✓ Test 11 passed: friendly key name aliases\n";
     }
 
@@ -474,7 +476,8 @@ settings:
 )";
         tff::Config cfg_bad_field;
         assert(!tff::loadYamlConfig(bad_field_yaml, cfg_bad_field, err_msg));
-        assert(err_msg.find("unknown field 'unknown_opt' in settings section") != std::string::npos);
+        assert(err_msg.find("unknown field 'unknown_opt' in settings section") !=
+               std::string::npos);
 
         // 5. Validation: combo_timeout_ms out of range
         std::string bad_combo_yaml = R"(

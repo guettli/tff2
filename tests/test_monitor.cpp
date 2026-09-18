@@ -13,15 +13,13 @@ namespace {
 
 class DummyWriter : public tff::EventWriter {
 public:
-    void writeOne(const tff::Event& ev) override {
-        written.push_back(ev);
-    }
+    void writeOne(const tff::Event& ev) override { written.push_back(ev); }
     std::vector<tff::Event> written;
 };
 
 void test_format_timestamp() {
     std::cout << "Test 1: Format timestamp... " << std::flush;
-    tff::TimeVal rel_tv{0, 120000}; // 120ms
+    tff::TimeVal rel_tv{0, 120000};  // 120ms
     std::string rel_ts = tff::EventMonitor::formatTimestamp(rel_tv);
     assert(rel_ts == "[00:00:00.120]");
 
@@ -103,7 +101,8 @@ combos:
     assert(l3.find("(+25ms)") != std::string::npos);
     assert(l3.find("CHORD CANDIDATE: d + f + j") != std::string::npos);
 
-    // 4. [14:23:01.210]  UP    'd' (code: 32)   (+40ms)  (swallowed) -> TRIGGER COMBO: d + f + j -> esc
+    // 4. [14:23:01.210]  UP    'd' (code: 32)   (+40ms)  (swallowed) -> TRIGGER COMBO: d + f + j ->
+    // esc
     tff::Event ev4{tff::TimeVal{0, 210000}, EV_KEY, tff::Keys::KEY_D, tff::KEY_VAL_UP};
     monitor.clearTrace();
     engine.processEvent(ev4);
@@ -170,7 +169,8 @@ tap_hold:
     assert(l_up.find("EMIT: esc (code: 1, DOWN)") != std::string::npos);
 
     // Hold sequence: DOWN capslock, timeout fires
-    tff::Event ev2_down{tff::TimeVal{0, 300000}, EV_KEY, tff::Keys::KEY_CAPSLOCK, tff::KEY_VAL_DOWN};
+    tff::Event ev2_down{tff::TimeVal{0, 300000}, EV_KEY, tff::Keys::KEY_CAPSLOCK,
+                        tff::KEY_VAL_DOWN};
     monitor.clearTrace();
     engine.processEvent(ev2_down);
     monitor.formatEvent(ev2_down);
@@ -260,7 +260,8 @@ leader:
     monitor.attachToEngine(engine);
 
     // Tap capslock to activate leader
-    tff::Event cap_down{tff::TimeVal{0, 100000}, EV_KEY, tff::Keys::KEY_CAPSLOCK, tff::KEY_VAL_DOWN};
+    tff::Event cap_down{tff::TimeVal{0, 100000}, EV_KEY, tff::Keys::KEY_CAPSLOCK,
+                        tff::KEY_VAL_DOWN};
     monitor.clearTrace();
     engine.processEvent(cap_down);
     monitor.formatEvent(cap_down);
@@ -356,7 +357,8 @@ void test_platform_monitor_api() {
 }
 
 void test_options_toggles() {
-    std::cout << "Test 12: Monitor options toggles (--no-deltas, --no-emitted, --plain)... " << std::flush;
+    std::cout << "Test 12: Monitor options toggles (--no-deltas, --no-emitted, --plain)... "
+              << std::flush;
     DummyWriter writer;
     tff::TFFEngine engine(&writer);
 
@@ -428,7 +430,7 @@ void test_column_alignment_long_key_names() {
     std::cout << "PASSED\n";
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 int main() {
     std::cout << "Running TFF Monitor Unit Tests:\n";

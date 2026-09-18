@@ -7,10 +7,7 @@
 namespace tff {
 
 TFFEngine::TFFEngine(EventWriter* out_dev, const std::vector<Combo>& combos)
-    : out_dev_(out_dev),
-      all_combos_(combos),
-      fake_active_timer_next_time_(TimeVal::maxTime()) {
-}
+    : out_dev_(out_dev), all_combos_(combos), fake_active_timer_next_time_(TimeVal::maxTime()) {}
 
 void TFFEngine::setCombos(const std::vector<Combo>& combos) {
     all_combos_ = combos;
@@ -35,7 +32,8 @@ void TFFEngine::setLeaderConfig(const LeaderConfig& config) {
 void TFFEngine::setAutoShiftConfig(const AutoShiftConfig& config) {
     auto_shift_ = config;
     std::sort(auto_shift_.keys.begin(), auto_shift_.keys.end());
-    auto_shift_.keys.erase(std::unique(auto_shift_.keys.begin(), auto_shift_.keys.end()), auto_shift_.keys.end());
+    auto_shift_.keys.erase(std::unique(auto_shift_.keys.begin(), auto_shift_.keys.end()),
+                           auto_shift_.keys.end());
 }
 
 bool TFFEngine::isAutoShiftKey(KeyCode code) const {
@@ -43,7 +41,8 @@ bool TFFEngine::isAutoShiftKey(KeyCode code) const {
 }
 
 bool TFFEngine::isModifierActive() const {
-    if (!active_modifiers_.empty() || !active_one_shot_modifiers_down_.empty() || !armed_one_shot_modifiers_.empty()) {
+    if (!active_modifiers_.empty() || !active_one_shot_modifiers_down_.empty() ||
+        !armed_one_shot_modifiers_.empty()) {
         return true;
     }
     // Check dual-role tap-hold keys promoted to hold
@@ -64,7 +63,8 @@ bool TFFEngine::isModifierActive() const {
         return true;
     }
     for (const auto& h : auto_shift_held_) {
-        if (h.shifted) return true;
+        if (h.shifted)
+            return true;
     }
     return false;
 }
@@ -104,7 +104,8 @@ Config TFFEngine::getConfig() const {
 }
 
 void TFFEngine::emitMouseAction(const MouseAction& action, TimeVal time) {
-    if (!action.isRelative() && !action.isButton()) return;
+    if (!action.isRelative() && !action.isButton())
+        return;
 
     int16_t speed = (action.delta != 0) ? action.delta : mouse_config_.move_speed;
     int16_t wheel = (action.delta != 0) ? action.delta : mouse_config_.wheel_step;
@@ -160,14 +161,16 @@ void TFFEngine::emitMouseAction(const MouseAction& action, TimeVal time) {
 }
 
 void TFFEngine::writeRel(uint16_t code, int32_t value, TimeVal time) {
-    std::string axis_name = (code == RelCodes::REL_X) ? "REL_X" :
-                            (code == RelCodes::REL_Y) ? "REL_Y" :
-                            (code == RelCodes::REL_WHEEL) ? "REL_WHEEL" :
-                            (code == RelCodes::REL_HWHEEL) ? "REL_HWHEEL" : std::to_string(code);
+    std::string axis_name = (code == RelCodes::REL_X)        ? "REL_X"
+                            : (code == RelCodes::REL_Y)      ? "REL_Y"
+                            : (code == RelCodes::REL_WHEEL)  ? "REL_WHEEL"
+                            : (code == RelCodes::REL_HWHEEL) ? "REL_HWHEEL"
+                                                             : std::to_string(code);
     if (trace_callback_) {
         trace(TraceEvent::Kind::EmitMouse, "EMIT REL: " + axis_name + " " + std::to_string(value));
     }
-    if (out_dev_ == nullptr) return;
+    if (out_dev_ == nullptr)
+        return;
     Event ev_rel;
     ev_rel.time = time;
     ev_rel.type = EV_REL;
@@ -189,12 +192,14 @@ void TFFEngine::activateLeader(TimeVal time) {
     leader_expire_time_ = TimeVal::fromMicros(time.toMicros() + timeout);
     leader_buffer_.clear();
     leader_raw_events_.clear();
-    trace(TraceEvent::Kind::LeaderActive, "LEADER: active (timeout: " + std::to_string(timeout / 1000) + "ms)");
+    trace(TraceEvent::Kind::LeaderActive,
+          "LEADER: active (timeout: " + std::to_string(timeout / 1000) + "ms)");
 }
 
 void TFFEngine::cancelLeader(TimeVal time) {
     (void)time;
-    if (!leader_active_) return;
+    if (!leader_active_)
+        return;
     leader_active_ = false;
     leader_buffer_.clear();
     auto to_replay = std::move(leader_raw_events_);
@@ -239,21 +244,24 @@ void TFFEngine::armOneShotLayer(const std::string& layer, TimeVal time, int64_t 
 
 bool TFFEngine::isOneShotModifierArmed(KeyCode mod) const {
     for (const auto& armed : armed_one_shot_modifiers_) {
-        if (armed.modifier == mod) return true;
+        if (armed.modifier == mod)
+            return true;
     }
     return false;
 }
 
 bool TFFEngine::isOneShotLayerArmed(const std::string& layer) const {
     for (const auto& armed : armed_one_shot_layers_) {
-        if (armed.layer == layer) return true;
+        if (armed.layer == layer)
+            return true;
     }
     return false;
 }
 
 void TFFEngine::disengageOneShots(TimeVal time) {
     if (out_dev_) {
-        for (auto it = active_one_shot_modifiers_down_.rbegin(); it != active_one_shot_modifiers_down_.rend(); ++it) {
+        for (auto it = active_one_shot_modifiers_down_.rbegin();
+             it != active_one_shot_modifiers_down_.rend(); ++it) {
             writeKey(*it, KEY_VAL_UP, time);
         }
     }
@@ -295,7 +303,8 @@ void TFFEngine::toggleLayer(const std::string& name) {
 }
 
 bool TFFEngine::isLayerActive(const std::string& name) const {
-    return std::find(active_layer_stack_.begin(), active_layer_stack_.end(), name) != active_layer_stack_.end();
+    return std::find(active_layer_stack_.begin(), active_layer_stack_.end(), name) !=
+           active_layer_stack_.end();
 }
 
 const LayerAction* TFFEngine::findLayerAction(KeyCode code) const {
@@ -342,7 +351,8 @@ bool TFFEngine::hasActiveTimer() const {
     if (leader_active_) {
         return true;
     }
-    if (auto_shift_.enabled && pending_auto_shift_.key != 0 && !pending_auto_shift_.shifted_emitted) {
+    if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
+        !pending_auto_shift_.shifted_emitted) {
         return true;
     }
     return false;
@@ -371,7 +381,8 @@ TimeVal TFFEngine::getActiveTimerTime() const {
     if (leader_active_ && leader_expire_time_ < earliest) {
         earliest = leader_expire_time_;
     }
-    if (auto_shift_.enabled && pending_auto_shift_.key != 0 && !pending_auto_shift_.shifted_emitted) {
+    if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
+        !pending_auto_shift_.shifted_emitted) {
         if (pending_auto_shift_.expire_time < earliest) {
             earliest = pending_auto_shift_.expire_time;
         }
@@ -456,7 +467,8 @@ bool TFFEngine::processEvent(const Event& ev) {
 
     if (isModifier(ev.code)) {
         if (ev.value == KEY_VAL_DOWN) {
-            if (std::find(active_modifiers_.begin(), active_modifiers_.end(), ev.code) == active_modifiers_.end()) {
+            if (std::find(active_modifiers_.begin(), active_modifiers_.end(), ev.code) ==
+                active_modifiers_.end()) {
                 active_modifiers_.push_back(ev.code);
             }
             if (pending_auto_shift_.key != 0) {
@@ -471,7 +483,8 @@ bool TFFEngine::processEvent(const Event& ev) {
     }
 
     if (ev.value == KEY_VAL_UP) {
-        auto it = std::find(leader_pending_releases_.begin(), leader_pending_releases_.end(), ev.code);
+        auto it =
+            std::find(leader_pending_releases_.begin(), leader_pending_releases_.end(), ev.code);
         if (it != leader_pending_releases_.end()) {
             leader_pending_releases_.erase(it);
             return true;
@@ -495,10 +508,12 @@ bool TFFEngine::processEvent(const Event& ev) {
         for (const auto& osk : one_shot_keys_) {
             if (osk.key == ev.code) {
                 synthesized_th.key = osk.key;
-                synthesized_th.tap_one_shot_modifier = osk.modifier != 0 ? osk.modifier : (osk.layer.empty() ? osk.key : 0);
+                synthesized_th.tap_one_shot_modifier =
+                    osk.modifier != 0 ? osk.modifier : (osk.layer.empty() ? osk.key : 0);
                 synthesized_th.tap_one_shot_layer = osk.layer;
                 synthesized_th.tap_one_shot_timeout_us = osk.timeout_us;
-                synthesized_th.hold_key = osk.layer.empty() ? synthesized_th.tap_one_shot_modifier : 0;
+                synthesized_th.hold_key =
+                    osk.layer.empty() ? synthesized_th.tap_one_shot_modifier : 0;
                 synthesized_th.hold_layer = osk.layer;
                 synthesized_th.timeout_us = 200000LL;
                 thk = &synthesized_th;
@@ -509,8 +524,10 @@ bool TFFEngine::processEvent(const Event& ev) {
 
     if (leader_active_) {
         // Dedicated leader key pressed while leader is active -> cancel leader mode
-        if (leader_config_.key != 0 && ev.code == leader_config_.key && (thk == nullptr || !thk->tap_leader)) {
-            if (ev.value == KEY_VAL_DOWN) return true;
+        if (leader_config_.key != 0 && ev.code == leader_config_.key &&
+            (thk == nullptr || !thk->tap_leader)) {
+            if (ev.value == KEY_VAL_DOWN)
+                return true;
             if (ev.value == KEY_VAL_UP) {
                 cancelLeader(ev.time);
                 return true;
@@ -544,11 +561,16 @@ bool TFFEngine::processEvent(const Event& ev) {
                 for (size_t k = 0; k < matched_seq->keys.size(); ++k) {
                     seq_str += (k > 0 ? " + " : "") + keyCodeToWord(matched_seq->keys[k]);
                 }
-                std::string act_str = !matched_seq->text.empty() ? ("\"" + matched_seq->text + "\"") :
-                                      !matched_seq->toggle_layer.empty() ? ("toggle_layer(" + matched_seq->toggle_layer + ")") :
-                                      (matched_seq->mouse.isRelative() || matched_seq->mouse.isButton()) ? mouseActionToWord(matched_seq->mouse) :
-                                      keyCodeToWord(matched_seq->out_keys.empty() ? 0 : matched_seq->out_keys[0]);
-                trace(TraceEvent::Kind::LeaderTrigger, "LEADER TRIGGER: " + seq_str + " -> " + act_str);
+                std::string act_str =
+                    !matched_seq->text.empty() ? ("\"" + matched_seq->text + "\"")
+                    : !matched_seq->toggle_layer.empty()
+                        ? ("toggle_layer(" + matched_seq->toggle_layer + ")")
+                    : (matched_seq->mouse.isRelative() || matched_seq->mouse.isButton())
+                        ? mouseActionToWord(matched_seq->mouse)
+                        : keyCodeToWord(matched_seq->out_keys.empty() ? 0
+                                                                      : matched_seq->out_keys[0]);
+                trace(TraceEvent::Kind::LeaderTrigger,
+                      "LEADER TRIGGER: " + seq_str + " -> " + act_str);
 
                 if (matched_seq->mouse.isRelative() || matched_seq->mouse.isButton()) {
                     emitMouseAction(matched_seq->mouse, ev.time);
@@ -560,15 +582,18 @@ bool TFFEngine::processEvent(const Event& ev) {
                     for (KeyCode out_k : matched_seq->out_keys) {
                         writeKey(out_k, KEY_VAL_DOWN, ev.time);
                     }
-                    for (auto it = matched_seq->out_keys.rbegin(); it != matched_seq->out_keys.rend(); ++it) {
+                    for (auto it = matched_seq->out_keys.rbegin();
+                         it != matched_seq->out_keys.rend(); ++it) {
                         writeKey(*it, KEY_VAL_UP, ev.time);
                     }
                 }
 
                 std::map<KeyCode, int> press_counts;
                 for (const auto& raw_ev : leader_raw_events_) {
-                    if (raw_ev.value == KEY_VAL_DOWN) press_counts[raw_ev.code]++;
-                    else if (raw_ev.value == KEY_VAL_UP) press_counts[raw_ev.code]--;
+                    if (raw_ev.value == KEY_VAL_DOWN)
+                        press_counts[raw_ev.code]++;
+                    else if (raw_ev.value == KEY_VAL_UP)
+                        press_counts[raw_ev.code]--;
                 }
                 press_counts[ev.code]++;
                 for (const auto& kv : press_counts) {
@@ -589,7 +614,8 @@ bool TFFEngine::processEvent(const Event& ev) {
                 trace(TraceEvent::Kind::LeaderCandidate, "LEADER CANDIDATE: " + cand_str);
                 leader_buffer_.push_back(ev.code);
                 leader_raw_events_.push_back(ev);
-                int64_t timeout = (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
+                int64_t timeout =
+                    (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
                 leader_expire_time_ = TimeVal::fromMicros(ev.time.toMicros() + timeout);
                 return true;
             } else {
@@ -607,7 +633,8 @@ bool TFFEngine::processEvent(const Event& ev) {
             }
             if (was_down_in_leader) {
                 leader_raw_events_.push_back(ev);
-                int64_t timeout = (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
+                int64_t timeout =
+                    (leader_config_.timeout_us > 0) ? leader_config_.timeout_us : 1000000LL;
                 leader_expire_time_ = TimeVal::fromMicros(ev.time.toMicros() + timeout);
                 return true;
             }
@@ -615,13 +642,15 @@ bool TFFEngine::processEvent(const Event& ev) {
     }
 
     auto ath_it = std::find_if(active_tap_holds_.begin(), active_tap_holds_.end(),
-        [&](const ActiveTapHold& a) { return a.config.key == ev.code; });
+                               [&](const ActiveTapHold& a) { return a.config.key == ev.code; });
 
     if (ev.value == KEY_VAL_DOWN) {
         // Any other key going DOWN while a tap-hold key is pending immediately promotes it to HOLD
         for (auto& ath : active_tap_holds_) {
             if (!ath.hold_emitted && ath.config.key != ev.code) {
-                std::string hold_desc = !ath.config.hold_layer.empty() ? ("layer(" + ath.config.hold_layer + ")") : keyCodeToWord(ath.config.hold_key);
+                std::string hold_desc = !ath.config.hold_layer.empty()
+                                            ? ("layer(" + ath.config.hold_layer + ")")
+                                            : keyCodeToWord(ath.config.hold_key);
                 trace(TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold '" + hold_desc + "'");
                 if (!ath.config.hold_layer.empty()) {
                     activateLayer(ath.config.hold_layer);
@@ -634,7 +663,8 @@ bool TFFEngine::processEvent(const Event& ev) {
         }
 
         // Dedicated leader key (not configured as tap_hold)
-        if (leader_config_.key != 0 && ev.code == leader_config_.key && (thk == nullptr || !thk->tap_leader)) {
+        if (leader_config_.key != 0 && ev.code == leader_config_.key &&
+            (thk == nullptr || !thk->tap_leader)) {
             return true;
         }
 
@@ -645,7 +675,9 @@ bool TFFEngine::processEvent(const Event& ev) {
                 ath.down_time = ev.time;
                 ath.hold_emitted = false;
                 active_tap_holds_.push_back(ath);
-                trace(TraceEvent::Kind::TapHoldWait, "TAP-HOLD: waiting (" + keyCodeToWord(thk->key) + ", timeout: " + std::to_string(thk->timeout_us / 1000) + "ms)");
+                trace(TraceEvent::Kind::TapHoldWait,
+                      "TAP-HOLD: waiting (" + keyCodeToWord(thk->key) +
+                          ", timeout: " + std::to_string(thk->timeout_us / 1000) + "ms)");
             }
             return true;
         }
@@ -695,7 +727,8 @@ bool TFFEngine::processEvent(const Event& ev) {
         return handleDownChar(ev);
     } else if (ev.value == KEY_VAL_UP) {
         // Dedicated leader key (not configured as tap_hold)
-        if (leader_config_.key != 0 && ev.code == leader_config_.key && (thk == nullptr || !thk->tap_leader)) {
+        if (leader_config_.key != 0 && ev.code == leader_config_.key &&
+            (thk == nullptr || !thk->tap_leader)) {
             activateLeader(ev.time);
             return true;
         }
@@ -704,7 +737,8 @@ bool TFFEngine::processEvent(const Event& ev) {
         auto remap_it = held_layer_remaps_.find(ev.code);
         if (remap_it != held_layer_remaps_.end()) {
             if (!remap_it->second.mouse.isRelative() && !remap_it->second.is_text) {
-                for (auto it = remap_it->second.out_keys.rbegin(); it != remap_it->second.out_keys.rend(); ++it) {
+                for (auto it = remap_it->second.out_keys.rbegin();
+                     it != remap_it->second.out_keys.rend(); ++it) {
                     writeKey(*it, KEY_VAL_UP, ev.time);
                 }
             }
@@ -733,11 +767,14 @@ bool TFFEngine::processEvent(const Event& ev) {
                         activateLeader(ev.time);
                     }
                 } else if (ath_it->config.tap_one_shot_modifier != 0) {
-                    armOneShotModifier(ath_it->config.tap_one_shot_modifier, ev.time, ath_it->config.tap_one_shot_timeout_us);
+                    armOneShotModifier(ath_it->config.tap_one_shot_modifier, ev.time,
+                                       ath_it->config.tap_one_shot_timeout_us);
                 } else if (!ath_it->config.tap_one_shot_layer.empty()) {
-                    armOneShotLayer(ath_it->config.tap_one_shot_layer, ev.time, ath_it->config.tap_one_shot_timeout_us);
+                    armOneShotLayer(ath_it->config.tap_one_shot_layer, ev.time,
+                                    ath_it->config.tap_one_shot_timeout_us);
                 } else if (ath_it->config.tap_key != 0) {
-                    trace(TraceEvent::Kind::TapHoldTap, "TAP-HOLD: tap '" + keyCodeToWord(ath_it->config.tap_key) + "'");
+                    trace(TraceEvent::Kind::TapHoldTap,
+                          "TAP-HOLD: tap '" + keyCodeToWord(ath_it->config.tap_key) + "'");
                     writeKey(ath_it->config.tap_key, KEY_VAL_DOWN, ev.time);
                     writeKey(ath_it->config.tap_key, KEY_VAL_UP, ev.time);
                 }
@@ -766,9 +803,11 @@ void TFFEngine::finish() {
             if (!ath.config.tap_toggle_layer.empty()) {
                 toggleLayer(ath.config.tap_toggle_layer);
             } else if (ath.config.tap_one_shot_modifier != 0) {
-                armOneShotModifier(ath.config.tap_one_shot_modifier, ath.down_time, ath.config.tap_one_shot_timeout_us);
+                armOneShotModifier(ath.config.tap_one_shot_modifier, ath.down_time,
+                                   ath.config.tap_one_shot_timeout_us);
             } else if (!ath.config.tap_one_shot_layer.empty()) {
-                armOneShotLayer(ath.config.tap_one_shot_layer, ath.down_time, ath.config.tap_one_shot_timeout_us);
+                armOneShotLayer(ath.config.tap_one_shot_layer, ath.down_time,
+                                ath.config.tap_one_shot_timeout_us);
             } else if (ath.config.tap_key != 0) {
                 writeKey(ath.config.tap_key, KEY_VAL_DOWN, ath.down_time);
                 writeKey(ath.config.tap_key, KEY_VAL_UP, ath.down_time);
@@ -811,7 +850,8 @@ void TFFEngine::finish() {
 
 bool TFFEngine::handleDownChar(const Event& ev) {
     if (fake_active_timer_) {
-        fake_active_timer_next_time_ = TimeVal::fromMicros(ev.time.toMicros() + timeout_after_down_us_);
+        fake_active_timer_next_time_ =
+            TimeVal::fromMicros(ev.time.toMicros() + timeout_after_down_us_);
     }
     buf_.push_back(ev);
     return eval(ev.time, "down");
@@ -823,9 +863,12 @@ bool TFFEngine::handleUpChar(const Event& ev) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
-    if (auto_shift_.enabled && pending_auto_shift_.key != 0 && !pending_auto_shift_.shifted_emitted) {
+    if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
+        !pending_auto_shift_.shifted_emitted) {
         if (time >= pending_auto_shift_.expire_time) {
-            trace(TraceEvent::Kind::AutoShiftHold, "AUTO-SHIFT: hold '" + keyCodeToWord(pending_auto_shift_.key) + "' (capitalized)");
+            trace(
+                TraceEvent::Kind::AutoShiftHold,
+                "AUTO-SHIFT: hold '" + keyCodeToWord(pending_auto_shift_.key) + "' (capitalized)");
             writeKey(Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN, pending_auto_shift_.expire_time);
             writeKey(pending_auto_shift_.key, KEY_VAL_DOWN, pending_auto_shift_.expire_time);
             pending_auto_shift_.shifted_emitted = true;
@@ -836,7 +879,9 @@ void TFFEngine::onTimer(TimeVal time) {
             int64_t expire_us = ath.down_time.toMicros() + ath.config.timeout_us;
             if (expire_us <= time.toMicros()) {
                 TimeVal expire_tv = TimeVal::fromMicros(expire_us);
-                std::string hold_desc = !ath.config.hold_layer.empty() ? ("layer(" + ath.config.hold_layer + ")") : keyCodeToWord(ath.config.hold_key);
+                std::string hold_desc = !ath.config.hold_layer.empty()
+                                            ? ("layer(" + ath.config.hold_layer + ")")
+                                            : keyCodeToWord(ath.config.hold_key);
                 trace(TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold '" + hold_desc + "'");
                 if (!ath.config.hold_layer.empty()) {
                     activateLayer(ath.config.hold_layer);
@@ -849,7 +894,7 @@ void TFFEngine::onTimer(TimeVal time) {
         }
     }
 
-    for (auto it = armed_one_shot_modifiers_.begin(); it != armed_one_shot_modifiers_.end(); ) {
+    for (auto it = armed_one_shot_modifiers_.begin(); it != armed_one_shot_modifiers_.end();) {
         if (time >= it->expire_time) {
             it = armed_one_shot_modifiers_.erase(it);
         } else {
@@ -857,7 +902,7 @@ void TFFEngine::onTimer(TimeVal time) {
         }
     }
 
-    for (auto it = armed_one_shot_layers_.begin(); it != armed_one_shot_layers_.end(); ) {
+    for (auto it = armed_one_shot_layers_.begin(); it != armed_one_shot_layers_.end();) {
         if (time >= it->expire_time) {
             deactivateLayer(it->layer);
             it = armed_one_shot_layers_.erase(it);
@@ -880,20 +925,23 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
     // 1. Check for swallowed key releases (held keys from finished combos)
     if (!swallow_keys_.empty()) {
         bool swallowed_any = false;
-        for (auto it = swallow_keys_.begin(); it != swallow_keys_.end(); ) {
+        for (auto it = swallow_keys_.begin(); it != swallow_keys_.end();) {
             KeyCode sw_key = *it;
             bool has_down = false;
             bool has_up = false;
             for (const auto& ev : buf_) {
                 if (ev.code == sw_key) {
-                    if (ev.value == KEY_VAL_DOWN) has_down = true;
-                    else if (ev.value == KEY_VAL_UP) has_up = true;
+                    if (ev.value == KEY_VAL_DOWN)
+                        has_down = true;
+                    else if (ev.value == KEY_VAL_UP)
+                        has_up = true;
                 }
             }
             if (has_down && has_up) {
                 trace(TraceEvent::Kind::KeySwallowed, "(swallowed)");
                 buf_.erase(std::remove_if(buf_.begin(), buf_.end(),
-                    [sw_key](const Event& e) { return e.code == sw_key; }), buf_.end());
+                                          [sw_key](const Event& e) { return e.code == sw_key; }),
+                           buf_.end());
                 it = swallow_keys_.erase(it);
                 swallowed_any = true;
             } else {
@@ -904,7 +952,8 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
             bool all_swallow = !buf_.empty();
             for (const auto& ev : buf_) {
                 if (ev.value != KEY_VAL_DOWN ||
-                    std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) == swallow_keys_.end()) {
+                    std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) ==
+                        swallow_keys_.end()) {
                     all_swallow = false;
                     break;
                 }
@@ -916,9 +965,8 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
     }
 
     // 2. Single character down-up check
-    if (buf_.size() == 2 &&
-        buf_[0].code == buf_[1].code &&
-        buf_[0].value == KEY_VAL_DOWN && buf_[1].value == KEY_VAL_UP) {
+    if (buf_.size() == 2 && buf_[0].code == buf_[1].code && buf_[0].value == KEY_VAL_DOWN &&
+        buf_[1].value == KEY_VAL_UP) {
         flushBuffer("Eval>up-down-of-singlechar");
         return true;
     }
@@ -967,7 +1015,8 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
             }
         }
         if (!already_down && trace_callback_) {
-            trace(TraceEvent::Kind::TriggerCombo, "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
+            trace(TraceEvent::Kind::TriggerCombo,
+                  "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
         }
         writeComboDownKeys(all_combos_[i]);
         writeComboUpKeys(all_combos_[i]);
@@ -993,7 +1042,8 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
             continue;
         }
         if (trace_callback_) {
-            trace(TraceEvent::Kind::TriggerCombo, "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
+            trace(TraceEvent::Kind::TriggerCombo,
+                  "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
         }
         writeComboDownKeys(all_combos_[i]);
         down_keys_written_.push_back(all_combos_[i]);
@@ -1095,8 +1145,7 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     }
 
     // All down keys seen
-    if (first_up_event && last_down_event &&
-        last_down_event->time < first_up_event->time &&
+    if (first_up_event && last_down_event && last_down_event->time < first_up_event->time &&
         last_down_event->code != first_up_event->code) {
         int64_t overlap = timeSubMicros(last_down_event->time, first_up_event->time);
         if (overlap < min_overlap_us_) {
@@ -1149,11 +1198,11 @@ void TFFEngine::writeComboDownKeys(const Combo& combo) {
     }
     if (combo.mouse.isButton()) {
         if (!buf_.empty()) {
-            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight) ? Keys::BTN_RIGHT :
-                               (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE :
-                               (combo.mouse.type == MouseActionType::BtnSide) ? Keys::BTN_SIDE :
-                               (combo.mouse.type == MouseActionType::BtnExtra) ? Keys::BTN_EXTRA :
-                               Keys::BTN_LEFT;
+            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                               : (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                               : (combo.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                               : (combo.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                                  : Keys::BTN_LEFT;
             writeKey(btn_code, KEY_VAL_DOWN, buf_[0].time);
         }
     } else if (combo.mouse.isRelative()) {
@@ -1232,11 +1281,11 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
 
     if (!buf_.empty()) {
         if (combo.mouse.isButton()) {
-            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight) ? Keys::BTN_RIGHT :
-                               (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE :
-                               (combo.mouse.type == MouseActionType::BtnSide) ? Keys::BTN_SIDE :
-                               (combo.mouse.type == MouseActionType::BtnExtra) ? Keys::BTN_EXTRA :
-                               Keys::BTN_LEFT;
+            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                               : (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                               : (combo.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                               : (combo.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                                  : Keys::BTN_LEFT;
             writeKey(btn_code, KEY_VAL_UP, buf_[0].time);
         } else if (combo.toggle_layer.empty() && combo.text.empty() && !combo.mouse.isRelative()) {
             writeCombo(combo, buf_[0].time, KEY_VAL_UP);
@@ -1310,8 +1359,11 @@ void TFFEngine::writeKey(KeyCode code, int32_t value, TimeVal time) {
 
 void TFFEngine::writeEventDirect(const Event& ev, const std::string& /*reason*/) {
     if (trace_callback_ && ev.type == EV_KEY) {
-        trace(TraceEvent::Kind::EmitKey, "EMIT: " + keyCodeToWord(ev.code) + " (code: " + std::to_string(ev.code) + ", " +
-              (ev.value == KEY_VAL_DOWN ? "DOWN" : (ev.value == KEY_VAL_UP ? "UP" : "REPEAT")) + ")", ev);
+        trace(TraceEvent::Kind::EmitKey,
+              "EMIT: " + keyCodeToWord(ev.code) + " (code: " + std::to_string(ev.code) + ", " +
+                  (ev.value == KEY_VAL_DOWN ? "DOWN" : (ev.value == KEY_VAL_UP ? "UP" : "REPEAT")) +
+                  ")",
+              ev);
     }
     if (out_dev_) {
         out_dev_->writeOne(ev);
@@ -1330,9 +1382,11 @@ void TFFEngine::writeEvent(const Event& ev, const std::string& reason) {
 
 void TFFEngine::commitPendingAutoShiftUnshifted(TimeVal time) {
     (void)time;
-    if (pending_auto_shift_.key == 0) return;
+    if (pending_auto_shift_.key == 0)
+        return;
     if (trace_callback_) {
-        trace(TraceEvent::Kind::AutoShiftTap, "AUTO-SHIFT: tap '" + keyCodeToWord(pending_auto_shift_.key) + "'");
+        trace(TraceEvent::Kind::AutoShiftTap,
+              "AUTO-SHIFT: tap '" + keyCodeToWord(pending_auto_shift_.key) + "'");
     }
     if (pending_auto_shift_.shifted_emitted) {
         auto_shift_held_.push_back({pending_auto_shift_.key, true});
@@ -1363,7 +1417,8 @@ void TFFEngine::handleAutoShiftOrWrite(const Event& ev, const std::string& reaso
         }
         pending_auto_shift_.key = ev.code;
         pending_auto_shift_.down_time = ev.time;
-        pending_auto_shift_.expire_time = TimeVal::fromMicros(ev.time.toMicros() + auto_shift_.timeout_us);
+        pending_auto_shift_.expire_time =
+            TimeVal::fromMicros(ev.time.toMicros() + auto_shift_.timeout_us);
         pending_auto_shift_.shifted_emitted = false;
         return;
     } else if (ev.value == KEY_VAL_UP) {
@@ -1383,7 +1438,7 @@ void TFFEngine::handleAutoShiftOrWrite(const Event& ev, const std::string& reaso
         }
 
         auto it = std::find_if(auto_shift_held_.begin(), auto_shift_held_.end(),
-            [&](const HeldAutoShift& h) { return h.key == ev.code; });
+                               [&](const HeldAutoShift& h) { return h.key == ev.code; });
         if (it != auto_shift_held_.end()) {
             writeKey(ev.code, KEY_VAL_UP, ev.time);
             if (it->shifted) {
@@ -1420,4 +1475,4 @@ std::string TFFEngine::toString() const {
     return s;
 }
 
-} // namespace tff
+}  // namespace tff

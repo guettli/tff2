@@ -10,17 +10,32 @@ namespace tff {
 namespace {
 
 std::string ansi(const std::string& code, const std::string& text, bool enable) {
-    if (!enable) return text;
+    if (!enable)
+        return text;
     return "\033[" + code + "m" + text + "\033[0m";
 }
 
-std::string bold(const std::string& s, bool enable)    { return ansi("1", s, enable); }
-std::string dim(const std::string& s, bool enable)     { return ansi("2", s, enable); }
-std::string cyan(const std::string& s, bool enable)    { return ansi("36", s, enable); }
-std::string green(const std::string& s, bool enable)   { return ansi("32", s, enable); }
-std::string yellow(const std::string& s, bool enable)  { return ansi("33", s, enable); }
-std::string magenta(const std::string& s, bool enable) { return ansi("35", s, enable); }
-std::string blue(const std::string& s, bool enable)    { return ansi("34", s, enable); }
+std::string bold(const std::string& s, bool enable) {
+    return ansi("1", s, enable);
+}
+std::string dim(const std::string& s, bool enable) {
+    return ansi("2", s, enable);
+}
+std::string cyan(const std::string& s, bool enable) {
+    return ansi("36", s, enable);
+}
+std::string green(const std::string& s, bool enable) {
+    return ansi("32", s, enable);
+}
+std::string yellow(const std::string& s, bool enable) {
+    return ansi("33", s, enable);
+}
+std::string magenta(const std::string& s, bool enable) {
+    return ansi("35", s, enable);
+}
+std::string blue(const std::string& s, bool enable) {
+    return ansi("34", s, enable);
+}
 
 std::string formatMarkdownCode(const std::string& s) {
     std::string res;
@@ -37,7 +52,9 @@ std::string formatMarkdownCode(const std::string& s) {
     return "`" + res + "`";
 }
 
-std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::string& text, const std::string& toggle_layer = "", const MouseAction& mouse = MouseAction{}) {
+std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::string& text,
+                               const std::string& toggle_layer = "",
+                               const MouseAction& mouse = MouseAction{}) {
     if (mouse.type != MouseActionType::None) {
         return mouseActionToWord(mouse);
     }
@@ -47,18 +64,25 @@ std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::
     if (!text.empty()) {
         std::string escaped;
         for (char c : text) {
-            if (c == '\n') escaped += "\\n";
-            else if (c == '\t') escaped += "\\t";
-            else if (c == '\r') escaped += "\\r";
-            else if (c == '"') escaped += "\\\"";
-            else escaped += c;
+            if (c == '\n')
+                escaped += "\\n";
+            else if (c == '\t')
+                escaped += "\\t";
+            else if (c == '\r')
+                escaped += "\\r";
+            else if (c == '"')
+                escaped += "\\\"";
+            else
+                escaped += c;
         }
         return "\"" + escaped + "\"";
     }
-    if (out_keys.empty()) return "(none)";
+    if (out_keys.empty())
+        return "(none)";
     std::string out;
     for (size_t i = 0; i < out_keys.size(); ++i) {
-        if (i > 0) out += " + ";
+        if (i > 0)
+            out += " + ";
         out += Cheatsheet::formatKey(out_keys[i]);
     }
     return out;
@@ -81,25 +105,35 @@ void printRow(std::ostream& os, const std::string& prefix,
     os << "\n";
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 std::string Cheatsheet::formatKey(KeyCode code) {
-    if (code == Keys::KEY_LEFTMETA) return "super";
-    if (code == Keys::KEY_LEFTCTRL) return "ctrl";
-    if (code == Keys::KEY_LEFTSHIFT) return "shift";
-    if (code == Keys::KEY_LEFTALT) return "alt";
-    if (code == Keys::BTN_LEFT) return "mouse_left";
-    if (code == Keys::BTN_RIGHT) return "mouse_right";
-    if (code == Keys::BTN_MIDDLE) return "mouse_middle";
-    if (code == Keys::BTN_SIDE) return "mouse_side";
-    if (code == Keys::BTN_EXTRA) return "mouse_extra";
+    if (code == Keys::KEY_LEFTMETA)
+        return "super";
+    if (code == Keys::KEY_LEFTCTRL)
+        return "ctrl";
+    if (code == Keys::KEY_LEFTSHIFT)
+        return "shift";
+    if (code == Keys::KEY_LEFTALT)
+        return "alt";
+    if (code == Keys::BTN_LEFT)
+        return "mouse_left";
+    if (code == Keys::BTN_RIGHT)
+        return "mouse_right";
+    if (code == Keys::BTN_MIDDLE)
+        return "mouse_middle";
+    if (code == Keys::BTN_SIDE)
+        return "mouse_side";
+    if (code == Keys::BTN_EXTRA)
+        return "mouse_extra";
     return keyCodeToWord(code);
 }
 
 std::string Cheatsheet::formatKeys(const std::vector<KeyCode>& keys) {
     std::string out;
     for (size_t i = 0; i < keys.size(); ++i) {
-        if (i > 0) out += " ";
+        if (i > 0)
+            out += " ";
         out += formatKey(keys[i]);
     }
     return out;
@@ -129,11 +163,10 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                     tap_act = "osl(" + th.tap_one_shot_layer + ")";
                 }
                 std::string hold_target = !th.hold_layer.empty()
-                    ? ("Layer: `" + th.hold_layer + "`")
-                    : (formatMarkdownCode(formatKey(th.hold_key)));
+                                              ? ("Layer: `" + th.hold_layer + "`")
+                                              : (formatMarkdownCode(formatKey(th.hold_key)));
                 ss << "| " << formatMarkdownCode(formatKey(th.key)) << " | "
-                   << formatMarkdownCode(tap_act) << " | "
-                   << hold_target << " | "
+                   << formatMarkdownCode(tap_act) << " | " << hold_target << " | "
                    << (th.timeout_us / 1000) << "ms |\n";
             }
             ss << "\n";
@@ -145,11 +178,13 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "| Key | Modifier / Layer | Type | Timeout |\n"
                << "|:---|:---|:---|:---|\n";
             for (const auto& osk : config.one_shot_keys) {
-                std::string target = !osk.layer.empty() ? ("Layer: `" + osk.layer + "`") : formatMarkdownCode(formatKey(osk.modifier));
-                std::string type = !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
-                ss << "| " << formatMarkdownCode(formatKey(osk.key)) << " | "
-                   << target << " | " << type << " | "
-                   << (osk.timeout_us / 1000) << "ms |\n";
+                std::string target = !osk.layer.empty()
+                                         ? ("Layer: `" + osk.layer + "`")
+                                         : formatMarkdownCode(formatKey(osk.modifier));
+                std::string type =
+                    !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
+                ss << "| " << formatMarkdownCode(formatKey(osk.key)) << " | " << target << " | "
+                   << type << " | " << (osk.timeout_us / 1000) << "ms |\n";
             }
             ss << "\n";
         }
@@ -161,14 +196,23 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "|:---|:---|:---|\n";
             for (const auto& c : config.combos) {
                 std::string in_keys = formatKeys(c.keys);
-                std::string out_act = formatOutputAction(c.out_keys, c.text, c.toggle_layer, c.mouse);
-                std::string type = (c.mouse.type != MouseActionType::None) ? "Mouse Action" :
-                                   (!c.toggle_layer.empty() ? "Toggle Layer" :
-                                   (!c.text.empty() ? "Text Snippet" :
-                                   (c.out_keys.size() == 1 && (c.out_keys[0] >= Keys::BTN_LEFT && c.out_keys[0] <= Keys::BTN_EXTRA) ? "Mouse Action" :
-                                   (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"))));
-                ss << "| " << formatMarkdownCode(in_keys) << " | "
-                   << formatMarkdownCode(out_act) << " | " << type << " |\n";
+                std::string out_act =
+                    formatOutputAction(c.out_keys, c.text, c.toggle_layer, c.mouse);
+                std::string type =
+                    (c.mouse.type != MouseActionType::None)
+                        ? "Mouse Action"
+                        : (!c.toggle_layer.empty()
+                               ? "Toggle Layer"
+                               : (!c.text.empty()
+                                      ? "Text Snippet"
+                                      : (c.out_keys.size() == 1 &&
+                                                 (c.out_keys[0] >= Keys::BTN_LEFT &&
+                                                  c.out_keys[0] <= Keys::BTN_EXTRA)
+                                             ? "Mouse Action"
+                                             : (c.out_keys.size() > 1 ? "Modifier Chord"
+                                                                      : "Single Key"))));
+                ss << "| " << formatMarkdownCode(in_keys) << " | " << formatMarkdownCode(out_act)
+                   << " | " << type << " |\n";
             }
             ss << "\n";
         }
@@ -188,12 +232,21 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 std::sort(sorted_keys.begin(), sorted_keys.end());
                 for (KeyCode k : sorted_keys) {
                     const auto& act = lyr.mappings.at(k);
-                    std::string out_act = formatOutputAction(act.out_keys, act.text, act.toggle_layer, act.mouse);
-                    std::string type = (act.mouse.type != MouseActionType::None) ? "Mouse Action" :
-                                       (!act.toggle_layer.empty() ? "Toggle Layer" :
-                                       (!act.text.empty() ? "Text Snippet" :
-                                       (act.out_keys.size() == 1 && (act.out_keys[0] >= Keys::BTN_LEFT && act.out_keys[0] <= Keys::BTN_EXTRA) ? "Mouse Action" :
-                                       (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"))));
+                    std::string out_act =
+                        formatOutputAction(act.out_keys, act.text, act.toggle_layer, act.mouse);
+                    std::string type =
+                        (act.mouse.type != MouseActionType::None)
+                            ? "Mouse Action"
+                            : (!act.toggle_layer.empty()
+                                   ? "Toggle Layer"
+                                   : (!act.text.empty()
+                                          ? "Text Snippet"
+                                          : (act.out_keys.size() == 1 &&
+                                                     (act.out_keys[0] >= Keys::BTN_LEFT &&
+                                                      act.out_keys[0] <= Keys::BTN_EXTRA)
+                                                 ? "Mouse Action"
+                                                 : (act.out_keys.size() > 1 ? "Modifier Chord"
+                                                                            : "Single Key"))));
                     ss << "| " << formatMarkdownCode(formatKey(k)) << " | "
                        << formatMarkdownCode(out_act) << " | " << type << " |\n";
                 }
@@ -203,21 +256,32 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
         // 4. Sequential Leader Sequences
         if (!config.leader.sequences.empty()) {
-            std::string trigger_str = config.leader.key != 0 ? formatKey(config.leader.key) : "(custom)";
+            std::string trigger_str =
+                config.leader.key != 0 ? formatKey(config.leader.key) : "(custom)";
             ss << "## Sequential Leader Key Sequences\n\n"
-               << "Trigger: " << formatMarkdownCode(trigger_str) << " (Timeout: " << (config.leader.timeout_us / 1000) << "ms)\n\n"
+               << "Trigger: " << formatMarkdownCode(trigger_str)
+               << " (Timeout: " << (config.leader.timeout_us / 1000) << "ms)\n\n"
                << "| Sequence | Output Action | Type |\n"
                << "|:---|:---|:---|\n";
             for (const auto& seq : config.leader.sequences) {
                 std::string in_keys = formatKeys(seq.keys);
-                std::string out_act = formatOutputAction(seq.out_keys, seq.text, seq.toggle_layer, seq.mouse);
-                std::string type = (seq.mouse.type != MouseActionType::None) ? "Mouse Action" :
-                                   (!seq.toggle_layer.empty() ? "Toggle Layer" :
-                                   (!seq.text.empty() ? "Text Snippet" :
-                                   (seq.out_keys.size() == 1 && (seq.out_keys[0] >= Keys::BTN_LEFT && seq.out_keys[0] <= Keys::BTN_EXTRA) ? "Mouse Action" :
-                                   (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"))));
-                ss << "| " << formatMarkdownCode(in_keys) << " | "
-                   << formatMarkdownCode(out_act) << " | " << type << " |\n";
+                std::string out_act =
+                    formatOutputAction(seq.out_keys, seq.text, seq.toggle_layer, seq.mouse);
+                std::string type =
+                    (seq.mouse.type != MouseActionType::None)
+                        ? "Mouse Action"
+                        : (!seq.toggle_layer.empty()
+                               ? "Toggle Layer"
+                               : (!seq.text.empty()
+                                      ? "Text Snippet"
+                                      : (seq.out_keys.size() == 1 &&
+                                                 (seq.out_keys[0] >= Keys::BTN_LEFT &&
+                                                  seq.out_keys[0] <= Keys::BTN_EXTRA)
+                                             ? "Mouse Action"
+                                             : (seq.out_keys.size() > 1 ? "Modifier Chord"
+                                                                        : "Single Key"))));
+                ss << "| " << formatMarkdownCode(in_keys) << " | " << formatMarkdownCode(out_act)
+                   << " | " << type << " |\n";
             }
             ss << "\n";
         }
@@ -236,14 +300,19 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "| Setting | Value |\n"
                << "|:---|:---|\n"
                << "| Combo Overlap Window | `" << config.settings.combo_timeout_ms << "ms` |\n"
-               << "| Default Tap-Hold Timeout | `" << config.settings.tap_hold_timeout_ms << "ms` |\n"
-               << "| Exclusive Grab | `" << (config.settings.exclusive_grab ? "true" : "false") << "` |\n"
-               << "| Inotify Hotplug | `" << (config.settings.hotplug ? "true" : "false") << "` |\n\n";
+               << "| Default Tap-Hold Timeout | `" << config.settings.tap_hold_timeout_ms
+               << "ms` |\n"
+               << "| Exclusive Grab | `" << (config.settings.exclusive_grab ? "true" : "false")
+               << "` |\n"
+               << "| Inotify Hotplug | `" << (config.settings.hotplug ? "true" : "false")
+               << "` |\n\n";
         }
 
         if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
-            config.one_shot_keys.empty() && config.leader.sequences.empty() && !config.auto_shift.enabled) {
-            ss << "_No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured._\n\n";
+            config.one_shot_keys.empty() && config.leader.sequences.empty() &&
+            !config.auto_shift.enabled) {
+            ss << "_No combos, tap-hold keys, one-shot keys, auto-shift, or layers "
+                  "configured._\n\n";
         }
 
         return ss.str();
@@ -260,8 +329,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
     if (!config.tap_hold_keys.empty()) {
         ss << bold(blue("[ Tap-vs-Hold Keys (Dual-Role) ]", col), col) << "\n\n";
         printRow(ss, "  ",
-            {{"Key", 16}, {"Tap Action", 18}, {"Hold Target / Layer", 28}, {"Timeout", 10}},
-            {bold("Key", col), bold("Tap Action", col), bold("Hold Target / Layer", col), bold("Timeout", col)});
+                 {{"Key", 16}, {"Tap Action", 18}, {"Hold Target / Layer", 28}, {"Timeout", 10}},
+                 {bold("Key", col), bold("Tap Action", col), bold("Hold Target / Layer", col),
+                  bold("Timeout", col)});
         ss << "  " << dim(std::string(72, '-'), col) << "\n";
 
         for (const auto& th : config.tap_hold_keys) {
@@ -276,13 +346,15 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             } else if (!th.tap_one_shot_layer.empty()) {
                 plain_tap = "osl(" + th.tap_one_shot_layer + ")";
             }
-            std::string plain_hold = !th.hold_layer.empty() ? ("[layer: " + th.hold_layer + "]") : formatKey(th.hold_key);
+            std::string plain_hold = !th.hold_layer.empty() ? ("[layer: " + th.hold_layer + "]")
+                                                            : formatKey(th.hold_key);
             std::string plain_timeout = std::to_string(th.timeout_us / 1000) + "ms";
 
-            std::string hold_col = !th.hold_layer.empty() ? magenta(plain_hold, col) : green(plain_hold, col);
+            std::string hold_col =
+                !th.hold_layer.empty() ? magenta(plain_hold, col) : green(plain_hold, col);
 
-            printRow(ss, "  ",
-                {{plain_key, 16}, {plain_tap, 18}, {plain_hold, 28}, {plain_timeout, 10}},
+            printRow(
+                ss, "  ", {{plain_key, 16}, {plain_tap, 18}, {plain_hold, 28}, {plain_timeout, 10}},
                 {cyan(plain_key, col), green(plain_tap, col), hold_col, dim(plain_timeout, col)});
         }
         ss << "\n";
@@ -290,21 +362,28 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
     // One-Shot Keys (OSM / OSL)
     if (!config.one_shot_keys.empty()) {
-        ss << bold(blue("[ One-Shot / Sticky Keys (OSM / OSL) ] (" + std::to_string(config.one_shot_keys.size()) + " active)", col), col) << "\n\n";
-        printRow(ss, "  ",
-            {{"Key", 16}, {"Target", 20}, {"Type", 26}, {"Timeout", 10}},
-            {bold("Key", col), bold("Target", col), bold("Type", col), bold("Timeout", col)});
+        ss << bold(blue("[ One-Shot / Sticky Keys (OSM / OSL) ] (" +
+                            std::to_string(config.one_shot_keys.size()) + " active)",
+                        col),
+                   col)
+           << "\n\n";
+        printRow(ss, "  ", {{"Key", 16}, {"Target", 20}, {"Type", 26}, {"Timeout", 10}},
+                 {bold("Key", col), bold("Target", col), bold("Type", col), bold("Timeout", col)});
         ss << "  " << dim(std::string(72, '-'), col) << "\n";
 
         for (const auto& osk : config.one_shot_keys) {
             std::string plain_key = formatKey(osk.key);
-            std::string plain_target = !osk.layer.empty() ? ("[layer: " + osk.layer + "]") : formatKey(osk.modifier);
-            std::string plain_type = !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
+            std::string plain_target =
+                !osk.layer.empty() ? ("[layer: " + osk.layer + "]") : formatKey(osk.modifier);
+            std::string plain_type =
+                !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
             std::string plain_timeout = std::to_string(osk.timeout_us / 1000) + "ms";
 
-            std::string target_col = !osk.layer.empty() ? magenta(plain_target, col) : green(plain_target, col);
+            std::string target_col =
+                !osk.layer.empty() ? magenta(plain_target, col) : green(plain_target, col);
 
-            printRow(ss, "  ",
+            printRow(
+                ss, "  ",
                 {{plain_key, 16}, {plain_target, 20}, {plain_type, 26}, {plain_timeout, 10}},
                 {cyan(plain_key, col), target_col, dim(plain_type, col), dim(plain_timeout, col)});
         }
@@ -313,40 +392,56 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
     // 2. Combos
     if (!config.combos.empty()) {
-        ss << bold(blue("[ Combos & Chords ] (" + std::to_string(config.combos.size()) + " active)", col), col) << "\n\n";
-        printRow(ss, "  ",
-            {{"Input Keys", 24}, {"Output Action", 34}, {"Type", 14}},
-            {bold("Input Keys", col), bold("Output Action", col), bold("Type", col)});
+        ss << bold(blue("[ Combos & Chords ] (" + std::to_string(config.combos.size()) + " active)",
+                        col),
+                   col)
+           << "\n\n";
+        printRow(ss, "  ", {{"Input Keys", 24}, {"Output Action", 34}, {"Type", 14}},
+                 {bold("Input Keys", col), bold("Output Action", col), bold("Type", col)});
         ss << "  " << dim(std::string(72, '-'), col) << "\n";
 
         for (const auto& c : config.combos) {
             std::string plain_in = formatKeys(c.keys);
             std::string plain_out = formatOutputAction(c.out_keys, c.text, c.toggle_layer, c.mouse);
-            std::string type_plain = (c.mouse.type != MouseActionType::None) ? "Mouse Action" :
-                               (!c.toggle_layer.empty() ? "Toggle Layer" :
-                               (!c.text.empty() ? "Text Snippet" :
-                               (c.out_keys.size() == 1 && (c.out_keys[0] >= Keys::BTN_LEFT && c.out_keys[0] <= Keys::BTN_EXTRA) ? "Mouse Action" :
-                               (c.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"))));
+            std::string type_plain =
+                (c.mouse.type != MouseActionType::None)
+                    ? "Mouse Action"
+                    : (!c.toggle_layer.empty()
+                           ? "Toggle Layer"
+                           : (!c.text.empty()
+                                  ? "Text Snippet"
+                                  : (c.out_keys.size() == 1 && (c.out_keys[0] >= Keys::BTN_LEFT &&
+                                                                c.out_keys[0] <= Keys::BTN_EXTRA)
+                                         ? "Mouse Action"
+                                         : (c.out_keys.size() > 1 ? "Modifier Chord"
+                                                                  : "Single Key"))));
 
-            std::string out_col = (c.mouse.type != MouseActionType::None || (c.out_keys.size() == 1 && c.out_keys[0] >= Keys::BTN_LEFT && c.out_keys[0] <= Keys::BTN_EXTRA)) ? blue(plain_out, col) :
-                                  (!c.toggle_layer.empty() ? magenta(plain_out, col) :
-                                  (!c.text.empty() ? yellow(plain_out, col) : green(plain_out, col)));
+            std::string out_col =
+                (c.mouse.type != MouseActionType::None ||
+                 (c.out_keys.size() == 1 && c.out_keys[0] >= Keys::BTN_LEFT &&
+                  c.out_keys[0] <= Keys::BTN_EXTRA))
+                    ? blue(plain_out, col)
+                    : (!c.toggle_layer.empty()
+                           ? magenta(plain_out, col)
+                           : (!c.text.empty() ? yellow(plain_out, col) : green(plain_out, col)));
 
-            printRow(ss, "  ",
-                {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
-                {cyan(plain_in, col), out_col, dim(type_plain, col)});
+            printRow(ss, "  ", {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
+                     {cyan(plain_in, col), out_col, dim(type_plain, col)});
         }
         ss << "\n";
     }
 
     // 3. Modal Layers
     if (!config.layers.empty()) {
-        ss << bold(blue("[ Modal Keyboard Layers ] (" + std::to_string(config.layers.size()) + " layer" + (config.layers.size() > 1 ? "s" : "") + ")", col), col) << "\n\n";
+        ss << bold(blue("[ Modal Keyboard Layers ] (" + std::to_string(config.layers.size()) +
+                            " layer" + (config.layers.size() > 1 ? "s" : "") + ")",
+                        col),
+                   col)
+           << "\n\n";
         for (const auto& lyr : config.layers) {
             ss << "  " << bold(magenta("* Layer: " + lyr.name, col), col) << "\n";
-            printRow(ss, "    ",
-                {{"Key", 16}, {"Mapped Output", 34}, {"Type", 14}},
-                {bold("Key", col), bold("Mapped Output", col), bold("Type", col)});
+            printRow(ss, "    ", {{"Key", 16}, {"Mapped Output", 34}, {"Type", 14}},
+                     {bold("Key", col), bold("Mapped Output", col), bold("Type", col)});
             ss << "    " << dim(std::string(64, '-'), col) << "\n";
 
             std::vector<KeyCode> sorted_keys;
@@ -358,20 +453,33 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             for (KeyCode k : sorted_keys) {
                 const auto& act = lyr.mappings.at(k);
                 std::string plain_k = formatKey(k);
-                std::string plain_out = formatOutputAction(act.out_keys, act.text, act.toggle_layer, act.mouse);
-                std::string type_plain = (act.mouse.type != MouseActionType::None) ? "Mouse Action" :
-                                   (!act.toggle_layer.empty() ? "Toggle Layer" :
-                                   (!act.text.empty() ? "Text Snippet" :
-                                   (act.out_keys.size() == 1 && (act.out_keys[0] >= Keys::BTN_LEFT && act.out_keys[0] <= Keys::BTN_EXTRA) ? "Mouse Action" :
-                                   (act.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"))));
+                std::string plain_out =
+                    formatOutputAction(act.out_keys, act.text, act.toggle_layer, act.mouse);
+                std::string type_plain =
+                    (act.mouse.type != MouseActionType::None)
+                        ? "Mouse Action"
+                        : (!act.toggle_layer.empty()
+                               ? "Toggle Layer"
+                               : (!act.text.empty()
+                                      ? "Text Snippet"
+                                      : (act.out_keys.size() == 1 &&
+                                                 (act.out_keys[0] >= Keys::BTN_LEFT &&
+                                                  act.out_keys[0] <= Keys::BTN_EXTRA)
+                                             ? "Mouse Action"
+                                             : (act.out_keys.size() > 1 ? "Modifier Chord"
+                                                                        : "Single Key"))));
 
-                std::string out_col = (act.mouse.type != MouseActionType::None || (act.out_keys.size() == 1 && act.out_keys[0] >= Keys::BTN_LEFT && act.out_keys[0] <= Keys::BTN_EXTRA)) ? blue(plain_out, col) :
-                                      (!act.toggle_layer.empty() ? magenta(plain_out, col) :
-                                      (!act.text.empty() ? yellow(plain_out, col) : green(plain_out, col)));
+                std::string out_col =
+                    (act.mouse.type != MouseActionType::None ||
+                     (act.out_keys.size() == 1 && act.out_keys[0] >= Keys::BTN_LEFT &&
+                      act.out_keys[0] <= Keys::BTN_EXTRA))
+                        ? blue(plain_out, col)
+                        : (!act.toggle_layer.empty() ? magenta(plain_out, col)
+                                                     : (!act.text.empty() ? yellow(plain_out, col)
+                                                                          : green(plain_out, col)));
 
-                printRow(ss, "    ",
-                    {{plain_k, 16}, {plain_out, 34}, {type_plain, 14}},
-                    {cyan(plain_k, col), out_col, dim(type_plain, col)});
+                printRow(ss, "    ", {{plain_k, 16}, {plain_out, 34}, {type_plain, 14}},
+                         {cyan(plain_k, col), out_col, dim(type_plain, col)});
             }
             ss << "\n";
         }
@@ -379,31 +487,49 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
     // 4. Sequential Leader Sequences
     if (!config.leader.sequences.empty()) {
-        std::string trigger_str = config.leader.key != 0 ? formatKey(config.leader.key) : "(custom)";
-        ss << bold(blue("[ Sequential Leader Sequences ] (" + std::to_string(config.leader.sequences.size()) + " active)", col), col) << "\n";
+        std::string trigger_str =
+            config.leader.key != 0 ? formatKey(config.leader.key) : "(custom)";
+        ss << bold(blue("[ Sequential Leader Sequences ] (" +
+                            std::to_string(config.leader.sequences.size()) + " active)",
+                        col),
+                   col)
+           << "\n";
         ss << "  " << dim("Trigger: ", col) << cyan(trigger_str, col)
-           << dim(" | Timeout: " + std::to_string(config.leader.timeout_us / 1000) + "ms", col) << "\n\n";
-        printRow(ss, "  ",
-            {{"Sequence", 24}, {"Output Action", 34}, {"Type", 14}},
-            {bold("Sequence", col), bold("Output Action", col), bold("Type", col)});
+           << dim(" | Timeout: " + std::to_string(config.leader.timeout_us / 1000) + "ms", col)
+           << "\n\n";
+        printRow(ss, "  ", {{"Sequence", 24}, {"Output Action", 34}, {"Type", 14}},
+                 {bold("Sequence", col), bold("Output Action", col), bold("Type", col)});
         ss << "  " << dim(std::string(72, '-'), col) << "\n";
 
         for (const auto& seq : config.leader.sequences) {
             std::string plain_in = formatKeys(seq.keys);
-            std::string plain_out = formatOutputAction(seq.out_keys, seq.text, seq.toggle_layer, seq.mouse);
-            std::string type_plain = (seq.mouse.type != MouseActionType::None) ? "Mouse Action" :
-                               (!seq.toggle_layer.empty() ? "Toggle Layer" :
-                               (!seq.text.empty() ? "Text Snippet" :
-                               (seq.out_keys.size() == 1 && (seq.out_keys[0] >= Keys::BTN_LEFT && seq.out_keys[0] <= Keys::BTN_EXTRA) ? "Mouse Action" :
-                               (seq.out_keys.size() > 1 ? "Modifier Chord" : "Single Key"))));
+            std::string plain_out =
+                formatOutputAction(seq.out_keys, seq.text, seq.toggle_layer, seq.mouse);
+            std::string type_plain =
+                (seq.mouse.type != MouseActionType::None)
+                    ? "Mouse Action"
+                    : (!seq.toggle_layer.empty()
+                           ? "Toggle Layer"
+                           : (!seq.text.empty()
+                                  ? "Text Snippet"
+                                  : (seq.out_keys.size() == 1 &&
+                                             (seq.out_keys[0] >= Keys::BTN_LEFT &&
+                                              seq.out_keys[0] <= Keys::BTN_EXTRA)
+                                         ? "Mouse Action"
+                                         : (seq.out_keys.size() > 1 ? "Modifier Chord"
+                                                                    : "Single Key"))));
 
-            std::string out_col = (seq.mouse.type != MouseActionType::None || (seq.out_keys.size() == 1 && seq.out_keys[0] >= Keys::BTN_LEFT && seq.out_keys[0] <= Keys::BTN_EXTRA)) ? blue(plain_out, col) :
-                                  (!seq.toggle_layer.empty() ? magenta(plain_out, col) :
-                                  (!seq.text.empty() ? yellow(plain_out, col) : green(plain_out, col)));
+            std::string out_col =
+                (seq.mouse.type != MouseActionType::None ||
+                 (seq.out_keys.size() == 1 && seq.out_keys[0] >= Keys::BTN_LEFT &&
+                  seq.out_keys[0] <= Keys::BTN_EXTRA))
+                    ? blue(plain_out, col)
+                    : (!seq.toggle_layer.empty()
+                           ? magenta(plain_out, col)
+                           : (!seq.text.empty() ? yellow(plain_out, col) : green(plain_out, col)));
 
-            printRow(ss, "  ",
-                {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
-                {cyan(plain_in, col), out_col, dim(type_plain, col)});
+            printRow(ss, "  ", {{plain_in, 24}, {plain_out, 34}, {type_plain, 14}},
+                     {cyan(plain_in, col), out_col, dim(type_plain, col)});
         }
         ss << "\n";
     }
@@ -413,24 +539,31 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
         ss << bold(blue("[ Auto-Shift (Long-Press Capitalization) ]", col), col) << "\n";
         ss << "  " << dim("Status: ", col) << green("Enabled", col)
            << dim(" | Timeout: " + std::to_string(config.auto_shift.timeout_us / 1000) + "ms", col)
-           << dim(" | Active Keys: " + std::to_string(config.auto_shift.keys.size()), col) << "\n\n";
+           << dim(" | Active Keys: " + std::to_string(config.auto_shift.keys.size()), col)
+           << "\n\n";
     }
 
     // 6. Global Settings (if customized)
     if (config.settings != Settings{}) {
         ss << bold(blue("[ Global Settings ]", col), col) << "\n";
-        ss << "  " << dim("Combo Timeout: ", col) << cyan(std::to_string(config.settings.combo_timeout_ms) + "ms", col)
-           << dim(" | Tap-Hold Timeout: ", col) << cyan(std::to_string(config.settings.tap_hold_timeout_ms) + "ms", col)
-           << dim(" | Exclusive Grab: ", col) << cyan(config.settings.exclusive_grab ? "yes" : "no", col)
-           << dim(" | Hotplug: ", col) << cyan(config.settings.hotplug ? "yes" : "no", col) << "\n\n";
+        ss << "  " << dim("Combo Timeout: ", col)
+           << cyan(std::to_string(config.settings.combo_timeout_ms) + "ms", col)
+           << dim(" | Tap-Hold Timeout: ", col)
+           << cyan(std::to_string(config.settings.tap_hold_timeout_ms) + "ms", col)
+           << dim(" | Exclusive Grab: ", col)
+           << cyan(config.settings.exclusive_grab ? "yes" : "no", col) << dim(" | Hotplug: ", col)
+           << cyan(config.settings.hotplug ? "yes" : "no", col) << "\n\n";
     }
 
     if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
-        config.one_shot_keys.empty() && config.leader.sequences.empty() && !config.auto_shift.enabled) {
-        ss << dim("  (No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)", col) << "\n\n";
+        config.one_shot_keys.empty() && config.leader.sequences.empty() &&
+        !config.auto_shift.enabled) {
+        ss << dim("  (No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)",
+                  col)
+           << "\n\n";
     }
 
     return ss.str();
 }
 
-} // namespace tff
+}  // namespace tff

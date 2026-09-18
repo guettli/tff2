@@ -15,13 +15,9 @@ class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 
     std::vector<Event> keyEvents() const {
         std::vector<Event> result;
@@ -34,7 +30,7 @@ public:
     }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 static void test_auto_shift_tap_lowercase() {
     MockWriter writer;
@@ -42,7 +38,7 @@ static void test_auto_shift_tap_lowercase() {
 
     AutoShiftConfig asc;
     asc.enabled = true;
-    asc.timeout_us = 175000LL; // 175 ms
+    asc.timeout_us = 175000LL;  // 175 ms
     asc.keys = {Keys::KEY_A, Keys::KEY_B};
     engine.setAutoShiftConfig(asc);
 
@@ -67,7 +63,7 @@ static void test_auto_shift_hold_uppercase() {
 
     AutoShiftConfig asc;
     asc.enabled = true;
-    asc.timeout_us = 175000LL; // 175 ms
+    asc.timeout_us = 175000LL;  // 175 ms
     asc.keys = {Keys::KEY_A};
     engine.setAutoShiftConfig(asc);
 
@@ -88,7 +84,8 @@ static void test_auto_shift_hold_uppercase() {
     engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
     assert(writer.keyEvents()[2].code == Keys::KEY_A && writer.keyEvents()[2].value == KEY_VAL_UP);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
 
     std::cout << "test_auto_shift_hold_uppercase: PASSED\n";
 }
@@ -112,7 +109,8 @@ static void test_auto_shift_fast_typing_rolls() {
     engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
     // 't' must be committed as unshifted DOWN!
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_T && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_T &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     // 't' up at 60ms
     engine.processEvent(Event{TimeVal{0, 60000}, EV_KEY, Keys::KEY_T, KEY_VAL_UP});
@@ -123,7 +121,8 @@ static void test_auto_shift_fast_typing_rolls() {
     engine.processEvent(Event{TimeVal{0, 80000}, EV_KEY, Keys::KEY_E, KEY_VAL_DOWN});
     // 'h' committed as unshifted DOWN!
     assert(writer.keyEvents().size() == 3);
-    assert(writer.keyEvents()[2].code == Keys::KEY_H && writer.keyEvents()[2].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[2].code == Keys::KEY_H &&
+           writer.keyEvents()[2].value == KEY_VAL_DOWN);
 
     // 'h' up at 100ms
     engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_H, KEY_VAL_UP});
@@ -134,7 +133,8 @@ static void test_auto_shift_fast_typing_rolls() {
     engine.processEvent(Event{TimeVal{0, 130000}, EV_KEY, Keys::KEY_E, KEY_VAL_UP});
     // 'e' committed as tap DOWN and UP!
     assert(writer.keyEvents().size() == 6);
-    assert(writer.keyEvents()[4].code == Keys::KEY_E && writer.keyEvents()[4].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[4].code == Keys::KEY_E &&
+           writer.keyEvents()[4].value == KEY_VAL_DOWN);
     assert(writer.keyEvents()[5].code == Keys::KEY_E && writer.keyEvents()[5].value == KEY_VAL_UP);
 
     // Verify no LeftShift was ever emitted
@@ -162,7 +162,8 @@ static void test_auto_shift_roll_then_hold() {
     // 2. 'a' down at 40ms (commit 'c' as unshifted)
     engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_C && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_C &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     // 3. 'c' up at 60ms
     engine.processEvent(Event{TimeVal{0, 60000}, EV_KEY, Keys::KEY_C, KEY_VAL_UP});
@@ -172,14 +173,17 @@ static void test_auto_shift_roll_then_hold() {
     // 4. 'a' is held past timeout: 40ms + 175ms = 215ms
     engine.onTimer(TimeVal{0, 215000});
     assert(writer.keyEvents().size() == 4);
-    assert(writer.keyEvents()[2].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[2].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[3].code == Keys::KEY_A && writer.keyEvents()[3].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[2].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[2].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[3].code == Keys::KEY_A &&
+           writer.keyEvents()[3].value == KEY_VAL_DOWN);
 
     // 5. 'a' up at 300ms
     engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 6);
     assert(writer.keyEvents()[4].code == Keys::KEY_A && writer.keyEvents()[4].value == KEY_VAL_UP);
-    assert(writer.keyEvents()[5].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[5].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[5].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[5].value == KEY_VAL_UP);
 
     std::cout << "test_auto_shift_roll_then_hold: PASSED\n";
 }
@@ -198,19 +202,25 @@ static void test_auto_shift_punctuation_symbols() {
     engine.processEvent(Event{TimeVal{0, 0}, EV_KEY, Keys::KEY_COMMA, KEY_VAL_DOWN});
     engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_COMMA, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[0].code == Keys::KEY_COMMA && writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_COMMA && writer.keyEvents()[1].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[0].code == Keys::KEY_COMMA &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_COMMA &&
+           writer.keyEvents()[1].value == KEY_VAL_UP);
     writer.clear();
 
     // Hold comma (>175ms) -> emits Shift + comma ('<')
     engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_COMMA, KEY_VAL_DOWN});
-    engine.onTimer(TimeVal{0, 275000}); // 100 + 175
+    engine.onTimer(TimeVal{0, 275000});  // 100 + 175
     engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_COMMA, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_COMMA && writer.keyEvents()[1].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[2].code == Keys::KEY_COMMA && writer.keyEvents()[2].value == KEY_VAL_UP);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_COMMA &&
+           writer.keyEvents()[1].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[2].code == Keys::KEY_COMMA &&
+           writer.keyEvents()[2].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
     writer.clear();
 
     // Hold dot (>175ms) -> emits Shift + dot ('>')
@@ -218,10 +228,14 @@ static void test_auto_shift_punctuation_symbols() {
     engine.onTimer(TimeVal{0, 575000});
     engine.processEvent(Event{TimeVal{0, 600000}, EV_KEY, Keys::KEY_DOT, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_DOT && writer.keyEvents()[1].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[2].code == Keys::KEY_DOT && writer.keyEvents()[2].value == KEY_VAL_UP);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_DOT &&
+           writer.keyEvents()[1].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[2].code == Keys::KEY_DOT &&
+           writer.keyEvents()[2].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
 
     std::cout << "test_auto_shift_punctuation_symbols: PASSED\n";
 }
@@ -239,13 +253,15 @@ static void test_auto_shift_modifier_coexistence() {
     // 1. Press LeftCtrl down
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_LEFTCTRL, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
     assert(engine.isModifierActive());
 
     // 2. Press 'c' down while Ctrl is held -> Auto-Shift MUST be bypassed immediately!
     engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_C, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[1].code == Keys::KEY_C && writer.keyEvents()[1].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_C &&
+           writer.keyEvents()[1].value == KEY_VAL_DOWN);
 
     // 3. Release 'c'
     engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_C, KEY_VAL_UP});
@@ -255,7 +271,8 @@ static void test_auto_shift_modifier_coexistence() {
     // 4. Release LeftCtrl
     engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_LEFTCTRL, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTCTRL && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTCTRL &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
     assert(!engine.isModifierActive());
 
     std::cout << "test_auto_shift_modifier_coexistence: PASSED\n";
@@ -287,8 +304,10 @@ auto_shift:
     // Fast chord: 'c' goes down
     engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_C, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL && writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_C && writer.keyEvents()[1].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_C &&
+           writer.keyEvents()[1].value == KEY_VAL_DOWN);
     assert(engine.isModifierActive());
 
     // Release 'c'
@@ -299,7 +318,8 @@ auto_shift:
     // Release CapsLock
     engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTCTRL && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTCTRL &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
     assert(!engine.isModifierActive());
     writer.clear();
 
@@ -310,17 +330,21 @@ auto_shift:
     assert(engine.isOneShotModifierArmed(Keys::KEY_LEFTALT));
     assert(engine.isModifierActive());
 
-    // Now press 't' (which is in auto_shift letters) -> OSM Alt activates and auto-shift is bypassed immediately!
+    // Now press 't' (which is in auto_shift letters) -> OSM Alt activates and auto-shift is
+    // bypassed immediately!
     engine.processEvent(Event{TimeVal{0, 140000}, EV_KEY, Keys::KEY_T, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTALT && writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_T && writer.keyEvents()[1].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTALT &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_T &&
+           writer.keyEvents()[1].value == KEY_VAL_DOWN);
 
     // Release 't' -> both T and Alt release
     engine.processEvent(Event{TimeVal{0, 160000}, EV_KEY, Keys::KEY_T, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
     assert(writer.keyEvents()[2].code == Keys::KEY_T && writer.keyEvents()[2].value == KEY_VAL_UP);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTALT && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTALT &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
     assert(!engine.isModifierActive());
 
     std::cout << "test_auto_shift_tap_hold_and_oneshot_modifier_coexistence: PASSED\n";
@@ -349,13 +373,15 @@ auto_shift:
     engine.processEvent(Event{TimeVal{0, 80000}, EV_KEY, Keys::KEY_D, KEY_VAL_UP});
     engine.processEvent(Event{TimeVal{0, 90000}, EV_KEY, Keys::KEY_F, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[0].code == Keys::KEY_ESC && writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_ESC && writer.keyEvents()[1].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[0].code == Keys::KEY_ESC &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_ESC &&
+           writer.keyEvents()[1].value == KEY_VAL_UP);
     writer.clear();
 
     // 2. Press 'a' alone (not in combo) and hold past timeout -> capital 'A'
     engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
-    engine.onTimer(TimeVal{0, 275000}); // 100 + 175
+    engine.onTimer(TimeVal{0, 275000});  // 100 + 175
     assert(writer.keyEvents().size() == 2);
     assert(writer.keyEvents()[0].code == Keys::KEY_LEFTSHIFT);
     assert(writer.keyEvents()[1].code == Keys::KEY_A);
@@ -363,7 +389,8 @@ auto_shift:
     engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
     assert(writer.keyEvents()[2].code == Keys::KEY_A && writer.keyEvents()[2].value == KEY_VAL_UP);
-    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT && writer.keyEvents()[3].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[3].code == Keys::KEY_LEFTSHIFT &&
+           writer.keyEvents()[3].value == KEY_VAL_UP);
 
     std::cout << "test_auto_shift_with_combos: PASSED\n";
 }
@@ -393,11 +420,13 @@ auto_shift:
     // Chord 'j' -> remapped to 'down' arrow immediately
     engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
     engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[1].code == Keys::KEY_DOWN && writer.keyEvents()[1].value == KEY_VAL_UP);
+    assert(writer.keyEvents()[1].code == Keys::KEY_DOWN &&
+           writer.keyEvents()[1].value == KEY_VAL_UP);
 
     engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
     writer.clear();
@@ -406,7 +435,8 @@ auto_shift:
     engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
     engine.processEvent(Event{TimeVal{0, 150000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[0].code == Keys::KEY_J && writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[0].code == Keys::KEY_J &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
     assert(writer.keyEvents()[1].code == Keys::KEY_J && writer.keyEvents()[1].value == KEY_VAL_UP);
 
     std::cout << "test_auto_shift_with_modal_layers: PASSED\n";
@@ -425,7 +455,7 @@ auto_shift:
     assert(loadYamlConfig(y1, config, err));
     assert(config.auto_shift.enabled);
     assert(config.auto_shift.timeout_us == 180000LL);
-    assert(config.auto_shift.keys.size() == 26); // 26 alphabet letters
+    assert(config.auto_shift.keys.size() == 26);  // 26 alphabet letters
 
     // 2. Numbers preset
     const std::string y2 = R"(
@@ -434,7 +464,7 @@ auto_shift:
 )";
     assert(loadYamlConfig(y2, config, err));
     assert(config.auto_shift.enabled);
-    assert(config.auto_shift.keys.size() == 10); // 0-9
+    assert(config.auto_shift.keys.size() == 10);  // 0-9
 
     // 3. Symbols preset
     const std::string y3 = R"(

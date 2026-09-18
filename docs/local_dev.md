@@ -85,6 +85,30 @@ This setup allows:
 3. **Cross Compilation**: Build for RP2040 target
 4. **Deployment**: Copy UF2 file to RP2040 or use SWD programmer
 
+## Code Quality & Verification
+
+A unified local check script runs all formatting checks, strict compiler builds, unit tests, static analysis, and smoke checks:
+
+```bash
+# Run all pre-push verification checks (clang-format, -Werror, ctest, cppcheck, CLI smoke tests):
+./scripts/check.sh
+
+# Run with AddressSanitizer and UndefinedBehaviorSanitizer:
+./scripts/check.sh --sanitizers
+```
+
+### Code Formatting with `clang-format`
+
+Code style is enforced via `.clang-format` (LLVM/Google base, 4-space indent, 100 column limit).
+
+```bash
+# In-place code formatting:
+cmake --build build --target format
+
+# Check formatting without modifying files:
+cmake --build build --target format-check
+```
+
 ## Documentation
 
 Detailed documentation is available:

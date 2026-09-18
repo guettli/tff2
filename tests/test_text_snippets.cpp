@@ -14,19 +14,13 @@ class VectorWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 };
 
-static void runAndCheck(const std::vector<Event>& input_events,
-                        const std::vector<Combo>& combos,
-                        const std::string& expected_output,
-                        const std::string& test_name) {
+static void runAndCheck(const std::vector<Event>& input_events, const std::vector<Combo>& combos,
+                        const std::string& expected_output, const std::string& test_name) {
     VectorWriter writer;
     TFFEngine engine(&writer, combos);
     engine.setFakeActiveTimer(true);
@@ -152,20 +146,20 @@ void test_yaml_parser_compact_syntax() {
     assert(loadYamlConfig(yaml, cfg, err));
     assert(cfg.combos.size() == 5);
 
-    assert(cfg.combos[0].keys == std::vector<KeyCode>({ Keys::KEY_F, Keys::KEY_N }));
+    assert(cfg.combos[0].keys == std::vector<KeyCode>({Keys::KEY_F, Keys::KEY_N}));
     assert(cfg.combos[0].text == "println!(\"\");");
     assert(cfg.combos[0].out_keys.empty());
 
-    assert(cfg.combos[1].keys == std::vector<KeyCode>({ Keys::KEY_J, Keys::KEY_K }));
+    assert(cfg.combos[1].keys == std::vector<KeyCode>({Keys::KEY_J, Keys::KEY_K}));
     assert(cfg.combos[1].text == "Hello World");
 
-    assert(cfg.combos[2].keys == std::vector<KeyCode>({ Keys::KEY_A, Keys::KEY_B }));
+    assert(cfg.combos[2].keys == std::vector<KeyCode>({Keys::KEY_A, Keys::KEY_B}));
     assert(cfg.combos[2].text == "import sys");
 
-    assert(cfg.combos[3].keys == std::vector<KeyCode>({ Keys::KEY_C, Keys::KEY_D }));
+    assert(cfg.combos[3].keys == std::vector<KeyCode>({Keys::KEY_C, Keys::KEY_D}));
     assert(cfg.combos[3].text == "cargo test");
 
-    assert(cfg.combos[4].keys == std::vector<KeyCode>({ Keys::KEY_C, Keys::KEY_M }));
+    assert(cfg.combos[4].keys == std::vector<KeyCode>({Keys::KEY_C, Keys::KEY_M}));
     assert(cfg.combos[4].text == "#include <iostream>");
 
     std::cout << "OK\n";
@@ -185,18 +179,18 @@ void test_yaml_parser_symmetric_and_leader() {
     Config cfg;
     std::string err;
     assert(loadYamlConfig(yaml, cfg, err));
-    assert(cfg.combos.size() == 4); // 2 symmetric permutations + 2 leader combos
+    assert(cfg.combos.size() == 4);  // 2 symmetric permutations + 2 leader combos
 
     // Symmetric f + n
-    assert(cfg.combos[0].keys == std::vector<KeyCode>({ Keys::KEY_F, Keys::KEY_N }));
+    assert(cfg.combos[0].keys == std::vector<KeyCode>({Keys::KEY_F, Keys::KEY_N}));
     assert(cfg.combos[0].text == "status");
-    assert(cfg.combos[1].keys == std::vector<KeyCode>({ Keys::KEY_N, Keys::KEY_F }));
+    assert(cfg.combos[1].keys == std::vector<KeyCode>({Keys::KEY_N, Keys::KEY_F}));
     assert(cfg.combos[1].text == "status");
 
     // Leader key space: e and g
-    assert(cfg.combos[2].keys == std::vector<KeyCode>({ Keys::KEY_SPACE, Keys::KEY_E }));
+    assert(cfg.combos[2].keys == std::vector<KeyCode>({Keys::KEY_SPACE, Keys::KEY_E}));
     assert(cfg.combos[2].text == "alice@example.com");
-    assert(cfg.combos[3].keys == std::vector<KeyCode>({ Keys::KEY_SPACE, Keys::KEY_G }));
+    assert(cfg.combos[3].keys == std::vector<KeyCode>({Keys::KEY_SPACE, Keys::KEY_G}));
     assert(cfg.combos[3].text == "git status");
 
     std::cout << "OK\n";
@@ -220,13 +214,13 @@ void test_yaml_parser_classic_syntax() {
     assert(loadYamlConfig(yaml, cfg, err));
     assert(cfg.combos.size() == 3);
 
-    assert(cfg.combos[0].keys == std::vector<KeyCode>({ Keys::KEY_F, Keys::KEY_N }));
+    assert(cfg.combos[0].keys == std::vector<KeyCode>({Keys::KEY_F, Keys::KEY_N}));
     assert(cfg.combos[0].text == "return 0;\n");
 
-    assert(cfg.combos[1].keys == std::vector<KeyCode>({ Keys::KEY_J, Keys::KEY_K }));
+    assert(cfg.combos[1].keys == std::vector<KeyCode>({Keys::KEY_J, Keys::KEY_K}));
     assert(cfg.combos[1].text == "foo::bar");
 
-    assert(cfg.combos[2].keys == std::vector<KeyCode>({ Keys::KEY_D, Keys::KEY_F }));
+    assert(cfg.combos[2].keys == std::vector<KeyCode>({Keys::KEY_D, Keys::KEY_F}));
     assert(cfg.combos[2].text == "hello");
 
     std::cout << "OK\n";
@@ -265,11 +259,11 @@ void test_engine_emission_lowercase() {
 
     int64_t t = 1000000;
     std::vector<Event> inputs = {
-        { TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN },
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
         // After min_age_us (50ms):
-        { TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP },
-        { TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP },
+        {TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
     };
 
     std::string expected =
@@ -295,10 +289,10 @@ void test_engine_emission_shifted_and_multiline() {
 
     int64_t t = 1000000;
     std::vector<Event> inputs = {
-        { TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP },
-        { TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP },
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
     };
 
     std::string expected =
@@ -331,10 +325,10 @@ void test_engine_fast_chord_tap() {
     // Rapid chord tap (< min_age_us)
     int64_t t = 1000000;
     std::vector<Event> inputs = {
-        { TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 5000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_UP },
-        { TimeVal::fromMicros(t + 15000), EV_KEY, Keys::KEY_F, KEY_VAL_UP },
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 5000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 15000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
     };
 
     std::string expected =
@@ -358,10 +352,10 @@ void test_engine_code_macro() {
 
     int64_t t = 1000000;
     std::vector<Event> inputs = {
-        { TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN },
-        { TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP },
-        { TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP },
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
     };
 
     // "println!(\"\");" breakdown:
@@ -373,19 +367,42 @@ void test_engine_code_macro() {
     // ) (LEFTSHIFT + 0)
     // ; (SEMICOLON)
     std::string expected =
-        "P-down\n" "P-up\n"
-        "R-down\n" "R-up\n"
-        "I-down\n" "I-up\n"
-        "N-down\n" "N-up\n"
-        "T-down\n" "T-up\n"
-        "L-down\n" "L-up\n"
-        "N-down\n" "N-up\n"
-        "LEFTSHIFT-down\n" "1-down\n" "1-up\n" "LEFTSHIFT-up\n"
-        "LEFTSHIFT-down\n" "9-down\n" "9-up\n" "LEFTSHIFT-up\n"
-        "LEFTSHIFT-down\n" "APOSTROPHE-down\n" "APOSTROPHE-up\n" "LEFTSHIFT-up\n"
-        "LEFTSHIFT-down\n" "APOSTROPHE-down\n" "APOSTROPHE-up\n" "LEFTSHIFT-up\n"
-        "LEFTSHIFT-down\n" "0-down\n" "0-up\n" "LEFTSHIFT-up\n"
-        "SEMICOLON-down\n" "SEMICOLON-up\n";
+        "P-down\n"
+        "P-up\n"
+        "R-down\n"
+        "R-up\n"
+        "I-down\n"
+        "I-up\n"
+        "N-down\n"
+        "N-up\n"
+        "T-down\n"
+        "T-up\n"
+        "L-down\n"
+        "L-up\n"
+        "N-down\n"
+        "N-up\n"
+        "LEFTSHIFT-down\n"
+        "1-down\n"
+        "1-up\n"
+        "LEFTSHIFT-up\n"
+        "LEFTSHIFT-down\n"
+        "9-down\n"
+        "9-up\n"
+        "LEFTSHIFT-up\n"
+        "LEFTSHIFT-down\n"
+        "APOSTROPHE-down\n"
+        "APOSTROPHE-up\n"
+        "LEFTSHIFT-up\n"
+        "LEFTSHIFT-down\n"
+        "APOSTROPHE-down\n"
+        "APOSTROPHE-up\n"
+        "LEFTSHIFT-up\n"
+        "LEFTSHIFT-down\n"
+        "0-down\n"
+        "0-up\n"
+        "LEFTSHIFT-up\n"
+        "SEMICOLON-down\n"
+        "SEMICOLON-up\n";
 
     runAndCheck(inputs, combos, expected, "test_engine_code_macro");
     std::cout << "OK\n";

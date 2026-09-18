@@ -12,13 +12,9 @@ class MockWriter : public EventWriter {
 public:
     std::vector<Event> events;
 
-    void writeOne(const Event& ev) override {
-        events.push_back(ev);
-    }
+    void writeOne(const Event& ev) override { events.push_back(ev); }
 
-    void clear() {
-        events.clear();
-    }
+    void clear() { events.clear(); }
 
     std::vector<Event> keyEvents() const {
         std::vector<Event> result;
@@ -135,7 +131,7 @@ static void test_osm_timeout_expiration() {
     OneShotKey osk;
     osk.key = Keys::KEY_LEFTSHIFT;
     osk.modifier = Keys::KEY_LEFTSHIFT;
-    osk.timeout_us = 1500000LL; // 1.5s
+    osk.timeout_us = 1500000LL;  // 1.5s
     engine.setOneShotKeys({osk});
 
     // Tap LeftShift at t=100ms

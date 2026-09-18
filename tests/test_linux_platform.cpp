@@ -47,11 +47,8 @@ void testLoadYamlConfiguration() {
     // Verify j f -> backspace
     bool found_jf_backspace = false;
     for (const auto& c : combos) {
-        if (c.keys.size() == 2 &&
-            c.keys[0] == tff::Keys::KEY_J &&
-            c.keys[1] == tff::Keys::KEY_F &&
-            c.out_keys.size() == 1 &&
-            c.out_keys[0] == tff::Keys::KEY_BACKSPACE) {
+        if (c.keys.size() == 2 && c.keys[0] == tff::Keys::KEY_J && c.keys[1] == tff::Keys::KEY_F &&
+            c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_BACKSPACE) {
             found_jf_backspace = true;
             break;
         }
@@ -61,11 +58,8 @@ void testLoadYamlConfiguration() {
     // Verify d f j -> esc (triple combo)
     bool found_dfj_esc = false;
     for (const auto& c : combos) {
-        if (c.keys.size() == 3 &&
-            c.keys[0] == tff::Keys::KEY_D &&
-            c.keys[1] == tff::Keys::KEY_F &&
-            c.keys[2] == tff::Keys::KEY_J &&
-            c.out_keys.size() == 1 &&
+        if (c.keys.size() == 3 && c.keys[0] == tff::Keys::KEY_D && c.keys[1] == tff::Keys::KEY_F &&
+            c.keys[2] == tff::Keys::KEY_J && c.out_keys.size() == 1 &&
             c.out_keys[0] == tff::Keys::KEY_ESC) {
             found_dfj_esc = true;
             break;
@@ -150,9 +144,12 @@ void testSequentialTypingNoRemap() {
     bool has_j = false;
     bool has_f = false;
     for (uint32_t k : received) {
-        if (k == tff::Keys::KEY_BACKSPACE) has_backspace = true;
-        if (k == tff::Keys::KEY_J) has_j = true;
-        if (k == tff::Keys::KEY_F) has_f = true;
+        if (k == tff::Keys::KEY_BACKSPACE)
+            has_backspace = true;
+        if (k == tff::Keys::KEY_J)
+            has_j = true;
+        if (k == tff::Keys::KEY_F)
+            has_f = true;
     }
     assert(!has_backspace);
     assert(has_j);

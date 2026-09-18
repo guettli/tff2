@@ -57,7 +57,7 @@ void testFormatDiagnosticReport() {
     tff::udev::SetupUdevOptions opts;
     opts.color = false;
     std::string plain = tff::udev::formatDiagnosticReport(res, opts);
-    assert(plain.find("\033[") == std::string::npos); // No ANSI color escapes
+    assert(plain.find("\033[") == std::string::npos);  // No ANSI color escapes
     assert(plain.find("testuser") != std::string::npos);
     assert(plain.find("NON-ROOT EXECUTION NOT READY") != std::string::npos);
     assert(plain.find("sudo usermod -aG input testuser") != std::string::npos);
@@ -65,7 +65,7 @@ void testFormatDiagnosticReport() {
 
     opts.color = true;
     std::string colored = tff::udev::formatDiagnosticReport(res, opts);
-    assert(colored.find("\033[") != std::string::npos); // ANSI color escapes present
+    assert(colored.find("\033[") != std::string::npos);  // ANSI color escapes present
 
     // Test when ready
     res.can_run_non_root = true;
@@ -83,7 +83,7 @@ void testInstallUdevRuleCustomPath() {
     tff::udev::SetupUdevOptions opts;
     opts.rule_path = test_rule;
     opts.modules_load_path = test_mod;
-    opts.reload = false; // Do not run system udevadm during test
+    opts.reload = false;  // Do not run system udevadm during test
 
     std::string err_msg;
     bool ok = tff::udev::installUdevRule(opts, err_msg);
