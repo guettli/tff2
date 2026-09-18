@@ -1,0 +1,130 @@
+.TH TFF 1 "September 2026" "TFF 1.0.0" "User Commands"
+.SH NAME
+tff, tff2, tff_linux \- Ten Flying Fingers keyboard remapping daemon and chord engine
+.SH SYNOPSIS
+.B tff
+[\fIOPTIONS\fR]
+.br
+.B tff
+\fBmonitor\fR [\fIOPTIONS\fR] [\fIDEVICE\fR]
+.br
+.B tff
+\fBcheatsheet\fR [\fIOPTIONS\fR] [\fICONFIG_FILE\fR]
+.br
+.B tff
+\fBvalidate\fR [\fIOPTIONS\fR] [\fICONFIG_FILE\fR]
+.br
+.B tff
+\fBsetup-udev\fR [\fIOPTIONS\fR]
+.SH DESCRIPTION
+\fBTen Flying Fingers (TFF)\fR is a high-performance, low-latency keyboard remapper and chording engine implemented in C++. It allows overlapping key combinations (chords) to trigger complex keystrokes, navigation commands, modal layers, and mouse movements.
+.PP
+The engine supports:
+.IP \(bu 2
+\fBOverlapping Combos & Chords\fR: Order-independent or order-dependent combinations (e.g. \fBJ+F\fR for Backspace, \fBF+J\fR for Delete, \fBD+F+J\fR for Escape).
+.IP \(bu 2
+\fBDual-Role Tap-Hold Keys\fR: Keys that emit one key on short tap (e.g. CapsLock \(-> Escape) and a modifier or layer on hold (CapsLock held \(-> Super / Win).
+.IP \(bu 2
+\fBModal & Toggle Layers\fR: Switch full keyboard layouts while holding a key or toggle them on and off (e.g. navigation, numeric keypad, symbols).
+.IP \(bu 2
+\fBSequential Leader Sequences\fR: Vim-like sequence leader keys (Leader \(-> w \(-> q \(-> Save & Quit).
+.IP \(bu 2
+\fBAuto-Shift\fR: Tap a key for lowercase, hold briefly for uppercase, eliminating the need for the physical Shift key.
+.IP \(bu 2
+\fBHome-Row Mouse Keys\fR: Move pointer, click, drag, and scroll directly from the keyboard without reaching for a physical mouse.
+.SH SUBCOMMANDS
+.TP
+.BR monitor " [" \fIOPTIONS\fR "] [" \fIDEVICE\fR "]"
+Launch the interactive live event monitor and chord debugger. Displays microsecond timestamps, timing deltas, raw key codes, chord candidate matching, and action annotations in real time. Runs non-exclusively by default so normal keyboard usage is unaffected.
+.TP
+.BR cheatsheet " [" \fIOPTIONS\fR "] [" \fICONFIG_FILE\fR "]"
+Display a formatted terminal table or markdown document summarizing all active key combinations, tap-hold dual-role keys, layers, leader sequences, auto-shift keys, and settings.
+.TP
+.BR validate " [" \fIOPTIONS\fR "] [" \fICONFIG_FILE\fR "]"
+Parse and validate a YAML configuration file without capturing input or creating virtual devices. Returns exit status 0 if valid, non-zero on error.
+.TP
+.BR setup-udev " [" \fIOPTIONS\fR "]"
+Inspect system permissions for non-root execution (access to \fI/dev/uinput\fR and \fI/dev/input/event*\fR), report diagnostic status, or generate/install standard udev rules.
+.SH OPTIONS
+.TP
+.BR \-c ", " \-\-config " \fIFILE\fR"
+Path to the YAML combo configuration file. Default search order: \fI/etc/tff/tff-combos.yaml\fR, \fI~/.config/tff/tff-combos.yaml\fR, \fIconfig/tff-combos.yaml\fR.
+.TP
+.BR \-d ", " \-\-device " \fIPATH\fR"
+Attach directly to a specific input device (e.g. \fI/dev/input/event3\fR). Can be specified multiple times. If omitted, all detected physical keyboards are opened.
+.TP
+.BR \-l ", " \-\-list
+List all auto-discovered keyboard devices and persistent \fIby-id\fR symlinks, then exit.
+.TP
+.BR \-\-exclusive ", " \-\-grab
+Acquire an exclusive grab (\fBEVIOCGRAB\fR) on input keyboards so raw keypresses are suppressed from the host OS. (Default behavior in daemon mode).
+.TP
+.BR \-\-no\-grab
+Disable exclusive device grab. Raw events are mirrored to the host OS in addition to remapped virtual events.
+.TP
+.BR \-\-hotplug
+Enable dynamic device hotplugging via \fBinotify\fR (default). Automatically attaches newly plugged keyboards and detaches unplugged keyboards without daemon restart.
+.TP
+.BR \-\-no\-hotplug
+Disable dynamic inotify hotplugging.
+.TP
+.BR \-v ", " \-\-verbose
+Enable verbose logging of intercepted and emitted events to stdout.
+.TP
+.BR \-\-plain
+Disable ANSI colors and formatting in terminal output.
+.TP
+.BR \-\-markdown
+Output tables in GitHub-flavored Markdown (used with \fBcheatsheet\fR).
+.TP
+.BR \-i ", " \-\-install
+Install udev rules and trigger \fBudevadm\fR reload (used with \fBsetup\-udev\fR; requires root or sudo).
+.TP
+.BR \-p ", " \-\-print
+Print recommended udev rules to stdout without modifying system files (used with \fBsetup\-udev\fR).
+.TP
+.BR \-h ", " \-\-help
+Display command usage and options, then exit.
+.TP
+.BR \-V ", " \-\-version
+Display program version information, then exit.
+.SH FILES
+.TP
+.I /etc/tff/tff-combos.yaml
+System-wide configuration file.
+.TP
+.I ~/.config/tff/tff-combos.yaml
+Per-user configuration file.
+.TP
+.I /etc/udev/rules.d/99-tff-permissions.rules
+Udev rule granting non-root read/write access to \fI/dev/uinput\fR and \fI/dev/input/event*\fR.
+.TP
+.I /etc/systemd/system/ten-flying-fingers.service
+Systemd background service definition.
+.SH EXAMPLES
+.PP
+Run the live chord monitor to debug chord timings:
+.RS 4
+.B tff monitor
+.RE
+.PP
+Inspect active key combinations in markdown format:
+.RS 4
+.B tff cheatsheet --markdown
+.RE
+.PP
+Verify and install udev rules for non-root execution:
+.RS 4
+.B sudo tff setup-udev --install
+.RE
+.PP
+Validate custom combo configuration:
+.RS 4
+.B tff validate ~/.config/tff/my-combos.yaml
+.RE
+.SH SEE ALSO
+.BR evtest (1),
+.BR systemd (1),
+.BR udev (7)
+.SH AUTHORS
+Ten Flying Fingers (TFF) was created by Thomas Guettler and contributors.
