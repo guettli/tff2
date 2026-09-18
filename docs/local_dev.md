@@ -112,6 +112,8 @@ cmake --build build --target format-check
 ## Documentation
 
 Detailed documentation is available:
+- [System Architecture & Sequence Diagrams](architecture.md)
+- [C++ Core API Reference](api.md)
 - [RP2040 Implementation Guide](rp2040_implementation.md)
 - [Configuration System](configuration.md)
 
