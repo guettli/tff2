@@ -8,15 +8,17 @@ The `tff_core` library provides a hardware-independent, dependency-free C++17 AP
 
 | Header | Description |
 |---|---|
-| [`include/tff_types.h`](file:///home/tff2/tff2/include/tff_types.h) | Primary data structures (`Config`, `Combo`, `TapHoldKey`, `Layer`, `Event`, `TimeVal`) |
-| [`include/tff_engine.h`](file:///home/tff2/tff2/include/tff_engine.h) | Main remapper state machine (`TFFEngine`) and `EventWriter` interface |
-| [`include/tff_parser.h`](file:///home/tff2/tff2/include/tff_parser.h) | Compact YAML parser and configuration validator |
-| [`include/tff_key_codes.h`](file:///home/tff2/tff2/include/tff_key_codes.h) | Evdev keycode definitions, friendly aliases, and string conversion helpers |
-| [`include/tff_cheatsheet.h`](file:///home/tff2/tff2/include/tff_cheatsheet.h) | Cheat sheet generator (ANSI colored terminal tables & Markdown) |
-| [`include/tff_monitor.h`](file:///home/tff2/tff2/include/tff_monitor.h) | Interactive live event monitor and chord debugger |
-| [`include/tff_udev.h`](file:///home/tff2/tff2/include/tff_udev.h) | Linux udev rule generator and permission checker |
-| [`include/linux_platform.h`](file:///home/tff2/tff2/include/linux_platform.h) | Linux evdev, `/dev/uinput`, and inotify event loop driver |
-| [`include/rp2040_platform.h`](file:///home/tff2/tff2/include/rp2040_platform.h) | Raspberry Pi RP2040 TinyUSB host/device hardware driver |
+| Header | Description |
+|---|---|
+| [`include/tff_types.h`](../include/tff_types.h) | Primary data structures (`Config`, `Combo`, `TapHoldKey`, `Layer`, `Event`, `TimeVal`) |
+| [`include/tff_engine.h`](../include/tff_engine.h) | Main remapper state machine (`TFFEngine`) and `EventWriter` interface |
+| [`include/tff_parser.h`](../include/tff_parser.h) | Compact YAML parser and configuration validator |
+| [`include/tff_key_codes.h`](../include/tff_key_codes.h) | Evdev keycode definitions, friendly aliases, and string conversion helpers |
+| [`include/tff_cheatsheet.h`](../include/tff_cheatsheet.h) | Cheat sheet generator (ANSI colored terminal tables & Markdown) |
+| [`include/tff_monitor.h`](../include/tff_monitor.h) | Interactive live event monitor and chord debugger |
+| [`include/tff_udev.h`](../include/tff_udev.h) | Linux udev rule generator and permission checker |
+| [`include/linux_platform.h`](../include/linux_platform.h) | Linux evdev, `/dev/uinput`, and inotify event loop driver |
+| [`include/rp2040_platform.h`](../include/rp2040_platform.h) | Raspberry Pi RP2040 TinyUSB host/device hardware driver |
 
 ---
 
@@ -26,8 +28,8 @@ The `tff_core` library provides a hardware-independent, dependency-free C++17 AP
 Represents an event timestamp with microsecond resolution:
 ```cpp
 struct TimeVal {
-    int64_t tv_sec = 0;   // Seconds
-    int64_t tv_usec = 0;  // Microseconds (0 .. 999999)
+    int64_t sec = 0;   // Seconds
+    int64_t usec = 0;  // Microseconds (0 .. 999999)
 
     static TimeVal fromMicros(int64_t us);
     int64_t toMicros() const;
@@ -64,15 +66,16 @@ struct Combo {
 Defines a dual-role key (different behavior on short tap vs hold):
 ```cpp
 struct TapHoldKey {
-    KeyCode key = 0;                    // Trigger key (e.g. KEY_CAPSLOCK)
-    KeyCode tap_key = 0;                // Emitted on quick tap (e.g. KEY_ESC)
-    KeyCode hold_key = 0;               // Emitted while held (e.g. KEY_LEFTMETA)
-    std::string hold_layer;             // Layer activated while held (momentary)
-    int64_t timeout_us = 200000LL;      // Expiration threshold in microseconds (default 200ms)
-    KeyCode tap_one_shot_modifier = 0;  // Arm one-shot modifier on tap
-    std::string tap_one_shot_layer;     // Arm one-shot layer on tap
-    bool tap_leader = false;            // Activate leader mode on tap
-    std::string tap_toggle_layer;       // Toggle layer on/off on tap
+    KeyCode key = 0;                             // Trigger key (e.g. KEY_CAPSLOCK)
+    KeyCode tap_key = 0;                         // Emitted on quick tap (e.g. KEY_ESC)
+    KeyCode hold_key = 0;                        // Emitted while held (e.g. KEY_LEFTMETA)
+    std::string hold_layer;                      // Layer activated while held (momentary)
+    int64_t timeout_us = 200000LL;               // Expiration threshold in microseconds (default 200ms)
+    KeyCode tap_one_shot_modifier = 0;           // Arm one-shot modifier on tap
+    std::string tap_one_shot_layer;              // Arm one-shot layer on tap
+    int64_t tap_one_shot_timeout_us = 1500000LL; // One-shot timeout in us (default 1500ms)
+    bool tap_leader = false;                     // Activate leader mode on tap
+    std::string tap_toggle_layer;                // Toggle layer on/off on tap
 };
 ```
 
@@ -275,15 +278,25 @@ public:
 ## 5. Parser API (`tff_parser.h`)
 
 ```cpp
-// Load complete configuration from YAML string
+// Load complete configuration from YAML string (combos, tap-hold, layers, one-shots, leader, auto-shift, mouse)
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& error_msg);
 
-// Load complete configuration from file path
-bool loadYamlConfigFile(const std::string& path, Config& config, std::string& error_msg);
+// Load combos only from YAML string
+bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg);
 
-// Parse modifier chord string (e.g. "ctrl+shift+esc") into vector of KeyCodes
-std::vector<std::string> parseOutputWords(const std::string& s);
+// Parses duration string like "200ms", "1.5s", "1000us" into microseconds
+bool parseDurationMicros(const std::string& str, int64_t& out_us);
+```
 
+### 5.1 Keycode Helper API (`tff_key_codes.h`)
+
+```cpp
 // Convert an ASCII character into an evdev KeyCode and Shift flag
 bool asciiToKeyStroke(char c, KeyCode& code, bool& shift);
+
+// Convert a KeyCode to its canonical name or word representation (e.g. "f", "capslock")
+std::string keyCodeToWord(KeyCode code);
+
+// Convert a canonical name or word representation to its evdev KeyCode
+bool wordToKeyCode(const std::string& word, KeyCode& out_code, std::string& err_msg);
 ```
