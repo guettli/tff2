@@ -8,8 +8,6 @@ The `tff_core` library provides a hardware-independent, dependency-free C++17 AP
 
 | Header | Description |
 |---|---|
-| Header | Description |
-|---|---|
 | [`include/tff_types.h`](../include/tff_types.h) | Primary data structures (`Config`, `Combo`, `TapHoldKey`, `Layer`, `Event`, `TimeVal`) |
 | [`include/tff_engine.h`](../include/tff_engine.h) | Main remapper state machine (`TFFEngine`) and `EventWriter` interface |
 | [`include/tff_parser.h`](../include/tff_parser.h) | Compact YAML parser and configuration validator |
