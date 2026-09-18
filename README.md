@@ -235,6 +235,8 @@ See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural 
 
 - **Unix Manual Page**: Run `man tff` (or see [`docs/man/tff.1`](docs/man/tff.1))
 - **Configuration Guide**: [`docs/configuration.md`](docs/configuration.md)
+- **Configuration Cookbook**: [`docs/cookbook.md`](docs/cookbook.md)
+- **Troubleshooting & Diagnostics**: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - **Linux Installation & Systemd**: [`docs/install.md`](docs/install.md)
 - **Local Development Guide**: [`docs/local_dev.md`](docs/local_dev.md)
 - **RP2040 Implementation**: [`docs/rp2040_implementation.md`](docs/rp2040_implementation.md)
