@@ -124,9 +124,7 @@ TFF operates at the Linux kernel `evdev` and `uinput` layer, **below** Wayland c
 
 **Diagnosis:**
 1. Check if hotplugging was explicitly disabled:
-   ```bash
-   tff --hotplug ...  # Hotplug is enabled by default
-   ```
+   Verify whether `--no-hotplug` was passed in the systemd service command or CLI invocation. (Hotplugging is enabled by default in TFF).
 2. Check if the Linux kernel inotify watch table is exhausted:
    ```bash
    cat /proc/sys/fs/inotify/max_user_watches
@@ -152,10 +150,13 @@ journalctl --user -u ten-flying-fingers.service -f -n 50
 ```
 
 ### Hot-Reloading Configuration Without Dropping Keyboard Grab
-You do not need to restart the daemon to apply changes to `tff-combos.yaml`. Send a `SIGHUP` signal:
+You do not need to restart the daemon to apply changes to `tff-combos.yaml`. Send a `SIGHUP` signal (natively invoked by `systemctl reload`):
 ```bash
-# System-wide service:
-sudo systemctl kill -s HUP ten-flying-fingers.service
+# Standard systemd reload:
+sudo systemctl reload ten-flying-fingers.service
+
+# Or for user session service:
+systemctl --user reload ten-flying-fingers.service
 
 # Or directly via pkill:
 pkill -HUP -f tff_linux
@@ -194,3 +195,11 @@ Configuration reloaded successfully.
 
 - Run `tff monitor` to observe keydown and keyup events in real time.
 - Join the discussion and submit issues at [https://github.com/guettli/tff2/issues](https://github.com/guettli/tff2/issues).
+
+---
+
+## See Also
+
+- [Configuration Guide](configuration.md) - Full YAML configuration reference for combos, layers, and tap-hold
+- [Configuration Cookbook](cookbook.md) - Copy-pasteable recipes and real-world configurations
+- [Unix Manual Page](man/tff.1) - Complete command-line manual page (`man tff`)

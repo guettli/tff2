@@ -6,11 +6,11 @@ This cookbook provides production-tested configurations, tips, and copy-pasteabl
 
 ## Recipe 1: The Vim & Developer Powerhouse
 
-**Goal:** Turn Caps Lock into a dual-role key (Escape on tap, Super/Windows on hold) and map home-row keys (`h`, `j`, `k`, `l`) to cursor navigation.
+**Goal:** Turn Caps Lock into a dual-role key (Escape on tap, Super/Windows on hold), map home-row keys (`h`, `j`, `k`, `l`) to cursor navigation, and use fast order-dependent home-row chords for Backspace and Delete.
 
 ```yaml
 combos:
-  # Home-row cursor arrows via symmetric chords
+  # Home-row cursor arrows via symmetric chords (+)
   h + j: left
   j + k: down
   k + l: up
@@ -22,9 +22,10 @@ combos:
   f + u: pageup
   f + d: pagedown
 
-  # Quick backspace / delete from home row
-  j + f: backspace
-  f + j: delete
+  # Quick backspace / delete from home row (order-dependent, without +)
+  # Pressing J before F emits Backspace; pressing F before J emits Delete
+  j f: backspace
+  f j: delete
 
 tap_hold:
   # Caps Lock: tap for Escape (Vim normal mode), hold for Super / Mod key
@@ -89,21 +90,21 @@ combos:
 
 ## Recipe 4: German (QWERTZ) & International Programmer Layout
 
-**Goal:** On German and European keyboard layouts, brackets (`[]`), braces (`{}`), backslash (`\`), and pipe (`|`) require cumbersome `AltGr` combinations. Map them to simple home-row chords.
+**Goal:** On German and European keyboard layouts, brackets (`[]`), braces (`{}`), backslash (`\`), and pipe (`|`) require awkward `AltGr` finger contortions. Map them to simple home-row chords.
+
+> [!NOTE]
+> Because TFF operates at the Linux kernel `evdev` scancode level, keycodes are translated by your desktop environment according to your active keymap. For a German QWERTZ keymap, map chords to the corresponding German `rightalt` combinations:
 
 ```yaml
 combos:
-  # Brackets and Braces
-  u + i: "["
-  i + o: "]"
-  u + o: "{"
-  i + p: "}"
-
-  # Common symbols
-  s + l: "/"
-  b + s: "\\"
-  p + i: "|"
-  t + i: "~"
+  # German QWERTZ programmer brackets without reaching for AltGr
+  u + i: rightalt+8      # Emits '[' on German QWERTZ
+  i + o: rightalt+9      # Emits ']' on German QWERTZ
+  u + o: rightalt+7      # Emits '{' on German QWERTZ
+  i + p: rightalt+0      # Emits '}' on German QWERTZ
+  s + l: leftshift+7     # Emits '/' on German QWERTZ
+  b + s: rightalt+minus  # Emits '\' on German QWERTZ
+  p + i: rightalt+102nd  # Emits '|' on German QWERTZ (angle bracket key)
 ```
 
 ---
@@ -122,7 +123,7 @@ leader:
   sequences:
     "w s": leftctrl+s
     "g s": "git status\n"
-    "g c": "git commit -m \""
+    "g c": 'git commit -m "'
 ```
 
 ---
@@ -133,21 +134,27 @@ leader:
 
 ```yaml
 combos:
-  d + f + m: esc
+  # Toggle mouse navigation layer on/off with 3-key chord
+  d + f + m: tg(mouse_nav)
 
-modal_layers:
-  - name: mouse_nav
-    hold_key: rightalt
-    mappings:
-      h: mouse_left
-      j: mouse_down
-      k: mouse_up
-      l: mouse_right
-      u: mouse_wheel_up
-      d: mouse_wheel_down
-      space: mouse_btn_left
-      f: mouse_btn_right
-      s: mouse_btn_middle
+tap_hold:
+  # Momentary hold: hold RightAlt to navigate, release to return to typing
+  rightalt:
+    tap: rightalt
+    layer: mouse_nav
+    timeout_ms: 200
+
+layers:
+  mouse_nav:
+    h: mouse_left
+    j: mouse_down
+    k: mouse_up
+    l: mouse_right
+    u: mouse_wheel_up
+    d: mouse_wheel_down
+    space: mouse_btn_left
+    f: mouse_btn_right
+    s: mouse_btn_middle
 ```
 
 ---
@@ -184,9 +191,9 @@ tap_hold:
     timeout_ms: 190
 
 combos:
-  # Chords
-  j + f: backspace
-  f + j: delete
+  # Order-dependent chords
+  j f: backspace
+  f j: delete
   d + f + j: esc
 
   # Cursor arrows
@@ -214,3 +221,11 @@ Validate and verify this configuration with:
 tff validate ~/.config/tff/tff-combos.yaml
 tff cheatsheet ~/.config/tff/tff-combos.yaml
 ```
+
+---
+
+## See Also
+
+- [Configuration Guide](configuration.md) - Full syntax reference and configuration options
+- [Troubleshooting Guide](troubleshooting.md) - Diagnostics, permissions, and systemd guidance
+- [Unix Manual Page](man/tff.1) - CLI commands, options, and file paths
