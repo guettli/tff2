@@ -213,9 +213,9 @@ Or run the ported Go unit test suite directly:
 ./build/test_tff_go_suite
 ```
 
-### Pre-Push Verification & Code Coverage
+### Pre-Push Verification & Invariant Testing
 
-Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 15 CTest unit test suites, Cppcheck static analysis, and CLI smoke tests:
+Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 16 CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing), Cppcheck static analysis, and CLI smoke tests:
 
 ```bash
 ./scripts/check.sh             # Full quality verification pipeline

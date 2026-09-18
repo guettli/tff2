@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 
 namespace tff {
@@ -129,6 +130,15 @@ public:
     bool hasActiveTimer() const;
     TimeVal getActiveTimerTime() const;
 
+    // Buffer size limit to bound memory usage and prevent buffer exhaustion
+    static constexpr size_t MAX_BUFFER_SIZE = 64;
+
+    // Inspect current buffer size
+    size_t getBufferSize() const { return buf_.size(); }
+
+    // Evict oldest buffered event to enforce buffer bounds
+    void evictOldestBufferedEvent();
+
     // Get string representation of buffer and state (matching Go state.String())
     std::string toString() const;
 
@@ -179,6 +189,7 @@ private:
     std::vector<Event> buf_;
     std::vector<Combo> down_keys_written_;
     std::vector<KeyCode> swallow_keys_;
+    std::unordered_set<KeyCode> physical_keys_down_;
 
     struct PendingAutoShift {
         KeyCode key = 0;

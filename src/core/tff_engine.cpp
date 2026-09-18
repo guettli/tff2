@@ -426,9 +426,14 @@ void TFFEngine::reset() {
     }
     auto_shift_held_.clear();
     active_modifiers_.clear();
-    buf_.clear();
+    auto combos_to_release = down_keys_written_;
+    for (const auto& combo : combos_to_release) {
+        writeComboUpKeys(combo);
+    }
     down_keys_written_.clear();
+    buf_.clear();
     swallow_keys_.clear();
+    physical_keys_down_.clear();
     fake_active_timer_next_time_ = TimeVal::maxTime();
 }
 
@@ -453,6 +458,18 @@ bool TFFEngine::processEvent(const Event& ev) {
             out_dev_->writeOne(ev);
         }
         return true;
+    }
+
+    if (ev.value == KEY_VAL_DOWN) {
+        if (!physical_keys_down_.insert(ev.code).second) {
+            // Drop duplicate down events (switch bounce / chatter)
+            return true;
+        }
+    } else if (ev.value == KEY_VAL_UP) {
+        if (physical_keys_down_.erase(ev.code) == 0) {
+            // Drop spurious up events for keys not physically down
+            return true;
+        }
     }
 
     if (ev.value == KEY_VAL_REPEAT) {
@@ -845,7 +862,26 @@ void TFFEngine::finish() {
         }
     }
     auto_shift_held_.clear();
+    auto combos_to_release = down_keys_written_;
+    for (const auto& combo : combos_to_release) {
+        writeComboUpKeys(combo);
+    }
+    down_keys_written_.clear();
     active_modifiers_.clear();
+    physical_keys_down_.clear();
+}
+
+void TFFEngine::evictOldestBufferedEvent() {
+    if (buf_.empty()) {
+        return;
+    }
+    Event oldest = buf_.front();
+    buf_.erase(buf_.begin());
+    handleAutoShiftOrWrite(oldest, "BufferOverflow>EvictOldest");
+    auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), oldest.code);
+    if (it != swallow_keys_.end()) {
+        swallow_keys_.erase(it);
+    }
 }
 
 bool TFFEngine::handleDownChar(const Event& ev) {
@@ -853,11 +889,17 @@ bool TFFEngine::handleDownChar(const Event& ev) {
         fake_active_timer_next_time_ =
             TimeVal::fromMicros(ev.time.toMicros() + timeout_after_down_us_);
     }
+    while (buf_.size() >= MAX_BUFFER_SIZE) {
+        evictOldestBufferedEvent();
+    }
     buf_.push_back(ev);
     return eval(ev.time, "down");
 }
 
 bool TFFEngine::handleUpChar(const Event& ev) {
+    while (buf_.size() >= MAX_BUFFER_SIZE) {
+        evictOldestBufferedEvent();
+    }
     buf_.push_back(ev);
     return eval(ev.time, "up");
 }
@@ -1196,26 +1238,23 @@ void TFFEngine::writeComboDownKeys(const Combo& combo) {
             return;
         }
     }
+    TimeVal event_time = !buf_.empty() ? buf_[0].time : TimeVal{};
     if (combo.mouse.isButton()) {
-        if (!buf_.empty()) {
-            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
-                               : (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
-                               : (combo.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
-                               : (combo.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
-                                                                                  : Keys::BTN_LEFT;
-            writeKey(btn_code, KEY_VAL_DOWN, buf_[0].time);
-        }
+        KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                           : (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                           : (combo.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                           : (combo.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                              : Keys::BTN_LEFT;
+        writeKey(btn_code, KEY_VAL_DOWN, event_time);
     } else if (combo.mouse.isRelative()) {
-        if (!buf_.empty()) {
-            emitMouseAction(combo.mouse, buf_[0].time);
-        }
+        emitMouseAction(combo.mouse, event_time);
     } else if (!combo.toggle_layer.empty()) {
         toggleLayer(combo.toggle_layer);
-    } else if (!buf_.empty()) {
+    } else {
         if (!combo.text.empty()) {
-            emitText(combo.text, buf_[0].time);
+            emitText(combo.text, event_time);
         } else {
-            writeCombo(combo, buf_[0].time, KEY_VAL_DOWN);
+            writeCombo(combo, event_time, KEY_VAL_DOWN);
         }
     }
 }
@@ -1279,20 +1318,19 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
         }
     }
 
-    if (!buf_.empty()) {
-        if (combo.mouse.isButton()) {
-            KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
-                               : (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
-                               : (combo.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
-                               : (combo.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
-                                                                                  : Keys::BTN_LEFT;
-            writeKey(btn_code, KEY_VAL_UP, buf_[0].time);
-        } else if (combo.toggle_layer.empty() && combo.text.empty() && !combo.mouse.isRelative()) {
-            writeCombo(combo, buf_[0].time, KEY_VAL_UP);
-        }
-        if (disengaging_trigger_key_ != 0) {
-            disengageOneShots(buf_[0].time);
-        }
+    TimeVal event_time = !buf_.empty() ? buf_[0].time : TimeVal{};
+    if (combo.mouse.isButton()) {
+        KeyCode btn_code = (combo.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                           : (combo.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                           : (combo.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                           : (combo.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                              : Keys::BTN_LEFT;
+        writeKey(btn_code, KEY_VAL_UP, event_time);
+    } else if (combo.toggle_layer.empty() && combo.text.empty() && !combo.mouse.isRelative()) {
+        writeCombo(combo, event_time, KEY_VAL_UP);
+    }
+    if (disengaging_trigger_key_ != 0) {
+        disengageOneShots(event_time);
     }
     buf_ = std::move(new_buf);
 }
@@ -1338,13 +1376,24 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
 }
 
 void TFFEngine::writeCombo(const Combo& combo, TimeVal time, int32_t value) {
-    for (KeyCode out_key : combo.out_keys) {
-        Event ev;
-        ev.time = time;
-        ev.type = EV_KEY;
-        ev.code = out_key;
-        ev.value = value;
-        writeEvent(ev, "WriteCombo");
+    if (value == KEY_VAL_UP) {
+        for (auto it = combo.out_keys.rbegin(); it != combo.out_keys.rend(); ++it) {
+            Event ev;
+            ev.time = time;
+            ev.type = EV_KEY;
+            ev.code = *it;
+            ev.value = value;
+            writeEvent(ev, "WriteCombo");
+        }
+    } else {
+        for (KeyCode out_key : combo.out_keys) {
+            Event ev;
+            ev.time = time;
+            ev.type = EV_KEY;
+            ev.code = out_key;
+            ev.value = value;
+            writeEvent(ev, "WriteCombo");
+        }
     }
 }
 
