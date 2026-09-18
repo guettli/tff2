@@ -66,6 +66,10 @@ if [ -f "${ROOT_DIR}/docs/man/tff.1" ]; then
     ln -sf "tff.1" "${STAGE_DIR}/man/man1/tff2.1"
     ln -sf "tff.1" "${STAGE_DIR}/man/man1/tff_linux.1"
 fi
+if [ -d "${ROOT_DIR}/completions" ]; then
+    mkdir -p "${STAGE_DIR}/completions"
+    cp -r "${ROOT_DIR}/completions/"* "${STAGE_DIR}/completions/"
+fi
 
 # Create tar archives
 echo "==> Creating release archives..."

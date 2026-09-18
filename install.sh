@@ -26,7 +26,7 @@ echo "  Mode: ${MODE}                                   "
 echo "=================================================="
 
 # 1. Build and verify test suite
-echo "[1/5] Building release binary and executing tests..."
+echo "[1/6] Building release binary and executing tests..."
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
@@ -36,27 +36,35 @@ cd "${SCRIPT_DIR}"
 
 # 2. Setup install paths
 if [[ "${MODE}" == "user" ]]; then
+    XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
+    XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
     BIN_DIR="${HOME}/.local/bin"
-    CONFIG_DIR="${HOME}/.config/tff"
-    SYSTEMD_DIR="${HOME}/.config/systemd/user"
-    MAN_DIR="${HOME}/.local/share/man/man1"
+    CONFIG_DIR="${XDG_CONFIG_HOME}/tff"
+    SYSTEMD_DIR="${XDG_CONFIG_HOME}/systemd/user"
+    MAN_DIR="${XDG_DATA_HOME}/man/man1"
+    BASH_COMPLETION_DIR="${XDG_DATA_HOME}/bash-completion/completions"
+    ZSH_COMPLETION_DIR="${XDG_DATA_HOME}/zsh/site-functions"
+    FISH_COMPLETION_DIR="${XDG_CONFIG_HOME}/fish/completions"
     SUDO=""
 else
     BIN_DIR="/usr/local/bin"
     CONFIG_DIR="/etc/tff"
     SYSTEMD_DIR="/etc/systemd/system"
     MAN_DIR="/usr/local/share/man/man1"
+    BASH_COMPLETION_DIR="/usr/share/bash-completion/completions"
+    ZSH_COMPLETION_DIR="/usr/share/zsh/site-functions"
+    FISH_COMPLETION_DIR="/usr/share/fish/vendor_completions.d"
     SUDO="sudo"
 fi
 
 # 3. Install binary and symlink
-echo "[2/5] Installing binary to ${BIN_DIR}/tff..."
+echo "[2/6] Installing binary to ${BIN_DIR}/tff..."
 ${SUDO} install -d "${BIN_DIR}"
 ${SUDO} install -m 755 build/tff_linux "${BIN_DIR}/tff_linux"
 ${SUDO} ln -sf "${BIN_DIR}/tff_linux" "${BIN_DIR}/tff"
 
 # 4. Install default configuration
-echo "[3/5] Installing configuration to ${CONFIG_DIR}/tff-combos.yaml..."
+echo "[3/6] Installing configuration to ${CONFIG_DIR}/tff-combos.yaml..."
 ${SUDO} install -d "${CONFIG_DIR}"
 if [[ ! -f "${CONFIG_DIR}/tff-combos.yaml" ]]; then
     ${SUDO} install -m 644 config/tff-combos.yaml "${CONFIG_DIR}/tff-combos.yaml"
@@ -66,7 +74,7 @@ else
 fi
 
 # 5. Install Unix man page
-echo "[4/5] Installing man page to ${MAN_DIR}/tff.1..."
+echo "[4/6] Installing man page to ${MAN_DIR}/tff.1..."
 if [[ -f "docs/man/tff.1" ]]; then
     ${SUDO} install -d "${MAN_DIR}"
     ${SUDO} install -m 644 docs/man/tff.1 "${MAN_DIR}/tff.1"
@@ -75,8 +83,32 @@ if [[ -f "docs/man/tff.1" ]]; then
     echo "  Installed man page and symlinks (tff.1, tff2.1, tff_linux.1)"
 fi
 
-# 6. Configure systemd service
-echo "[5/5] Configuring systemd service..."
+# 6. Install shell autocompletions
+echo "[5/6] Installing shell autocompletions (bash, zsh, fish)..."
+if [[ -f "completions/bash/tff" ]]; then
+    ${SUDO} install -d "${BASH_COMPLETION_DIR}"
+    ${SUDO} install -m 644 completions/bash/tff "${BASH_COMPLETION_DIR}/tff"
+    ${SUDO} ln -sf "tff" "${BASH_COMPLETION_DIR}/tff2"
+    ${SUDO} ln -sf "tff" "${BASH_COMPLETION_DIR}/tff_linux"
+    echo "  Installed Bash completions (tff, tff2, tff_linux)"
+fi
+if [[ -f "completions/zsh/_tff" ]]; then
+    ${SUDO} install -d "${ZSH_COMPLETION_DIR}"
+    ${SUDO} install -m 644 completions/zsh/_tff "${ZSH_COMPLETION_DIR}/_tff"
+    ${SUDO} ln -sf "_tff" "${ZSH_COMPLETION_DIR}/_tff2"
+    ${SUDO} ln -sf "_tff" "${ZSH_COMPLETION_DIR}/_tff_linux"
+    echo "  Installed Zsh completions (_tff, _tff2, _tff_linux)"
+fi
+if [[ -f "completions/fish/tff.fish" ]]; then
+    ${SUDO} install -d "${FISH_COMPLETION_DIR}"
+    ${SUDO} install -m 644 completions/fish/tff.fish "${FISH_COMPLETION_DIR}/tff.fish"
+    ${SUDO} ln -sf "tff.fish" "${FISH_COMPLETION_DIR}/tff2.fish"
+    ${SUDO} ln -sf "tff.fish" "${FISH_COMPLETION_DIR}/tff_linux.fish"
+    echo "  Installed Fish completions (tff.fish, tff2.fish, tff_linux.fish)"
+fi
+
+# 7. Configure systemd service
+echo "[6/6] Configuring systemd service..."
 ${SUDO} install -d "${SYSTEMD_DIR}"
 SERVICE_DEST="${SYSTEMD_DIR}/ten-flying-fingers.service"
 

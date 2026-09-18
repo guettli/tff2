@@ -248,6 +248,7 @@ See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural 
 - **Configuration Cookbook**: [`docs/cookbook.md`](docs/cookbook.md)
 - **Troubleshooting & Diagnostics**: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - **Linux Installation & Systemd**: [`docs/install.md`](docs/install.md)
+- **Shell Autocompletions**: Bash, Zsh, and Fish completions in [`completions/`](completions/) (installed automatically via [`install.sh`](install.sh))
 - **Local Development Guide**: [`docs/local_dev.md`](docs/local_dev.md)
 - **RP2040 Implementation**: [`docs/rp2040_implementation.md`](docs/rp2040_implementation.md)
 - **Automated Hardware Testing**: [`docs/hardware_testing.md`](docs/hardware_testing.md)
