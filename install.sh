@@ -36,13 +36,15 @@ cd "${SCRIPT_DIR}"
 
 # 2. Setup install paths
 if [[ "${MODE}" == "user" ]]; then
+    XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
+    XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
     BIN_DIR="${HOME}/.local/bin"
-    CONFIG_DIR="${HOME}/.config/tff"
-    SYSTEMD_DIR="${HOME}/.config/systemd/user"
-    MAN_DIR="${HOME}/.local/share/man/man1"
-    BASH_COMPLETION_DIR="${HOME}/.local/share/bash-completion/completions"
-    ZSH_COMPLETION_DIR="${HOME}/.local/share/zsh/site-functions"
-    FISH_COMPLETION_DIR="${HOME}/.config/fish/completions"
+    CONFIG_DIR="${XDG_CONFIG_HOME}/tff"
+    SYSTEMD_DIR="${XDG_CONFIG_HOME}/systemd/user"
+    MAN_DIR="${XDG_DATA_HOME}/man/man1"
+    BASH_COMPLETION_DIR="${XDG_DATA_HOME}/bash-completion/completions"
+    ZSH_COMPLETION_DIR="${XDG_DATA_HOME}/zsh/site-functions"
+    FISH_COMPLETION_DIR="${XDG_CONFIG_HOME}/fish/completions"
     SUDO=""
 else
     BIN_DIR="/usr/local/bin"
@@ -100,7 +102,9 @@ fi
 if [[ -f "completions/fish/tff.fish" ]]; then
     ${SUDO} install -d "${FISH_COMPLETION_DIR}"
     ${SUDO} install -m 644 completions/fish/tff.fish "${FISH_COMPLETION_DIR}/tff.fish"
-    echo "  Installed Fish completions (tff.fish)"
+    ${SUDO} ln -sf "tff.fish" "${FISH_COMPLETION_DIR}/tff2.fish"
+    ${SUDO} ln -sf "tff.fish" "${FISH_COMPLETION_DIR}/tff_linux.fish"
+    echo "  Installed Fish completions (tff.fish, tff2.fish, tff_linux.fish)"
 fi
 
 # 7. Configure systemd service

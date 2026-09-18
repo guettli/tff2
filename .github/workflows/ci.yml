@@ -93,6 +93,8 @@ jobs:
           ls -la /usr/share/bash-completion/completions/tff
           ls -la /usr/share/zsh/site-functions/_tff
           ls -la /usr/share/fish/vendor_completions.d/tff.fish
+          ls -la /usr/share/fish/vendor_completions.d/tff2.fish
+          ls -la /usr/share/fish/vendor_completions.d/tff_linux.fish
 
       - name: Test release packaging & static linking
         if: matrix.cc == 'gcc'

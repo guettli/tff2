@@ -2,6 +2,7 @@
 # Compatible with bash-completion v2 and standard bash
 
 _tff_complete() {
+    shopt -s extglob 2>/dev/null
     local cur prev words cword
     if declare -F _init_completion >/dev/null 2>&1; then
         _init_completion || return
@@ -27,7 +28,11 @@ _tff_complete() {
             return 0
             ;;
         -d|--device)
-            COMPREPLY=( $(compgen -f /dev/input/event) )
+            if [[ -z "$cur" ]]; then
+                COMPREPLY=( $(compgen -f /dev/input/event) )
+            else
+                COMPREPLY=( $(compgen -f -- "$cur") )
+            fi
             return 0
             ;;
         --rule-path)
@@ -58,7 +63,15 @@ _tff_complete() {
             COMPREPLY=( $(compgen -W "$global_opts" -- "$cur") )
             return 0
         fi
-        COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+        local yaml_files=()
+        if declare -F _filedir >/dev/null 2>&1; then
+            _filedir '@(yaml|yml)'
+            yaml_files=( "${COMPREPLY[@]}" )
+            COMPREPLY=()
+        else
+            yaml_files=( $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") $(compgen -d -- "$cur") )
+        fi
+        COMPREPLY=( $(compgen -W "$commands" -- "$cur") ${yaml_files[@]+"${yaml_files[@]}"} )
         return 0
     fi
 
@@ -68,7 +81,11 @@ _tff_complete() {
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=( $(compgen -W "--no-deltas --no-emitted --plain --no-color -c --config -d --device -g --grab --no-grab -h --help" -- "$cur") )
             else
-                COMPREPLY=( $(compgen -f /dev/input/event) $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") )
+                if [[ -z "$cur" ]]; then
+                    COMPREPLY=( $(compgen -f /dev/input/event) $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") )
+                else
+                    COMPREPLY=( $(compgen -f -- "$cur") )
+                fi
             fi
             ;;
         cheatsheet)
