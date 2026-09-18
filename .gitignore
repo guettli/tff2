@@ -26,6 +26,11 @@ Makefile
 *.out
 *.app
 
+# Coverage artifacts
+*.gcda
+*.gcno
+*.gcov
+
 # RP2040 firmware artifacts
 *.uf2
 *.hex

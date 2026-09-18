@@ -30,6 +30,18 @@ if(ENABLE_SANITIZERS)
     endif()
 endif()
 
+# Code coverage option
+option(ENABLE_COVERAGE "Enable code coverage instrumentation (gcov / llvm-cov)" OFF)
+if(ENABLE_COVERAGE AND NOT PICO_BUILD)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Enabling code coverage instrumentation")
+        add_compile_options(--coverage -O0 -g)
+        add_link_options(--coverage)
+    else()
+        message(FATAL_ERROR "Coverage requested but compiler ${CMAKE_CXX_COMPILER_ID} is not GNU or Clang")
+    endif()
+endif()
+
 # Static runtime linking options (portable Linux binaries)
 option(TFF_STATIC_LIBSTDCXX "Link libgcc and libstdc++ statically for portable Linux binaries" OFF)
 if(TFF_STATIC_LIBSTDCXX AND NOT PICO_BUILD)
@@ -302,5 +314,18 @@ if(NOT PICO_BUILD)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMENT "Checking code formatting with clang-format..."
         )
+    endif()
+
+    # Code coverage report target
+    if(ENABLE_COVERAGE)
+        find_program(GCOV_EXECUTABLE NAMES gcov llvm-cov)
+        if(GCOV_EXECUTABLE)
+            add_custom_target(coverage
+                COMMAND ${CMAKE_COMMAND} -E env GCOV_BIN=${GCOV_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/coverage.sh --build-dir ${CMAKE_CURRENT_BINARY_DIR} --no-build
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMENT "Running tests and collecting code coverage..."
+            )
+        endif()
     endif()
 endif() # NOT PICO_BUILD

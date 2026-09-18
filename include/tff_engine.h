@@ -200,10 +200,9 @@ private:
     std::vector<KeyCode> active_modifiers_;
     TraceCallback trace_callback_;
 
-    int64_t min_overlap_duration_us_ = 80000;  // 80ms
-    int64_t timeout_after_down_us_ = 150000;   // 150ms
-    int64_t min_age_us_ = 140000;              // 140ms
-    int64_t min_overlap_us_ = 40000;           // 40ms
+    int64_t timeout_after_down_us_ = 150000;  // 150ms
+    int64_t min_age_us_ = 140000;             // 140ms
+    int64_t min_overlap_us_ = 40000;          // 40ms
 
     bool fake_active_timer_ = true;
     TimeVal fake_active_timer_next_time_;

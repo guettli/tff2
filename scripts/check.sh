@@ -11,12 +11,14 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    echo "Usage: $0 [--sanitizers|--all]"
+    echo "Usage: $0 [--sanitizers] [--coverage] [--all]"
     echo "Runs unified local verification: clang-format check, -Werror build, ctest,"
     echo "cppcheck static analysis, and CLI smoke tests."
     echo ""
     echo "Options:"
-    echo "  --sanitizers, --all   Also run AddressSanitizer and UndefinedBehaviorSanitizer suite"
+    echo "  --sanitizers          Also run AddressSanitizer and UndefinedBehaviorSanitizer suite"
+    echo "  --coverage            Also build with coverage and generate gcov summary report"
+    echo "  --all                 Run all checks including sanitizers and coverage"
     echo "  -h, --help            Show this help message"
     exit 0
 fi
@@ -99,7 +101,7 @@ step "Running CLI smoke verification..."
 success "CLI smoke tests passed"
 
 # 7. Optional Sanitizers check if requested
-if [[ "${1:-}" == "--sanitizers" || "${1:-}" == "--all" ]]; then
+if [[ " $* " =~ " --sanitizers " || " $* " =~ " --all " ]]; then
     step "Running AddressSanitizer & UndefinedBehaviorSanitizer checks..."
     export ASAN_OPTIONS="detect_leaks=1:abort_on_error=1:fast_unwind_on_fatal=0"
     export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
@@ -107,6 +109,13 @@ if [[ "${1:-}" == "--sanitizers" || "${1:-}" == "--all" ]]; then
     cmake --build build-asan --parallel
     ctest --test-dir build-asan --output-on-failure
     success "Sanitizers test suite passed with zero errors"
+fi
+
+# 8. Optional Code Coverage check if requested
+if [[ " $* " =~ " --coverage " || " $* " =~ " --all " ]]; then
+    step "Running Code Coverage analysis..."
+    "${SCRIPT_DIR}/coverage.sh"
+    success "Code coverage analysis completed"
 fi
 
 echo -e "\n${COLOR_GREEN}======================================================${COLOR_RESET}"
