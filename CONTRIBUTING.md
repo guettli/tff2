@@ -64,7 +64,7 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 # Run all pre-push checks:
 # 1. clang-format check
 # 2. Strict CMake compilation (-Wall -Wextra -Wpedantic -Werror)
-# 3. All 15 CTest unit test suites
+# 3. All 16 CTest unit test suites (including invariant & fuzzing suite)
 # 4. Cppcheck static code analysis
 # Run full local checks (format-check, -Werror build, ctest, cppcheck, CLI smoke tests):
 ./scripts/check.sh
@@ -83,11 +83,16 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 
 ## Testing Guidelines
 
-### Unit & Integration Tests (Hardware-Independent)
+### Unit, Integration & Invariant Tests (Hardware-Independent)
 - Located in `tests/test_*.cpp`.
 - Must execute quickly without requiring root privileges or physical hardware.
+- **Invariant & Resilience Suite** (`tests/test_invariants.cpp`):
+  - Enforces the **Zero-Stuck-Key Invariant**: for any key event sequence, no virtual key remains pressed down after all physical keys are released or upon `reset()` / `finish()`.
+  - Enforces **Bounded Buffer Invariant**: internal buffer memory is strictly capped at `MAX_BUFFER_SIZE` (64 events) with deterministic FIFO eviction, preventing memory exhaustion on RP2040 and Linux.
+  - Property-based randomized fuzz testing (5,000 cycles across all features).
+  - Hardware switch contact bounce (chatter) suppression.
 - If you add new engine features (e.g. new chording mechanisms, layer modifiers, or timing logic), add a dedicated test file or suite under `tests/`.
-- Register the new test target in `CMakeLists.txt` under `add_test(...)`.
+- Register the new test target in `CMakeLists.txt` under `add_test(...)` and `TEST_TARGETS`.
 
 ### Code Coverage
 - TFF maintains high line coverage across all core parsing and state machine logic.
@@ -111,7 +116,7 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 
 Every push and Pull Request triggers the GitHub Actions CI pipeline:
 1. **Code Formatting (`clang-format`)**: Verifies all C/C++ files adhere to `.clang-format`.
-2. **Multi-Compiler Build & Test (GCC & Clang Matrix)**: Builds with `-Werror`, runs all 15 test suites under both GCC and Clang, verifies CLI commands, tests `install.sh`, and validates release archive packaging.
+2. **Multi-Compiler Build & Test (GCC & Clang Matrix)**: Builds with `-Werror`, runs all 16 test suites under both GCC and Clang, verifies CLI commands, tests `install.sh`, and validates release archive packaging.
 3. **Code Coverage (`gcov`)**: Measures line coverage across `src/core/` and `src/platform/linux/` and prints summary statistics.
 4. **Sanitizers (ASan + UBSan)**: Builds with AddressSanitizer and UndefinedBehaviorSanitizer, asserting zero memory leaks or undefined behavior.
 5. **Static Analysis (Cppcheck)**: Runs deep static code analysis with `--enable=warning,style,performance,portability --error-exitcode=1`.
