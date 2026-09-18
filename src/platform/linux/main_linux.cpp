@@ -71,6 +71,7 @@ void printHelp(const char* prog) {
         << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
         << "  -l, --list              List all discovered keyboards and exit\n"
         << "  -v, --verbose           Print detailed key down/up event logs\n"
+        << "  -V, --version           Show program version information and exit\n"
         << "  -h, --help              Show this help message\n\n"
         << "Signals:\n"
         << "  SIGHUP                  Hot-reload configuration file without dropping keyboard "
@@ -117,6 +118,9 @@ int main(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help" || arg == "help") {
             printHelp(argv[0]);
+            return 0;
+        } else if (arg == "-V" || arg == "--version" || arg == "version") {
+            std::cout << "tff version 2.0.0\n";
             return 0;
         } else if (arg == "-l" || arg == "--list" || arg == "list") {
             list_only = true;

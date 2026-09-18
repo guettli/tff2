@@ -26,7 +26,7 @@ echo "  Mode: ${MODE}                                   "
 echo "=================================================="
 
 # 1. Build and verify test suite
-echo "[1/4] Building release binary and executing tests..."
+echo "[1/5] Building release binary and executing tests..."
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
@@ -39,22 +39,24 @@ if [[ "${MODE}" == "user" ]]; then
     BIN_DIR="${HOME}/.local/bin"
     CONFIG_DIR="${HOME}/.config/tff"
     SYSTEMD_DIR="${HOME}/.config/systemd/user"
+    MAN_DIR="${HOME}/.local/share/man/man1"
     SUDO=""
 else
     BIN_DIR="/usr/local/bin"
     CONFIG_DIR="/etc/tff"
     SYSTEMD_DIR="/etc/systemd/system"
+    MAN_DIR="/usr/local/share/man/man1"
     SUDO="sudo"
 fi
 
 # 3. Install binary and symlink
-echo "[2/4] Installing binary to ${BIN_DIR}/tff..."
+echo "[2/5] Installing binary to ${BIN_DIR}/tff..."
 ${SUDO} install -d "${BIN_DIR}"
 ${SUDO} install -m 755 build/tff_linux "${BIN_DIR}/tff_linux"
 ${SUDO} ln -sf "${BIN_DIR}/tff_linux" "${BIN_DIR}/tff"
 
 # 4. Install default configuration
-echo "[3/4] Installing configuration to ${CONFIG_DIR}/tff-combos.yaml..."
+echo "[3/5] Installing configuration to ${CONFIG_DIR}/tff-combos.yaml..."
 ${SUDO} install -d "${CONFIG_DIR}"
 if [[ ! -f "${CONFIG_DIR}/tff-combos.yaml" ]]; then
     ${SUDO} install -m 644 config/tff-combos.yaml "${CONFIG_DIR}/tff-combos.yaml"
@@ -63,8 +65,18 @@ else
     echo "  ${CONFIG_DIR}/tff-combos.yaml already exists (preserving current configuration)"
 fi
 
-# 5. Configure systemd service
-echo "[4/4] Configuring systemd service..."
+# 5. Install Unix man page
+echo "[4/5] Installing man page to ${MAN_DIR}/tff.1..."
+if [[ -f "docs/man/tff.1" ]]; then
+    ${SUDO} install -d "${MAN_DIR}"
+    ${SUDO} install -m 644 docs/man/tff.1 "${MAN_DIR}/tff.1"
+    ${SUDO} ln -sf "tff.1" "${MAN_DIR}/tff2.1"
+    ${SUDO} ln -sf "tff.1" "${MAN_DIR}/tff_linux.1"
+    echo "  Installed man page and symlinks (tff.1, tff2.1, tff_linux.1)"
+fi
+
+# 6. Configure systemd service
+echo "[5/5] Configuring systemd service..."
 ${SUDO} install -d "${SYSTEMD_DIR}"
 SERVICE_DEST="${SYSTEMD_DIR}/ten-flying-fingers.service"
 

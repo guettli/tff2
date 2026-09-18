@@ -25,6 +25,58 @@ A cross-platform keyboard remapping solution that allows overlapping key combina
 - Press F and Space together → Saves document (Ctrl+S)
 - Press J and Space together → Undoes last action (Ctrl+Z)
 
+## Architecture & Data Flow
+
+### Dual-Platform Pipeline
+
+```mermaid
+flowchart TD
+    subgraph Linux ["Linux Platform (tff / tff_linux)"]
+        K1["Physical Keyboard"] -->|"/dev/input/event*"| INOTIFY["Inotify Hotplug & Evdev Reader"]
+        INOTIFY -->|EVIOCGRAB| ENGINE_L["TFFEngine Core State Machine"]
+        ENGINE_L -->|Virtual Events| UINPUT["/dev/uinput Device"]
+        UINPUT --> APPS["Desktop Applications (Wayland / X11)"]
+    end
+
+    subgraph Hardware ["RP2040 Hardware Platform"]
+        K2["Physical USB Keyboard"] -->|USB-A Host| HOST["TinyUSB Host (MAX3421E / Native)"]
+        HOST -->|Raw Keycodes| CONV["RP2040Platform Key Translator"]
+        CONV --> ENGINE_HW["TFFEngine Core State Machine"]
+        ENGINE_HW -->|USB HID Reports| DEV["TinyUSB Device"]
+        DEV -->|USB-C Cable| PC["Host Computer (BIOS, Windows, Mac, Linux)"]
+    end
+```
+
+### Chord Resolution & Timing Model
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Typist
+    participant Engine as TFFEngine (Buffer & State Machine)
+    participant Timer as Timer System
+    participant Out as Output (uinput / TinyUSB)
+
+    Note over User,Out: Scenario 1: Overlapping Chord (F + J -> Delete)
+    User->>Engine: Press Key F (Down)
+    Engine->>Timer: Start combo timeout (default 40ms)
+    Note over Engine: Key F buffered (waiting for chord or timeout)
+    User->>Engine: Press Key J (Down within 40ms)
+    Engine->>Engine: Matches combo "f + j -> delete"
+    Engine->>Out: Emit KEY_DELETE (Down)
+    User->>Engine: Release Key F (Up)
+    Note over Engine: Key F marked swallowed
+    User->>Engine: Release Key J (Up)
+    Note over Engine: Key J marked swallowed
+    Engine->>Out: Emit KEY_DELETE (Up)
+
+    Note over User,Out: Scenario 2: Dual-Role Tap-Hold (Caps Lock)
+    User->>Engine: Press Caps Lock (Down)
+    Engine->>Timer: Start tap-hold timeout (default 200ms)
+    User->>Engine: Release Caps Lock (Up before 200ms)
+    Engine->>Out: Tap detected -> Emit KEY_ESC (Down then Up)
+```
+
 ## Platforms
 
 ### Linux Version
@@ -179,9 +231,15 @@ See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural 
 2. Connect RP2040 USB-C to computer
 3. System appears as standard USB keyboard to computer
 
+## Documentation & Manual
+
+- **Unix Manual Page**: Run `man tff` (or see [`docs/man/tff.1`](docs/man/tff.1))
+- **Configuration Guide**: [`docs/configuration.md`](docs/configuration.md)
+- **Linux Installation & Systemd**: [`docs/install.md`](docs/install.md)
+- **Local Development Guide**: [`docs/local_dev.md`](docs/local_dev.md)
+- **RP2040 Implementation**: [`docs/rp2040_implementation.md`](docs/rp2040_implementation.md)
+- **Automated Hardware Testing**: [`docs/hardware_testing.md`](docs/hardware_testing.md)
+
 ## Contributing
 
-The core logic is platform-independent, making it easy to:
-- Add new key mapping features
-- Extend to support different keyboard layouts
-- Implement additional combination detection algorithms
+We welcome contributions! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines on branch naming, code formatting (`clang-format`), and pre-push verification with `./scripts/check.sh`.

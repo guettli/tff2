@@ -60,6 +60,12 @@ cp "${ROOT_DIR}/README.md" "${STAGE_DIR}/README.md"
 if [ -f "${ROOT_DIR}/LICENSE" ]; then
     cp "${ROOT_DIR}/LICENSE" "${STAGE_DIR}/LICENSE"
 fi
+if [ -f "${ROOT_DIR}/docs/man/tff.1" ]; then
+    mkdir -p "${STAGE_DIR}/man/man1"
+    cp "${ROOT_DIR}/docs/man/tff.1" "${STAGE_DIR}/man/man1/tff.1"
+    ln -sf "tff.1" "${STAGE_DIR}/man/man1/tff2.1"
+    ln -sf "tff.1" "${STAGE_DIR}/man/man1/tff_linux.1"
+fi
 
 # Create tar archives
 echo "==> Creating release archives..."
