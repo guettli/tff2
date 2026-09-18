@@ -126,6 +126,8 @@ Every push and Pull Request triggers the GitHub Actions CI pipeline:
 
 ## Documentation Standards
 
+- Consult and maintain [`docs/architecture.md`](docs/architecture.md) for dataflow, state machine invariants, and sequence diagrams.
+- Reference [`docs/api.md`](docs/api.md) for public C++ structs, methods, and lifecycle contracts.
 - Update [`README.md`](README.md), [`docs/configuration.md`](docs/configuration.md), and [`docs/cookbook.md`](docs/cookbook.md) when introducing user-facing syntax or CLI flags.
 - Consult [`docs/troubleshooting.md`](docs/troubleshooting.md) for diagnostic procedures and common setup issues.
 - Update [`docs/man/tff.1`](docs/man/tff.1) for any new subcommands or options.

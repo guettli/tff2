@@ -243,6 +243,8 @@ See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural 
 
 ## Documentation & Manual
 
+- **System Architecture**: Detailed event processing sequence diagrams and invariants in [`docs/architecture.md`](docs/architecture.md)
+- **C++ Core API Reference**: Complete engine API and struct documentation in [`docs/api.md`](docs/api.md)
 - **Unix Manual Page**: Run `man tff` (or see [`docs/man/tff.1`](docs/man/tff.1))
 - **Configuration Guide**: [`docs/configuration.md`](docs/configuration.md)
 - **Configuration Cookbook**: [`docs/cookbook.md`](docs/cookbook.md)
