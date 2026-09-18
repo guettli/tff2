@@ -213,6 +213,16 @@ Or run the ported Go unit test suite directly:
 ./build/test_tff_go_suite
 ```
 
+### Pre-Push Verification & Code Coverage
+
+Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 15 CTest unit test suites, Cppcheck static analysis, and CLI smoke tests:
+
+```bash
+./scripts/check.sh             # Full quality verification pipeline
+./scripts/check.sh --coverage  # Also generates gcov line coverage report
+./scripts/check.sh --all       # Runs everything including ASan/UBSan and coverage
+```
+
 ### Automated Hardware Testing (USB-OTG Loop)
 
 End-to-end hardware testing can be run using the UpBoard's micro-USB OTG port connected to the RP2040 USB-A host port:

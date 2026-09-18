@@ -35,7 +35,74 @@ jobs:
           find src include tests -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) -print0 | xargs -0 clang-format --dry-run --Werror
 
   build-and-test:
-    name: Build & Test (Linux GCC)
+    name: Build & Test (${{ matrix.compiler-name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler-name: 'Linux GCC'
+            cc: gcc
+            cxx: g++
+          - compiler-name: 'Linux Clang'
+            cc: clang
+            cxx: clang++
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup system dependencies
+        run: |
+          sudo modprobe uinput || true
+          sudo chmod 0666 /dev/uinput || true
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DTFF_WARNINGS_AS_ERRORS=ON
+
+      - name: Build targets
+        run: cmake --build build -j$(nproc)
+
+      - name: Run unit and integration tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Test TFF CLI commands
+        run: |
+          ./build/tff_linux --help
+          ./build/tff_linux --version
+          ./build/tff_linux -V
+          ./build/tff_linux --list || true
+          ./build/tff_linux validate config/tff-combos.yaml
+          ./build/tff_linux setup-udev --print
+          ./build/tff_linux setup-udev --check || true
+
+      - name: Test installer script (system-wide)
+        run: |
+          sudo ./install.sh
+          which tff
+          tff --help
+          tff --version
+          tff validate /etc/tff/tff-combos.yaml
+          systemd-analyze verify /etc/systemd/system/ten-flying-fingers.service || true
+
+      - name: Test release packaging & static linking
+        if: matrix.cc == 'gcc'
+        run: |
+          bash scripts/package_release.sh "ci-test" "build-static-test" "dist-test"
+          tar -tzvf dist-test/tff2_Linux_x86_64.tar.gz
+          ./dist-test/stage_linux_x86_64/tff --help
+          ./dist-test/stage_linux_x86_64/tff --list || true
+          ./dist-test/stage_linux_x86_64/tff2 --help
+          ./dist-test/stage_linux_x86_64/tff_linux --help
+
+  coverage:
+    name: Code Coverage (gcov)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -48,39 +115,8 @@ jobs:
           sudo modprobe uinput || true
           sudo chmod 0666 /dev/uinput || true
 
-      - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build targets
-        run: cmake --build build -j$(nproc)
-
-      - name: Run unit and integration tests
-        run: ctest --test-dir build --output-on-failure
-
-      - name: Test TFF CLI commands
-        run: |
-          ./build/tff_linux --help
-          ./build/tff_linux --list
-          ./build/tff_linux validate config/tff-combos.yaml
-          ./build/tff_linux setup-udev --print
-          ./build/tff_linux setup-udev --check || true
-
-      - name: Test installer script (system-wide)
-        run: |
-          sudo ./install.sh
-          which tff
-          tff --help
-          tff validate /etc/tff/tff-combos.yaml
-          systemd-analyze verify /etc/systemd/system/ten-flying-fingers.service || true
-
-      - name: Test release packaging & static linking
-        run: |
-          bash scripts/package_release.sh "ci-test" "build-static-test" "dist-test"
-          tar -tzvf dist-test/tff2_Linux_x86_64.tar.gz
-          ./dist-test/stage_linux_x86_64/tff --help
-          ./dist-test/stage_linux_x86_64/tff --list
-          ./dist-test/stage_linux_x86_64/tff2 --help
-          ./dist-test/stage_linux_x86_64/tff_linux --help
+      - name: Run code coverage analysis
+        run: bash scripts/coverage.sh
 
   sanitizers:
     name: Sanitizers (ASan + UBSan)
