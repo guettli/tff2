@@ -95,8 +95,6 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 - To configure CMake directly with coverage:
   ```bash
   cmake -B build-coverage -DENABLE_COVERAGE=ON
-  cmake --build build-coverage
-  ctest --test-dir build-coverage
   cmake --build build-coverage --target coverage
   ```
 

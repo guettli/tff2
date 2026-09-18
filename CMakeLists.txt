@@ -321,7 +321,8 @@ if(NOT PICO_BUILD)
         find_program(GCOV_EXECUTABLE NAMES gcov llvm-cov)
         if(GCOV_EXECUTABLE)
             add_custom_target(coverage
-                COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/coverage.sh --build-dir ${CMAKE_CURRENT_BINARY_DIR}
+                COMMAND ${CMAKE_COMMAND} -E env GCOV_BIN=${GCOV_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/coverage.sh --build-dir ${CMAKE_CURRENT_BINARY_DIR} --no-build
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 COMMENT "Running tests and collecting code coverage..."
             )
