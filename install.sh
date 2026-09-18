@@ -26,7 +26,7 @@ echo "  Mode: ${MODE}                                   "
 echo "=================================================="
 
 # 1. Build and verify test suite
-echo "[1/4] Building release binary and executing tests..."
+echo "[1/5] Building release binary and executing tests..."
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..

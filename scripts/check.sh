@@ -90,6 +90,8 @@ fi
 # 6. CLI Smoke Tests
 step "Running CLI smoke verification..."
 ./build/tff_linux --help >/dev/null
+./build/tff_linux --version >/dev/null
+./build/tff_linux -V >/dev/null
 ./build/tff_linux --list >/dev/null || true
 ./build/tff_linux validate config/tff-combos.yaml >/dev/null
 ./build/tff_linux cheatsheet --plain >/dev/null

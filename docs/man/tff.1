@@ -1,4 +1,4 @@
-.TH TFF 1 "September 2026" "TFF 1.0.0" "User Commands"
+.TH TFF 1 "September 2026" "TFF 2.0.0" "User Commands"
 .SH NAME
 tff, tff2, tff_linux \- Ten Flying Fingers keyboard remapping daemon and chord engine
 .SH SYNOPSIS
@@ -15,7 +15,7 @@ tff, tff2, tff_linux \- Ten Flying Fingers keyboard remapping daemon and chord e
 \fBvalidate\fR [\fIOPTIONS\fR] [\fICONFIG_FILE\fR]
 .br
 .B tff
-\fBsetup-udev\fR [\fIOPTIONS\fR]
+\fBsetup\-udev\fR [\fIOPTIONS\fR]
 .SH DESCRIPTION
 \fBTen Flying Fingers (TFF)\fR is a high-performance, low-latency keyboard remapper and chording engine implemented in C++. It allows overlapping key combinations (chords) to trigger complex keystrokes, navigation commands, modal layers, and mouse movements.
 .PP
@@ -43,20 +43,20 @@ Display a formatted terminal table or markdown document summarizing all active k
 .BR validate " [" \fIOPTIONS\fR "] [" \fICONFIG_FILE\fR "]"
 Parse and validate a YAML configuration file without capturing input or creating virtual devices. Returns exit status 0 if valid, non-zero on error.
 .TP
-.BR setup-udev " [" \fIOPTIONS\fR "]"
+.BR setup\-udev " [" \fIOPTIONS\fR "]"
 Inspect system permissions for non-root execution (access to \fI/dev/uinput\fR and \fI/dev/input/event*\fR), report diagnostic status, or generate/install standard udev rules.
 .SH OPTIONS
 .TP
 .BR \-c ", " \-\-config " \fIFILE\fR"
-Path to the YAML combo configuration file. Default search order: \fI/etc/tff/tff-combos.yaml\fR, \fI~/.config/tff/tff-combos.yaml\fR, \fIconfig/tff-combos.yaml\fR.
+Path to YAML combo configuration file (default: \fIconfig/tff-combos.yaml\fR).
+.TP
+.BR \-w ", " \-\-watch\-config
+Watch configuration file for live changes via \fBinotify\fR and automatically reload combos.
 .TP
 .BR \-d ", " \-\-device " \fIPATH\fR"
 Attach directly to a specific input device (e.g. \fI/dev/input/event3\fR). Can be specified multiple times. If omitted, all detected physical keyboards are opened.
 .TP
-.BR \-l ", " \-\-list
-List all auto-discovered keyboard devices and persistent \fIby-id\fR symlinks, then exit.
-.TP
-.BR \-\-exclusive ", " \-\-grab
+.BR \-g ", " \-\-grab
 Acquire an exclusive grab (\fBEVIOCGRAB\fR) on input keyboards so raw keypresses are suppressed from the host OS. (Default behavior in daemon mode).
 .TP
 .BR \-\-no\-grab
@@ -68,20 +68,35 @@ Enable dynamic device hotplugging via \fBinotify\fR (default). Automatically att
 .BR \-\-no\-hotplug
 Disable dynamic inotify hotplugging.
 .TP
+.BR \-l ", " \-\-list
+List all auto-discovered keyboard devices and persistent \fIby-id\fR symlinks, then exit.
+.TP
 .BR \-v ", " \-\-verbose
 Enable verbose logging of intercepted and emitted events to stdout.
 .TP
-.BR \-\-plain
+.BR \-\-plain ", " \-\-no\-color
 Disable ANSI colors and formatting in terminal output.
 .TP
-.BR \-\-markdown
+.BR \-\-markdown ", " \-\-md
 Output tables in GitHub-flavored Markdown (used with \fBcheatsheet\fR).
 .TP
+.BR \-\-no\-deltas
+Disable timing delta displays in live event monitor.
+.TP
+.BR \-\-no\-emitted
+Disable emitted virtual key lines in live event monitor.
+.TP
 .BR \-i ", " \-\-install
-Install udev rules and trigger \fBudevadm\fR reload (used with \fBsetup\-udev\fR; requires root or sudo).
+Install udev rules to \fI/etc/udev/rules.d/\fR and trigger \fBudevadm\fR reload (used with \fBsetup\-udev\fR; requires root or sudo).
 .TP
 .BR \-p ", " \-\-print
 Print recommended udev rules to stdout without modifying system files (used with \fBsetup\-udev\fR).
+.TP
+.BR \-\-check
+Check user permissions and device status (default action for \fBsetup\-udev\fR).
+.TP
+.BR \-\-rule\-path " \fIPATH\fR"
+Custom destination path for udev rules file.
 .TP
 .BR \-h ", " \-\-help
 Display command usage and options, then exit.
@@ -91,16 +106,20 @@ Display program version information, then exit.
 .SH FILES
 .TP
 .I /etc/tff/tff-combos.yaml
-System-wide configuration file.
+System-wide configuration file (used by systemd service).
 .TP
 .I ~/.config/tff/tff-combos.yaml
-Per-user configuration file.
+Per-user configuration file (used by user systemd service).
 .TP
-.I /etc/udev/rules.d/99-tff-permissions.rules
+.I /etc/udev/rules.d/99-tff.rules
 Udev rule granting non-root read/write access to \fI/dev/uinput\fR and \fI/dev/input/event*\fR.
 .TP
 .I /etc/systemd/system/ten-flying-fingers.service
 Systemd background service definition.
+.SH ENVIRONMENT
+.TP
+.B NO_COLOR
+When set (regardless of value), disables ANSI color escape sequences across all subcommands.
 .SH EXAMPLES
 .PP
 Run the live chord monitor to debug chord timings:
@@ -115,12 +134,12 @@ Inspect active key combinations in markdown format:
 .PP
 Verify and install udev rules for non-root execution:
 .RS 4
-.B sudo tff setup-udev --install
+.B sudo tff setup\-udev --install
 .RE
 .PP
 Validate custom combo configuration:
 .RS 4
-.B tff validate ~/.config/tff/my-combos.yaml
+.B tff validate config/tff-combos.yaml
 .RE
 .SH SEE ALSO
 .BR evtest (1),
