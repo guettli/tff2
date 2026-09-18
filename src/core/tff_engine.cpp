@@ -869,6 +869,7 @@ void TFFEngine::finish() {
     down_keys_written_.clear();
     active_modifiers_.clear();
     physical_keys_down_.clear();
+    swallow_keys_.clear();
 }
 
 void TFFEngine::evictOldestBufferedEvent() {

@@ -64,6 +64,11 @@ public:
                       << spurious_ups << std::endl;
             assert(spurious_ups == 0);
         }
+        if (duplicate_downs > 0) {
+            std::cerr << "FAILED: Duplicate DOWN events detected in " << context << ": "
+                      << duplicate_downs << std::endl;
+            assert(duplicate_downs == 0);
+        }
     }
 
     void clear() {
@@ -407,27 +412,69 @@ static void test_invariant_bounded_buffer() {
     TrackingEventWriter writer;
     TFFEngine engine(&writer);
 
-    // Configure a combo to ensure engine is active
-    Combo c;
-    c.keys = {Keys::KEY_X, Keys::KEY_Y};
-    c.out_keys = {Keys::KEY_Z};
-    engine.setCombos({c});
+    // Verify calling evictOldestBufferedEvent on an empty engine is safe
+    engine.evictOldestBufferedEvent();
+    assert(engine.getBufferSize() == 0);
+
+    // Define overlapping candidate combos so that as each oldest key is evicted,
+    // the remaining 64 buffered keys continue to match a valid candidate prefix
+    // (ComboNotFinished), directly exercising evictOldestBufferedEvent().
+    const size_t TOTAL_KEYS = 80;
+    const size_t OVERFLOW_COUNT = TOTAL_KEYS - TFFEngine::MAX_BUFFER_SIZE;
+    std::vector<Combo> combos;
+    for (size_t start = 1; start <= OVERFLOW_COUNT + 1; ++start) {
+        Combo c;
+        for (size_t k = start; k < start + TFFEngine::MAX_BUFFER_SIZE + 5; ++k) {
+            c.keys.push_back(static_cast<KeyCode>(k));
+        }
+        c.out_keys = {Keys::KEY_Z};
+        combos.push_back(c);
+    }
+    engine.setCombos(combos);
 
     int64_t t = 1000;
-    // Feed 500 un-paired DOWN events into the engine without matching combos
-    for (int i = 0; i < 500; ++i) {
-        KeyCode code = static_cast<KeyCode>(Keys::KEY_1 + (i % 20));
+    // Feed the first MAX_BUFFER_SIZE (64) keys -> all accumulate in buf_
+    for (size_t i = 0; i < TFFEngine::MAX_BUFFER_SIZE; ++i) {
+        KeyCode code = static_cast<KeyCode>(i + 1);
         engine.processEvent(Event{TimeVal::fromMicros(t), EV_KEY, code, KEY_VAL_DOWN});
-        assert(engine.getBufferSize() <= TFFEngine::MAX_BUFFER_SIZE);
+        assert(engine.getBufferSize() == i + 1);
+        t += 1000;
+    }
+    assert(engine.getBufferSize() == TFFEngine::MAX_BUFFER_SIZE);
+    assert(writer.key_events.empty());  // No evictions yet
+
+    // Feed remaining keys (65 through 80) -> each triggers evictOldestBufferedEvent()
+    for (size_t i = TFFEngine::MAX_BUFFER_SIZE; i < TOTAL_KEYS; ++i) {
+        KeyCode code = static_cast<KeyCode>(i + 1);
+        engine.processEvent(Event{TimeVal::fromMicros(t), EV_KEY, code, KEY_VAL_DOWN});
+        assert(engine.getBufferSize() == TFFEngine::MAX_BUFFER_SIZE);
         t += 1000;
     }
 
-    assert(engine.getBufferSize() <= TFFEngine::MAX_BUFFER_SIZE);
+    // Exactly OVERFLOW_COUNT (16) oldest keys must have been evicted in strict FIFO order
+    assert(writer.key_events.size() == OVERFLOW_COUNT);
+    for (size_t i = 0; i < OVERFLOW_COUNT; ++i) {
+        assert(writer.key_events[i].code == static_cast<KeyCode>(i + 1));
+        assert(writer.key_events[i].value == KEY_VAL_DOWN);
+    }
+
+    // Directly test manual evictOldestBufferedEvent invocation
+    engine.evictOldestBufferedEvent();
+    assert(engine.getBufferSize() == TFFEngine::MAX_BUFFER_SIZE - 1);
+    assert(writer.key_events.size() == OVERFLOW_COUNT + 1);
+    assert(writer.key_events.back().code == static_cast<KeyCode>(OVERFLOW_COUNT + 1));
+
+    // Release all 80 keys while stream is active
+    for (size_t i = 1; i <= TOTAL_KEYS; ++i) {
+        engine.processEvent(
+            Event{TimeVal::fromMicros(t), EV_KEY, static_cast<KeyCode>(i), KEY_VAL_UP});
+        t += 1000;
+    }
     engine.finish();
-    assert(engine.getBufferSize() == 0);
+    writer.assertZeroStuckKeys("bounded buffer eviction");
 
     std::cout << "  [PASS] Bounded buffer invariant (<= " << TFFEngine::MAX_BUFFER_SIZE
-              << " events)" << std::endl;
+              << " events, FIFO eviction verified)" << std::endl;
 }
 
 // 10. Randomized property-based fuzz test across all features (5,000 cycles)

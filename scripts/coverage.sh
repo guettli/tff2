@@ -90,7 +90,7 @@ find "${BUILD_DIR}" -name "*.gcda" -delete 2>/dev/null || true
 
 # 3. Run CTest test suites
 if [ "${SUMMARY_ONLY}" = false ]; then
-    echo -e "\n==> Running all 15 unit test suites..."
+    echo -e "\n==> Running all 16 unit test suites..."
 fi
 if [ "${SUMMARY_ONLY}" = true ]; then
     ctest --test-dir "${BUILD_DIR}" --output-on-failure >/dev/null
