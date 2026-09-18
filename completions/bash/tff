@@ -1,0 +1,118 @@
+# Bash completion for Ten Flying Fingers (tff, tff2, tff_linux)
+# Compatible with bash-completion v2 and standard bash
+
+_tff_complete() {
+    local cur prev words cword
+    if declare -F _init_completion >/dev/null 2>&1; then
+        _init_completion || return
+    else
+        COMPREPLY=()
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        prev="${COMP_WORDS[COMP_CWORD-1]}"
+        words=("${COMP_WORDS[@]}")
+        cword=$COMP_CWORD
+    fi
+
+    local commands="monitor cheatsheet validate setup-udev combos list help version"
+    local global_opts="-c --config -d --device -g --grab --no-grab --hotplug --no-hotplug -w --watch-config -l --list -v --verbose --plain --no-color -h --help -V --version"
+
+    # Complete options that require specific arguments
+    case "$prev" in
+        -c|--config)
+            if declare -F _filedir >/dev/null 2>&1; then
+                _filedir '@(yaml|yml)'
+            else
+                COMPREPLY=( $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") $(compgen -d -- "$cur") )
+            fi
+            return 0
+            ;;
+        -d|--device)
+            COMPREPLY=( $(compgen -f /dev/input/event) )
+            return 0
+            ;;
+        --rule-path)
+            if declare -F _filedir >/dev/null 2>&1; then
+                _filedir
+            else
+                COMPREPLY=( $(compgen -f -- "$cur") )
+            fi
+            return 0
+            ;;
+    esac
+
+    # Identify active subcommand if present
+    local subcmd=""
+    local i
+    for (( i=1; i < cword; i++ )); do
+        case "${words[i]}" in
+            monitor|cheatsheet|validate|setup-udev|combos|list|help|version)
+                subcmd="${words[i]}"
+                break
+                ;;
+        esac
+    done
+
+    # No subcommand selected yet
+    if [[ -z "$subcmd" ]]; then
+        if [[ "$cur" == -* ]]; then
+            COMPREPLY=( $(compgen -W "$global_opts" -- "$cur") )
+            return 0
+        fi
+        COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+        return 0
+    fi
+
+    # Subcommand-specific completion
+    case "$subcmd" in
+        monitor)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "--no-deltas --no-emitted --plain --no-color -c --config -d --device -g --grab --no-grab -h --help" -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -f /dev/input/event) $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") )
+            fi
+            ;;
+        cheatsheet)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "--markdown --md --plain --no-color -c --config -h --help" -- "$cur") )
+            else
+                if declare -F _filedir >/dev/null 2>&1; then
+                    _filedir '@(yaml|yml)'
+                else
+                    COMPREPLY=( $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") $(compgen -d -- "$cur") )
+                fi
+            fi
+            ;;
+        validate)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "-h --help" -- "$cur") )
+            else
+                if declare -F _filedir >/dev/null 2>&1; then
+                    _filedir '@(yaml|yml)'
+                else
+                    COMPREPLY=( $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") $(compgen -d -- "$cur") )
+                fi
+            fi
+            ;;
+        setup-udev)
+            COMPREPLY=( $(compgen -W "-i --install -p --print --check --rule-path --plain --no-color -h --help" -- "$cur") )
+            ;;
+        combos)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "$global_opts" -- "$cur") )
+            else
+                if declare -F _filedir >/dev/null 2>&1; then
+                    _filedir '@(yaml|yml)'
+                else
+                    COMPREPLY=( $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") $(compgen -d -- "$cur") )
+                fi
+            fi
+            ;;
+        *)
+            COMPREPLY=( $(compgen -W "$global_opts" -- "$cur") )
+            ;;
+    esac
+}
+
+complete -F _tff_complete tff
+complete -F _tff_complete tff2
+complete -F _tff_complete tff_linux

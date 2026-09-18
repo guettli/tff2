@@ -1,0 +1,89 @@
+#compdef tff tff2 tff_linux
+# Zsh completion for Ten Flying Fingers (tff, tff2, tff_linux)
+
+_tff() {
+    local -a commands
+    commands=(
+        'monitor:Interactive live event monitor and chord debugger'
+        'cheatsheet:Display visual terminal cheat sheet or markdown table'
+        'validate:Validate a combos YAML configuration file'
+        'setup-udev:Inspect permissions or install udev rules for non-root access'
+        'combos:Run remapper with specified combos and devices'
+        'list:List all discovered keyboards with persistent paths'
+        'help:Show help message'
+        'version:Show version information'
+    )
+
+    local -a global_opts
+    global_opts=(
+        '(-c --config)'{-c,--config}'[Path to YAML combos configuration file]:config file:_files -g "*.yaml *.yml"'
+        '(-d --device)'{-d,--device}'[Path to input evdev device]:device:_files'
+        '(-g --grab --no-grab)'{-g,--grab}'[Exclusively grab input keyboards]'
+        '(-g --grab --no-grab)--no-grab[Do not grab device (events pass to OS)]'
+        '(--hotplug --no-hotplug)--hotplug[Enable dynamic inotify keyboard hotplugging]'
+        '(--hotplug --no-hotplug)--no-hotplug[Disable dynamic inotify keyboard hotplugging]'
+        '(-w --watch-config)'{-w,--watch-config}'[Watch configuration file for live changes via inotify]'
+        '(-l --list)'{-l,--list}'[List all discovered keyboards and exit]'
+        '(-v --verbose)'{-v,--verbose}'[Print detailed key down/up event logs]'
+        '(--plain --no-color)'{--plain,--no-color}'[Disable ANSI colors and formatting]'
+        '(-h --help)'{-h,--help}'[Show help message and exit]'
+        '(-V --version)'{-V,--version}'[Show version information and exit]'
+    )
+
+    _arguments -C \
+        $global_opts \
+        '1: :->command' \
+        '*:: :->args'
+
+    case $state in
+        command)
+            _describe -t commands 'tff commands' commands
+            _files -g "*.yaml *.yml"
+            ;;
+        args)
+            case $line[1] in
+                monitor)
+                    _arguments \
+                        '--no-deltas[Disable timing deltas in live event monitor]' \
+                        '--no-emitted[Disable emitted virtual key lines in live event monitor]' \
+                        '(--plain --no-color)'{--plain,--no-color}'[Disable ANSI colors]' \
+                        '(-c --config)'{-c,--config}'[Path to combos file]:config file:_files -g "*.yaml *.yml"' \
+                        '(-d --device)'{-d,--device}'[Path to input evdev device]:device:_files' \
+                        '(-g --grab --no-grab)'{-g,--grab}'[Exclusively grab keyboard]' \
+                        '(-g --grab --no-grab)--no-grab[Do not grab keyboard]' \
+                        '(-h --help)'{-h,--help}'[Show help]' \
+                        '*:device or config:_files'
+                    ;;
+                cheatsheet)
+                    _arguments \
+                        '(--markdown --md)'{--markdown,--md}'[Output cheat sheet formatted as GitHub Markdown]' \
+                        '(--plain --no-color)'{--plain,--no-color}'[Disable ANSI colors]' \
+                        '(-c --config)'{-c,--config}'[Path to combos file]:config file:_files -g "*.yaml *.yml"' \
+                        '(-h --help)'{-h,--help}'[Show help]' \
+                        '1:config file:_files -g "*.yaml *.yml"'
+                    ;;
+                validate)
+                    _arguments \
+                        '(-h --help)'{-h,--help}'[Show help]' \
+                        '1:config file:_files -g "*.yaml *.yml"'
+                    ;;
+                setup-udev)
+                    _arguments \
+                        '(-i --install)'{-i,--install}'[Install udev rules to /etc/udev/rules.d/]' \
+                        '(-p --print)'{-p,--print}'[Print recommended udev rules to stdout]' \
+                        '--check[Check user permissions and device status]' \
+                        '--rule-path[Custom destination path for udev rules]:path:_files' \
+                        '(--plain --no-color)'{--plain,--no-color}'[Disable ANSI colors]' \
+                        '(-h --help)'{-h,--help}'[Show help]'
+                    ;;
+                combos)
+                    _arguments \
+                        $global_opts \
+                        '*:files:_files'
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_tff "$@"

@@ -69,7 +69,42 @@ Installs the `tff` binary to `~/.local/bin/tff`, configuration to `~/.config/tff
 
 ---
 
-## 2. Managing the Systemd Service
+## 4. Shell Autocompletions (Bash, Zsh, Fish)
+
+When running `install.sh`, shell autocompletions for `bash`, `zsh`, and `fish` are automatically installed into their respective completion directories:
+- **System-wide (`sudo ./install.sh`)**:
+  - Bash: `/usr/share/bash-completion/completions/tff` (with `tff2` and `tff_linux` symlinks)
+  - Zsh: `/usr/share/zsh/site-functions/_tff` (with `_tff2` and `_tff_linux` symlinks)
+  - Fish: `/usr/share/fish/vendor_completions.d/tff.fish`
+- **User-level (`./install.sh --user`)**:
+  - Bash: `~/.local/share/bash-completion/completions/tff`
+  - Zsh: `~/.local/share/zsh/site-functions/_tff`
+  - Fish: `~/.config/fish/completions/tff.fish`
+
+### Manual Completion Activation
+
+If you installed manually or via `mise`, you can activate completions directly:
+
+**Bash:**
+```bash
+source completions/bash/tff
+```
+
+**Zsh:**
+```zsh
+# Add the completions directory to your fpath in ~/.zshrc before compinit:
+fpath=(/path/to/tff2/completions/zsh $fpath)
+autoload -Uz compinit && compinit
+```
+
+**Fish:**
+```fish
+cp completions/fish/tff.fish ~/.config/fish/completions/
+```
+
+---
+
+## 5. Managing the Systemd Service
 
 ### Service Control Commands
 
@@ -86,7 +121,7 @@ Installs the `tff` binary to `~/.local/bin/tff`, configuration to `~/.config/tff
 
 ---
 
-## 3. Keyboard Device Configuration
+## 6. Keyboard Device Configuration
 
 ### Step 1: Discover Connected Keyboards
 
