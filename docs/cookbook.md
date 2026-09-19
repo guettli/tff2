@@ -254,4 +254,3 @@ layers:
 - [Configuration Guide](configuration.md) - Full syntax reference and configuration options
 - [Troubleshooting Guide](troubleshooting.md) - Diagnostics, permissions, and systemd guidance
 - [Unix Manual Page](man/tff.1) - CLI commands, options, and file paths
-

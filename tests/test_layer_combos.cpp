@@ -432,6 +432,41 @@ static void test_yaml_parser_layer_combos() {
         assert(c.layer == "nav");
     }
 
+    // Test consecutive identical chords with different layers in list format
+    Config dup_cfg;
+    std::string dup_yaml =
+        "layers:\n"
+        "  nav:\n"
+        "    h: left\n"
+        "  edit:\n"
+        "    h: right\n"
+        "combos:\n"
+        "  - keys: [d, f]\n"
+        "    out: esc\n"
+        "    layer: nav\n"
+        "  - keys: [d, f]\n"
+        "    out: tab\n"
+        "    layer: edit\n";
+    assert(loadYamlConfig(dup_yaml, dup_cfg, err));
+    assert(dup_cfg.combos.size() == 2);
+    assert(dup_cfg.combos[0].layer == "nav");
+    assert(dup_cfg.combos[0].out_keys[0] == Keys::KEY_ESC);
+    assert(dup_cfg.combos[1].layer == "edit");
+    assert(dup_cfg.combos[1].out_keys[0] == Keys::KEY_TAB);
+
+    // Test escaped quotes in inline dict
+    Config esc_cfg;
+    std::string esc_yaml =
+        "layers:\n"
+        "  nav:\n"
+        "    h: left\n"
+        "combos:\n"
+        "  j + k: { text: \"say \\\"hello, world\\\"\", layer: nav }\n";
+    assert(loadYamlConfig(esc_yaml, esc_cfg, err));
+    assert(!esc_cfg.combos.empty());
+    assert(esc_cfg.combos[0].layer == "nav");
+    assert(esc_cfg.combos[0].text == "say \"hello, world\"");
+
     // Test rejection of unknown layer in combo
     Config bad_cfg;
     std::string bad_yaml =

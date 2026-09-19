@@ -253,6 +253,11 @@ bool parseInlineDictFields(const std::string& str, std::map<std::string, std::st
     bool in_bracket = false;
     for (size_t i = 0; i < inner.size(); ++i) {
         char ch = inner[i];
+        if (ch == '\\' && i + 1 < inner.size()) {
+            current += ch;
+            current += inner[++i];
+            continue;
+        }
         if (ch == '"' && !in_sq) {
             in_dq = !in_dq;
         } else if (ch == '\'' && !in_dq) {
@@ -2027,6 +2032,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         std::vector<KeyCode> k1 = it->keys;
                         std::sort(k1.begin(), k1.end());
                         if (k1 == last_keys) {
+                            if (!it->layer.empty()) {
+                                break;
+                            }
                             it->layer = lyr;
                         } else {
                             break;
