@@ -121,19 +121,21 @@ struct Combo {
     std::string text;          // Multi-character text snippet / macro expansion
     std::string toggle_layer;  // Layer to toggle on/off when combo triggered
     MouseAction mouse;
+    std::string layer;  // If non-empty, combo is only active when this modal layer is active
 
     Combo() = default;
     Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "",
-          MouseAction m = {})
+          MouseAction m = {}, std::string l = "")
         : keys(std::move(k)),
           out_keys(std::move(ok)),
           text(std::move(t)),
           toggle_layer(std::move(tl)),
-          mouse(m) {}
+          mouse(m),
+          layer(std::move(l)) {}
 
     bool operator==(const Combo& o) const {
         return keys == o.keys && out_keys == o.out_keys && text == o.text &&
-               toggle_layer == o.toggle_layer && mouse == o.mouse;
+               toggle_layer == o.toggle_layer && mouse == o.mouse && layer == o.layer;
     }
 };
 

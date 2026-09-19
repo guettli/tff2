@@ -299,8 +299,60 @@ leader:
 - **LIFO Layer Stacking**: If you lock a layer on (e.g. `numpad`) and then momentarily hold another layer key (e.g. `space` for `nav`), the momentary layer takes precedence. When you release `space`, the `numpad` layer remains locked on.
 - **Key Release Safety**: If a physical key is pressed while a layer is toggled and released after the layer is toggled off, TFF safely swallows or cleanly releases the mapped scancode so no modifier or layer keys become stuck.
 
+### Layer-Scoped Combos
+
+Combos can be scoped to specific modal layers so they only trigger when that layer is active (either momentarily held or toggled). This enables ergonomic chords inside layers (e.g. Navigation or Numpad) without conflicting with your global base-layer combos.
+
+#### 1. Inlined Directly Inside Layer Definition
+You can define chords directly within any layer definition under `layers:` using symmetric (`+`) or order-dependent chords:
+
+```yaml
+layers:
+  nav:
+    # Single key mappings
+    h: left
+    j: down
+    k: up
+    l: right
+
+    # Layer-scoped chords: active only while 'nav' layer is active!
+    h + l: end
+    h + k: home
+    j + k: pagedown
+    w + b: { text: "void" }
+    m + n: mouse_btn_left
+```
+
+#### 2. Top-Level `combos:` with Explicit Layer Scope
+Alternatively, layer-scoped combos can be placed in the `combos:` section by specifying `layer: <layer_name>`:
+
+```yaml
+combos:
+  # Global combo (active across all layers)
+  d + f: esc
+
+  # Layer-scoped combo (active only when 'nav' layer is active)
+  h + l:
+    out: end
+    layer: nav
+
+  # Inline compact format:
+  j + k: { out: pagedown, layer: nav }
+
+  # Classic list format:
+  - in: [h, l]
+    out: end
+    layer: nav
+```
+
+#### Priority and Layer Stacking
+- **Active Layer Priority**: When a layer is active, combos scoped to that layer take precedence over global combos if the same key combination is defined in both.
+- **Nested Layer Stacking**: If multiple layers are active simultaneously (e.g. toggled layer + momentary layer), combos scoped to the topmost active layer take precedence.
+- **Inactive Layers**: If a layer is not active, any combos scoped to that layer are completely ignored. If one of the keys is pressed, it falls back to base typing or global combos.
+- **Validation**: Any layer referenced by `layer: <name>` must be defined in the `layers:` section; referencing an undefined layer raises a configuration validation error.
+
 ### Validation Rules
-- Any layer referenced by `layer:` in `tap_hold` or `toggle_layer(...)` in combos, layers, tap-hold, or leader sequences must be defined in `layers:`.
+- Any layer referenced by `layer:` in `tap_hold`, `combos:`, or `toggle_layer(...)` in combos, layers, tap-hold, or leader sequences must be defined in `layers:`.
 - Duplicate layer names and duplicate key mappings within a layer are rejected.
 - Keys inside layer mappings cannot have empty outputs.
 

@@ -226,6 +226,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_udev tff_core)
 
+    add_executable(test_layer_combos
+        tests/test_layer_combos.cpp
+    )
+    target_link_libraries(test_layer_combos tff_core)
+
     add_executable(test_invariants
         tests/test_invariants.cpp
     )
@@ -239,6 +244,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_triple_combos COMMAND test_triple_combos)
     add_test(NAME test_text_snippets COMMAND test_text_snippets)
     add_test(NAME test_modal_layers COMMAND test_modal_layers)
+    add_test(NAME test_layer_combos COMMAND test_layer_combos)
     add_test(NAME test_cheatsheet COMMAND test_cheatsheet)
     add_test(NAME test_one_shot COMMAND test_one_shot)
     add_test(NAME test_leader COMMAND test_leader)
@@ -258,6 +264,7 @@ if(NOT PICO_BUILD)
         test_triple_combos
         test_text_snippets
         test_modal_layers
+        test_layer_combos
         test_cheatsheet
         test_one_shot
         test_leader

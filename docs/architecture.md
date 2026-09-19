@@ -68,6 +68,7 @@ flowchart TD
 ### 2.2 Core Remapping Engine (`TFFEngine`)
 - **State Machine**: Maintains active chords, held layer remaps, tap-hold timers, auto-shift pending keystrokes, and sequential leader keys.
 - **Bounded Buffer**: Enforces a strict upper bound of `MAX_BUFFER_SIZE = 64` events in `buf_`. If an input source floods unresolved events without matching a combo, the oldest event is deterministically evicted via FIFO ordering, preventing memory exhaustion on RAM-constrained microcontrollers (e.g. RP2040 with 264 KB SRAM).
+- **Layer-Scoped Combo Priority & Fallback**: `eval()` prioritizes combo candidates dynamically based on modal layer state: active layer chords take precedence over global combos based on their depth in `active_layer_stack_`. Combos scoped to inactive layers are ignored. If a buffered key does not complete a chord, `emitBufferedEvent()` re-evaluates the key against the active modal layer stack and tracks the remapped output in `held_layer_remaps_`, guaranteeing zero stuck keys even if the layer deactivates before key release.
 - **Hardware Switch Chatter Suppression**: Tracks physical key states via `physical_keys_down_`, discarding duplicate down events and spurious up events before they enter chord evaluation.
 - **Timer Coordination**: The engine is purely reactive and does not spawn background threads. It reports pending timer expirations via `hasActiveTimer()` and `getActiveTimerTime()`, allowing the platform event loop to sleep precisely until the next timeout.
 

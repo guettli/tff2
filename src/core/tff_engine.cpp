@@ -307,6 +307,20 @@ bool TFFEngine::isLayerActive(const std::string& name) const {
            active_layer_stack_.end();
 }
 
+bool TFFEngine::isKeyInActiveCombo(KeyCode code) const {
+    for (const auto& c : all_combos_) {
+        if (c.layer.empty() || !isLayerActive(c.layer)) {
+            continue;
+        }
+        for (KeyCode k : c.keys) {
+            if (k == code) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 const LayerAction* TFFEngine::findLayerAction(KeyCode code) const {
     for (auto it = active_layer_stack_.rbegin(); it != active_layer_stack_.rend(); ++it) {
         const std::string& layer_name = *it;
@@ -718,26 +732,29 @@ bool TFFEngine::processEvent(const Event& ev) {
         if (!active_layer_stack_.empty()) {
             const LayerAction* action = findLayerAction(ev.code);
             if (action != nullptr) {
-                HeldLayerRemap remap;
-                remap.input_key = ev.code;
-                if (action->mouse.isRelative()) {
-                    remap.mouse = action->mouse;
-                    emitMouseAction(action->mouse, ev.time);
-                } else if (!action->toggle_layer.empty()) {
-                    toggleLayer(action->toggle_layer);
-                    remap.is_text = true;
-                } else if (!action->text.empty()) {
-                    remap.is_text = true;
-                    emitText(action->text, ev.time);
-                } else {
-                    remap.is_text = false;
-                    remap.out_keys = action->out_keys;
-                    for (KeyCode out_k : action->out_keys) {
-                        writeKey(out_k, KEY_VAL_DOWN, ev.time);
+                if (!isKeyInActiveCombo(ev.code)) {
+                    HeldLayerRemap remap;
+                    remap.input_key = ev.code;
+                    if (action->mouse.isRelative()) {
+                        remap.mouse = action->mouse;
+                        emitMouseAction(action->mouse, ev.time);
+                    } else if (!action->toggle_layer.empty()) {
+                        toggleLayer(action->toggle_layer);
+                        remap.is_text = true;
+                    } else if (!action->text.empty()) {
+                        remap.is_text = true;
+                        emitText(action->text, ev.time);
+                    } else {
+                        remap.is_text = false;
+                        remap.out_keys = action->out_keys;
+                        for (KeyCode out_k : action->out_keys) {
+                            writeKey(out_k, KEY_VAL_DOWN, ev.time);
+                        }
                     }
+                    held_layer_remaps_[ev.code] = remap;
+                    return true;
                 }
-                held_layer_remaps_[ev.code] = remap;
-                return true;
+                // Key is part of an active combo: buffer it to allow chord detection
             }
         }
 
@@ -878,7 +895,7 @@ void TFFEngine::evictOldestBufferedEvent() {
     }
     Event oldest = buf_.front();
     buf_.erase(buf_.begin());
-    handleAutoShiftOrWrite(oldest, "BufferOverflow>EvictOldest");
+    emitBufferedEvent(oldest, "BufferOverflow>EvictOldest");
     auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), oldest.code);
     if (it != swallow_keys_.end()) {
         swallow_keys_.erase(it);
@@ -1014,17 +1031,61 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         return true;
     }
 
-    // 2. Evaluate all combos
-    std::vector<EvalResult> codes;
-    codes.reserve(all_combos_.size());
-    for (const auto& combo : all_combos_) {
+    // 2. Prioritize combos based on active layers and currently held chords
+    struct ComboEvalCandidate {
+        size_t index;
+        int priority;
+    };
+    std::vector<ComboEvalCandidate> candidates;
+    candidates.reserve(all_combos_.size());
+
+    for (size_t i = 0; i < all_combos_.size(); ++i) {
+        const auto& c = all_combos_[i];
+        bool is_down = false;
+        for (const auto& dw : down_keys_written_) {
+            if (dw == c) {
+                is_down = true;
+                break;
+            }
+        }
+        int prio = 0;
+        if (is_down) {
+            prio = 2000;
+        }
+        if (!c.layer.empty()) {
+            auto it = std::find(active_layer_stack_.rbegin(), active_layer_stack_.rend(), c.layer);
+            if (it != active_layer_stack_.rend()) {
+                size_t stack_idx = std::distance(it, active_layer_stack_.rend());
+                prio += 1000 + static_cast<int>(stack_idx);
+            } else if (!is_down) {
+                prio = -1;  // Inactive layer combo
+            }
+        } else {
+            prio += 1;  // Base global combo
+        }
+        candidates.push_back({i, prio});
+    }
+
+    std::stable_sort(candidates.begin(), candidates.end(),
+                     [](const ComboEvalCandidate& a, const ComboEvalCandidate& b) {
+                         return a.priority > b.priority;
+                     });
+
+    std::vector<EvalResult> codes(all_combos_.size(), EvalResult::NoMatch);
+    for (const auto& cand : candidates) {
+        if (cand.priority < 0) {
+            codes[cand.index] = EvalResult::NoMatch;
+            continue;
+        }
         std::string msg;
-        EvalResult code = evalCombo(combo, curr_time, msg);
-        codes.push_back(code);
+        codes[cand.index] = evalCombo(all_combos_[cand.index], curr_time, msg);
     }
 
     auto formatComboTrigger = [](const Combo& c) {
         std::string desc;
+        if (!c.layer.empty()) {
+            desc = "[" + c.layer + "] ";
+        }
         for (size_t k = 0; k < c.keys.size(); ++k) {
             desc += (k > 0 ? " + " : "") + keyCodeToWord(c.keys[k]);
         }
@@ -1043,9 +1104,10 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         return desc;
     };
 
-    // 3. Handle WriteUpKeys first
+    // 3. Handle WriteUpKeys first (highest priority first)
     bool found = false;
-    for (size_t i = 0; i < codes.size(); ++i) {
+    for (const auto& cand : candidates) {
+        size_t i = cand.index;
         if (codes[i] != EvalResult::WriteUpKeys) {
             continue;
         }
@@ -1063,13 +1125,15 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         }
         writeComboDownKeys(all_combos_[i]);
         writeComboUpKeys(all_combos_[i]);
+        break;
     }
     if (found) {
         return true;
     }
 
-    // 4. Handle AllDownKeysSeen
-    for (size_t i = 0; i < codes.size(); ++i) {
+    // 4. Handle AllDownKeysSeen (highest priority first)
+    for (const auto& cand : candidates) {
+        size_t i = cand.index;
         if (codes[i] != EvalResult::AllDownKeysSeen) {
             continue;
         }
@@ -1090,6 +1154,7 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         }
         writeComboDownKeys(all_combos_[i]);
         down_keys_written_.push_back(all_combos_[i]);
+        break;
     }
     if (found) {
         return true;
@@ -1098,10 +1163,15 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
     // 5. Handle ComboNotFinished and AllDownKeysSeenAndAlreadyWritten
     bool already_written = false;
     bool has_candidate = false;
-    for (EvalResult code : codes) {
-        if (code == EvalResult::AllDownKeysSeenAndAlreadyWritten) {
+    for (const auto& cand : candidates) {
+        if (cand.priority < 0)
+            continue;
+        size_t i = cand.index;
+        if (codes[i] == EvalResult::AllDownKeysSeenAndAlreadyWritten) {
             already_written = true;
-        } else if (code == EvalResult::ComboNotFinished) {
+            break;
+        }
+        if (codes[i] == EvalResult::ComboNotFinished) {
             has_candidate = true;
         }
     }
@@ -1134,6 +1204,19 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
 }
 
 EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::string& msg) {
+    if (!combo.layer.empty() && !isLayerActive(combo.layer)) {
+        bool is_down = false;
+        for (const auto& dw : down_keys_written_) {
+            if (dw == combo) {
+                is_down = true;
+                break;
+            }
+        }
+        if (!is_down) {
+            msg = "Combo layer is not active";
+            return EvalResult::NoMatch;
+        }
+    }
     std::vector<KeyCode> seen_down;
     std::vector<KeyCode> seen_up;
     const Event* last_down_event = nullptr;
@@ -1505,9 +1588,50 @@ void TFFEngine::handleAutoShiftOrWrite(const Event& ev, const std::string& reaso
     }
 }
 
+void TFFEngine::emitBufferedEvent(const Event& ev, const std::string& reason) {
+    if (ev.value == KEY_VAL_DOWN && !active_layer_stack_.empty()) {
+        const LayerAction* action = findLayerAction(ev.code);
+        if (action != nullptr) {
+            HeldLayerRemap remap;
+            remap.input_key = ev.code;
+            if (action->mouse.isRelative()) {
+                remap.mouse = action->mouse;
+                emitMouseAction(action->mouse, ev.time);
+            } else if (!action->toggle_layer.empty()) {
+                toggleLayer(action->toggle_layer);
+                remap.is_text = true;
+            } else if (!action->text.empty()) {
+                remap.is_text = true;
+                emitText(action->text, ev.time);
+            } else {
+                remap.is_text = false;
+                remap.out_keys = action->out_keys;
+                for (KeyCode out_k : action->out_keys) {
+                    writeKey(out_k, KEY_VAL_DOWN, ev.time);
+                }
+            }
+            held_layer_remaps_[ev.code] = remap;
+            return;
+        }
+    } else if (ev.value == KEY_VAL_UP) {
+        auto remap_it = held_layer_remaps_.find(ev.code);
+        if (remap_it != held_layer_remaps_.end()) {
+            if (!remap_it->second.mouse.isRelative() && !remap_it->second.is_text) {
+                for (auto it = remap_it->second.out_keys.rbegin();
+                     it != remap_it->second.out_keys.rend(); ++it) {
+                    writeKey(*it, KEY_VAL_UP, ev.time);
+                }
+            }
+            held_layer_remaps_.erase(remap_it);
+            return;
+        }
+    }
+    handleAutoShiftOrWrite(ev, reason);
+}
+
 void TFFEngine::flushBuffer(const std::string& reason) {
     for (const auto& ev : buf_) {
-        handleAutoShiftOrWrite(ev, reason + ">FlushBuffer");
+        emitBufferedEvent(ev, reason + ">FlushBuffer");
         auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code);
         if (it != swallow_keys_.end()) {
             swallow_keys_.erase(it);
