@@ -224,8 +224,34 @@ tff cheatsheet ~/.config/tff/tff-combos.yaml
 
 ---
 
+## Recipe 9: Modal Layer Chords & Navigation Shortcuts
+
+**Goal:** Turn Space into a dual-role key (Space on tap, Navigation layer on hold). Inside the Navigation layer, use single keys for cursor movement (`h`, `j`, `k`, `l`) and two-finger chords for jump navigation (`h + l: end`, `h + k: home`, `j + k: pagedown`).
+
+```yaml
+tap_hold:
+  # Space: tap for space, hold for Navigation layer
+  space: [space, nav, 200]
+
+layers:
+  nav:
+    # Single key cursor movements
+    h: left
+    j: down
+    k: up
+    l: right
+
+    # Layer-scoped chords: active only while holding Space!
+    h + l: end          # Press H and L together for End of line
+    h + k: home         # Press H and K together for Home of line
+    j + k: pagedown     # Press J and K together for Page Down
+```
+
+---
+
 ## See Also
 
 - [Configuration Guide](configuration.md) - Full syntax reference and configuration options
 - [Troubleshooting Guide](troubleshooting.md) - Diagnostics, permissions, and systemd guidance
 - [Unix Manual Page](man/tff.1) - CLI commands, options, and file paths
+

@@ -211,6 +211,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                                              ? "Mouse Action"
                                              : (c.out_keys.size() > 1 ? "Modifier Chord"
                                                                       : "Single Key"))));
+                if (!c.layer.empty()) {
+                    type += " (Layer: `" + c.layer + "`)";
+                }
                 ss << "| " << formatMarkdownCode(in_keys) << " | " << formatMarkdownCode(out_act)
                    << " | " << type << " |\n";
             }
@@ -415,6 +418,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                                          ? "Mouse Action"
                                          : (c.out_keys.size() > 1 ? "Modifier Chord"
                                                                   : "Single Key"))));
+            if (!c.layer.empty()) {
+                type_plain += " (Layer: " + c.layer + ")";
+            }
 
             std::string out_col =
                 (c.mouse.type != MouseActionType::None ||

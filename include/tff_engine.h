@@ -62,6 +62,7 @@ public:
     const std::vector<Layer>& getLayers() const { return layers_; }
     const std::vector<std::string>& getActiveLayers() const { return active_layer_stack_; }
     bool isLayerActive(const std::string& name) const;
+    bool isKeyInActiveCombo(KeyCode code) const;
 
     void setOneShotKeys(const std::vector<OneShotKey>& keys);
     const std::vector<OneShotKey>& getOneShotKeys() const { return one_shot_keys_; }
@@ -237,6 +238,7 @@ private:
     void commitPendingAutoShiftUnshifted(TimeVal time);
 
     void flushBuffer(const std::string& reason);
+    void emitBufferedEvent(const Event& ev, const std::string& reason);
 
     const LayerAction* findLayerAction(KeyCode code) const;
     void releaseHeldLayerRemaps(TimeVal time);

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cctype>
+#include <map>
 
 namespace tff {
 
@@ -237,6 +238,48 @@ bool parseOneShotTarget(const std::string& str, KeyCode& out_mod, std::string& o
         }
     }
     return false;
+}
+
+bool parseInlineDictFields(const std::string& str, std::map<std::string, std::string>& out_fields) {
+    std::string s = trim(str);
+    if (s.size() < 2 || s.front() != '{' || s.back() != '}') {
+        return false;
+    }
+    std::string inner = trim(s.substr(1, s.size() - 2));
+    std::vector<std::string> parts;
+    std::string current;
+    bool in_sq = false;
+    bool in_dq = false;
+    bool in_bracket = false;
+    for (size_t i = 0; i < inner.size(); ++i) {
+        char ch = inner[i];
+        if (ch == '"' && !in_sq) {
+            in_dq = !in_dq;
+        } else if (ch == '\'' && !in_dq) {
+            in_sq = !in_sq;
+        } else if (ch == '[' && !in_sq && !in_dq) {
+            in_bracket = true;
+        } else if (ch == ']' && !in_sq && !in_dq) {
+            in_bracket = false;
+        } else if (ch == ',' && !in_sq && !in_dq && !in_bracket) {
+            parts.push_back(trim(current));
+            current.clear();
+            continue;
+        }
+        current += ch;
+    }
+    if (!current.empty()) {
+        parts.push_back(trim(current));
+    }
+    for (const auto& p : parts) {
+        auto col = p.find(':');
+        if (col != std::string::npos) {
+            std::string k = trim(p.substr(0, col));
+            std::string v = trim(p.substr(col + 1));
+            out_fields[k] = v;
+        }
+    }
+    return true;
 }
 
 bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std::string& err_msg) {
@@ -626,6 +669,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_toggle_layer = false;
     MouseAction current_mouse;
     bool has_mouse = false;
+    std::string current_combo_layer;
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
@@ -1092,6 +1136,142 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 Layer new_layer;
                 new_layer.name = current_layer_name;
                 config.layers.push_back(new_layer);
+                continue;
+            }
+
+            bool is_combo_in_layer =
+                (key_part.find('+') != std::string::npos || fields(key_part).size() > 1);
+            if (is_combo_in_layer) {
+                if (val_part.empty()) {
+                    err_msg = "empty mapping for combo '" + key_part + "' in layer '" +
+                              current_layer_name + "'";
+                    return false;
+                }
+                bool is_symmetric = (key_part.find('+') != std::string::npos);
+                std::vector<std::string> chord_words;
+                if (is_symmetric) {
+                    auto raw_parts = split(key_part, '+');
+                    for (const auto& p : raw_parts) {
+                        std::string word = trim(p);
+                        if (!word.empty())
+                            chord_words.push_back(word);
+                    }
+                    if (chord_words.size() < 2) {
+                        err_msg = "symmetric combos with '+' require at least two keys";
+                        return false;
+                    }
+                    if (chord_words.size() > 5) {
+                        err_msg = "symmetric combo exceeds maximum supported chord size of 5 keys";
+                        return false;
+                    }
+                } else {
+                    chord_words = fields(key_part);
+                }
+
+                if (chord_words.empty()) {
+                    err_msg = "empty list in 'keys' is not allowed";
+                    return false;
+                }
+
+                std::vector<KeyCode> chord_codes;
+                for (const auto& w : chord_words) {
+                    KeyCode code = 0;
+                    if (!wordToKeyCode(w, code, err_msg)) {
+                        return false;
+                    }
+                    chord_codes.push_back(code);
+                }
+
+                std::string snippet;
+                std::string toggle_layer_name;
+                std::string toggle_err;
+                MouseAction mouse_act;
+                std::string mouse_err;
+                bool is_text = isTextSnippet(val_part, snippet);
+                bool is_toggle =
+                    !is_text && parseToggleLayerTarget(val_part, toggle_layer_name, toggle_err);
+                if (!toggle_err.empty()) {
+                    err_msg = toggle_err;
+                    return false;
+                }
+                bool is_mouse =
+                    !is_text && !is_toggle && parseMouseAction(val_part, mouse_act, mouse_err);
+                if (!mouse_err.empty()) {
+                    err_msg = mouse_err;
+                    return false;
+                }
+
+                std::vector<KeyCode> out_codes;
+                if (is_text) {
+                    if (snippet.empty()) {
+                        err_msg = "empty text snippet is not allowed";
+                        return false;
+                    }
+                    for (char ch : snippet) {
+                        KeyCode kc = 0;
+                        bool shift = false;
+                        if (!asciiToKeyStroke(ch, kc, shift)) {
+                            err_msg = "unsupported character in text snippet: '" +
+                                      std::string(1, ch) + "'";
+                            return false;
+                        }
+                    }
+                } else if (!is_toggle && !is_mouse) {
+                    auto out_words = parseOutputWords(val_part);
+                    if (out_words.empty()) {
+                        err_msg = "empty list in 'outKeys' is not allowed";
+                        return false;
+                    }
+                    for (const auto& w : out_words) {
+                        KeyCode code = 0;
+                        if (!wordToKeyCode(w, code, err_msg)) {
+                            return false;
+                        }
+                        out_codes.push_back(code);
+                    }
+                }
+
+                if (is_symmetric) {
+                    for (size_t i = 0; i < chord_codes.size(); ++i) {
+                        for (size_t j = i + 1; j < chord_codes.size(); ++j) {
+                            if (chord_codes[i] == chord_codes[j]) {
+                                err_msg = "duplicate key in symmetric combo: " + chord_words[i];
+                                return false;
+                            }
+                        }
+                    }
+                    std::vector<KeyCode> perm = chord_codes;
+                    std::sort(perm.begin(), perm.end());
+                    do {
+                        Combo c;
+                        c.keys = perm;
+                        c.layer = current_layer_name;
+                        if (is_toggle) {
+                            c.toggle_layer = toggle_layer_name;
+                        } else if (is_mouse) {
+                            c.mouse = mouse_act;
+                        } else if (is_text) {
+                            c.text = snippet;
+                        } else {
+                            c.out_keys = out_codes;
+                        }
+                        config.combos.push_back(c);
+                    } while (std::next_permutation(perm.begin(), perm.end()));
+                } else {
+                    Combo c;
+                    c.keys = chord_codes;
+                    c.layer = current_layer_name;
+                    if (is_toggle) {
+                        c.toggle_layer = toggle_layer_name;
+                    } else if (is_mouse) {
+                        c.mouse = mouse_act;
+                    } else if (is_text) {
+                        c.text = snippet;
+                    } else {
+                        c.out_keys = out_codes;
+                    }
+                    config.combos.push_back(c);
+                }
                 continue;
             }
 
@@ -1818,6 +1998,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             current_outkeys.clear();
             current_text.clear();
             current_toggle_layer.clear();
+            current_combo_layer.clear();
             has_text = false;
             has_toggle_layer = false;
             continue;
@@ -1830,6 +2011,32 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
             err_msg = "empty list in 'keys' is not allowed";
             return false;
+        } else if (t.rfind("layer:", 0) == 0 || t.rfind("- layer:", 0) == 0) {
+            auto colon = t.find(':');
+            std::string lyr = trim(t.substr(colon + 1));
+            if (lyr.empty()) {
+                err_msg = "empty layer name in combo layer property";
+                return false;
+            }
+            current_combo_layer = lyr;
+            if (!config.combos.empty() && current_keys.empty()) {
+                auto last_keys = config.combos.back().keys;
+                std::sort(last_keys.begin(), last_keys.end());
+                for (auto it = config.combos.rbegin(); it != config.combos.rend(); ++it) {
+                    if (it->keys.size() == last_keys.size()) {
+                        std::vector<KeyCode> k1 = it->keys;
+                        std::sort(k1.begin(), k1.end());
+                        if (k1 == last_keys) {
+                            it->layer = lyr;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            continue;
         } else if (t.find("outKeys:") != std::string::npos || t.rfind("out:", 0) == 0 ||
                    t.rfind("text:", 0) == 0 || t.rfind("type:", 0) == 0 ||
                    t.rfind("toggle_layer:", 0) == 0 || t.rfind("tg:", 0) == 0 ||
@@ -1966,6 +2173,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 do {
                     Combo c;
                     c.keys = perm;
+                    c.layer = current_combo_layer;
                     if (has_toggle_layer) {
                         c.toggle_layer = current_toggle_layer;
                     } else if (has_mouse) {
@@ -1980,6 +2188,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             } else {
                 Combo c;
                 c.keys = chord_codes;
+                c.layer = current_combo_layer;
                 if (has_toggle_layer) {
                     c.toggle_layer = current_toggle_layer;
                 } else if (has_mouse) {
@@ -1996,6 +2205,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             current_outkeys.clear();
             current_text.clear();
             current_toggle_layer.clear();
+            current_combo_layer.clear();
             current_mouse = MouseAction{};
             has_text = false;
             has_toggle_layer = false;
@@ -2019,6 +2229,44 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             // End of leader block if indentation dropped
             if (!current_leader.empty() && current_indent <= leader_indent) {
                 current_leader.clear();
+            }
+
+            std::string combo_layer;
+            std::map<std::string, std::string> inline_fields;
+            if (parseInlineDictFields(val_part, inline_fields)) {
+                if (inline_fields.find("layer") != inline_fields.end()) {
+                    combo_layer = unquoteAndUnescape(inline_fields["layer"]);
+                }
+                if (inline_fields.find("text") != inline_fields.end()) {
+                    std::string raw_txt = inline_fields["text"];
+                    if ((raw_txt.size() >= 2 && raw_txt.front() == '"' && raw_txt.back() == '"') ||
+                        (raw_txt.size() >= 2 && raw_txt.front() == '\'' &&
+                         raw_txt.back() == '\'')) {
+                        val_part = raw_txt;
+                    } else {
+                        val_part = "\"" + raw_txt + "\"";
+                    }
+                } else if (inline_fields.find("type") != inline_fields.end()) {
+                    std::string raw_txt = inline_fields["type"];
+                    if ((raw_txt.size() >= 2 && raw_txt.front() == '"' && raw_txt.back() == '"') ||
+                        (raw_txt.size() >= 2 && raw_txt.front() == '\'' &&
+                         raw_txt.back() == '\'')) {
+                        val_part = raw_txt;
+                    } else {
+                        val_part = "\"" + raw_txt + "\"";
+                    }
+                } else if (inline_fields.find("out") != inline_fields.end()) {
+                    val_part = unquoteAndUnescape(inline_fields["out"]);
+                } else if (inline_fields.find("outKeys") != inline_fields.end()) {
+                    val_part = unquoteAndUnescape(inline_fields["outKeys"]);
+                } else if (inline_fields.find("toggle_layer") != inline_fields.end()) {
+                    val_part =
+                        "toggle_layer(" + unquoteAndUnescape(inline_fields["toggle_layer"]) + ")";
+                } else if (inline_fields.find("tg") != inline_fields.end()) {
+                    val_part = "tg(" + unquoteAndUnescape(inline_fields["tg"]) + ")";
+                } else if (inline_fields.find("mouse") != inline_fields.end()) {
+                    val_part = unquoteAndUnescape(inline_fields["mouse"]);
+                }
             }
 
             bool is_symmetric = (key_part.find('+') != std::string::npos);
@@ -2146,6 +2394,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     Combo c;
                     c.keys = leader_codes;
                     c.keys.insert(c.keys.end(), perm.begin(), perm.end());
+                    c.layer = combo_layer;
                     if (toggle_mode) {
                         c.toggle_layer = toggle_layer_name;
                     } else if (mouse_mode) {
@@ -2161,6 +2410,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 Combo c;
                 c.keys = leader_codes;
                 c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
+                c.layer = combo_layer;
                 if (toggle_mode) {
                     c.toggle_layer = toggle_layer_name;
                 } else if (mouse_mode) {
@@ -2264,6 +2514,19 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (!found_layer) {
                 err_msg =
                     "unknown layer '" + combo.toggle_layer + "' referenced in combo toggle_layer";
+                return false;
+            }
+        }
+        if (!combo.layer.empty()) {
+            bool found_layer = false;
+            for (const auto& lyr : config.layers) {
+                if (lyr.name == combo.layer) {
+                    found_layer = true;
+                    break;
+                }
+            }
+            if (!found_layer) {
+                err_msg = "unknown layer '" + combo.layer + "' referenced in combo layer";
                 return false;
             }
         }
