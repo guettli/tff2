@@ -326,7 +326,31 @@ If you prefer manual setup instead of `tff setup-udev --install`:
 
 ---
 
-## 10. Validating and Customizing Combos
+## 10. Initializing, Customizing, and Validating Combos
+
+### Interactive Configuration Wizard (`tff init`)
+
+Quickly generate or customize your configuration file using the interactive wizard or ready-made presets:
+
+```bash
+# Run interactive step-by-step wizard:
+tff init
+
+# List all built-in configuration presets:
+tff init --list-presets
+
+# Install a preset directly (e.g. vim-nav):
+tff init --preset vim-nav
+
+# Preview preset without saving to disk:
+tff init --preset full --print
+```
+
+Available presets include:
+- `minimal`: Essential home-row index finger chords (`j+f` -> backspace, `f+j` -> delete, `d+f+j` -> escape) and dual-role CapsLock (`esc` on tap, `super` on hold).
+- `vim-nav`: Vim-style `h/j/k/l` arrow navigation, `0/4` -> `home/end`, `u/d` -> `page_up/page_down` on Space-hold.
+- `home-row-mods`: Dual-role modifiers on home row (`a/s/d/f` = Super, Alt, Ctrl, Shift on hold).
+- `full`: Comprehensive setup with combos, Space-Nav layer, dual-role CapsLock, and Auto-Shift.
 
 ### Validate Configuration
 

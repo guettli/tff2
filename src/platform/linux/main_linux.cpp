@@ -1,6 +1,7 @@
 #include "linux_platform.h"
 #include "tff_cheatsheet.h"
 #include "tff_udev.h"
+#include "tff_wizard.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -52,6 +53,7 @@ void printHelp(const char* prog) {
         << "https://github.com/guettli/tff2\n\n"
         << "Usage:\n"
         << "  " << prog << " [options] [combos.yaml] [device1 device2 ...]\n"
+        << "  " << prog << " init [options]\n"
         << "  " << prog << " combos [options] combos.yaml [device1 device2 ...]\n"
         << "  " << prog << " monitor [options] [combos.yaml] [device1 device2 ...]\n"
         << "  " << prog << " cheatsheet [options] [combos.yaml]\n"
@@ -59,6 +61,7 @@ void printHelp(const char* prog) {
         << "  " << prog << " validate combos.yaml\n"
         << "  " << prog << " list\n\n"
         << "Commands:\n"
+        << "  init                    Interactive configuration wizard and preset installer\n"
         << "  combos                  Run remapper with specified combos and devices\n"
         << "  monitor                 Interactive live event monitor and chord debugger\n"
         << "  cheatsheet              Display visual terminal cheat sheet or markdown table\n"
@@ -68,9 +71,15 @@ void printHelp(const char* prog) {
         << "  list                    List all discovered keyboards with persistent paths\n"
         << "  help                    Show this help message\n\n"
         << "Options:\n"
+        << "  -p, --preset <name>     Preset configuration (minimal, vim-nav, home-row-mods, "
+           "full)\n"
+        << "  --list-presets          List all available configuration presets and exit\n"
+        << "  -o, --output <file>     Destination file for generated configuration (default: "
+           "~/.config/tff/tff-combos.yaml)\n"
+        << "  -f, --force             Overwrite existing destination file without confirmation\n"
+        << "  --print                 Print generated config or udev rules to stdout and exit\n"
         << "  -i, --install           Install udev rules to /etc/udev/rules.d/ and reload "
            "(requires sudo)\n"
-        << "  -p, --print             Print recommended udev rules to stdout and exit\n"
         << "  --check                 Check user permissions and device status (default for "
            "setup-udev)\n"
         << "  --rule-path <path>      Custom destination path for udev rules\n"
@@ -100,6 +109,10 @@ void printHelp(const char* prog) {
            "grabs\n"
         << "  SIGINT, SIGTERM         Graceful shutdown and restore keyboards\n\n"
         << "Examples:\n"
+        << "  " << prog << " init\n"
+        << "  " << prog << " init --list-presets\n"
+        << "  " << prog << " init --preset vim-nav\n"
+        << "  " << prog << " init --preset full --output ~/.config/tff/tff-combos.yaml --force\n"
         << "  " << prog << " setup-udev\n"
         << "  sudo " << prog << " setup-udev --install\n"
         << "  " << prog << " setup-udev --print\n"
@@ -130,6 +143,9 @@ int main(int argc, char* argv[]) {
     bool cheatsheet_only = false;
     bool monitor_only = false;
     bool setup_udev_mode = false;
+    bool init_mode = false;
+    bool init_print = false;
+    tff::wizard::WizardOptions wizard_opts;
     tff::udev::SetupUdevOptions udev_opts;
     bool monitor_show_deltas = true;
     bool monitor_show_emitted = true;
@@ -147,6 +163,28 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (arg == "-l" || arg == "--list" || arg == "list") {
             list_only = true;
+        } else if (arg == "init") {
+            init_mode = true;
+        } else if (arg == "--list-presets") {
+            init_mode = true;
+            wizard_opts.list_presets = true;
+        } else if (arg == "--preset") {
+            init_mode = true;
+            if (i + 1 < argc) {
+                wizard_opts.preset_name = argv[++i];
+            } else {
+                std::cerr << "Error: --preset requires a preset name\n";
+                return 1;
+            }
+        } else if (arg == "-f" || arg == "--force") {
+            wizard_opts.force = true;
+        } else if (arg == "-o" || arg == "--output") {
+            if (i + 1 < argc) {
+                wizard_opts.output_path = argv[++i];
+            } else {
+                std::cerr << "Error: --output requires a file path\n";
+                return 1;
+            }
         } else if (arg == "validate") {
             validate_only = true;
         } else if (arg == "monitor") {
@@ -156,8 +194,27 @@ int main(int argc, char* argv[]) {
         } else if (arg == "-i" || arg == "--install") {
             setup_udev_mode = true;
             udev_opts.install = true;
-        } else if (arg == "-p" || arg == "--print") {
-            setup_udev_mode = true;
+        } else if (arg == "-p") {
+            if (init_mode) {
+                if (i + 1 < argc && argv[i + 1][0] != '-') {
+                    wizard_opts.preset_name = argv[++i];
+                } else {
+                    std::cerr << "Error: -p requires a preset name in init mode\n";
+                    return 1;
+                }
+            } else if (setup_udev_mode) {
+                udev_opts.print_only = true;
+            } else {
+                if (i + 1 < argc && argv[i + 1][0] != '-') {
+                    init_mode = true;
+                    wizard_opts.preset_name = argv[++i];
+                } else {
+                    setup_udev_mode = true;
+                    udev_opts.print_only = true;
+                }
+            }
+        } else if (arg == "--print") {
+            init_print = true;
             udev_opts.print_only = true;
         } else if (arg == "--check") {
             setup_udev_mode = true;
@@ -220,7 +277,14 @@ int main(int argc, char* argv[]) {
             return 1;
         } else {
             // Positional arguments
-            if (cheatsheet_only || validate_only) {
+            if (init_mode) {
+                if (wizard_opts.preset_name.empty() && tff::wizard::findPreset(arg) != nullptr) {
+                    wizard_opts.preset_name = arg;
+                } else if (arg.find(".yaml") != std::string::npos ||
+                           arg.find(".yml") != std::string::npos) {
+                    wizard_opts.output_path = arg;
+                }
+            } else if (cheatsheet_only || validate_only) {
                 config_file = arg;
                 config_explicit = true;
             } else if (monitor_only) {
@@ -239,6 +303,13 @@ int main(int argc, char* argv[]) {
                 device_paths.push_back(arg);
             }
         }
+    }
+
+    if (init_mode) {
+        if (init_print) {
+            wizard_opts.print_only = true;
+        }
+        return tff::wizard::runWizard(wizard_opts);
     }
 
     if (!config_explicit) {

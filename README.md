@@ -104,6 +104,12 @@ sudo ./install.sh          # System-wide (/usr/local/bin)
 # List discovered keyboards and persistent symlinks:
 tff --list
 
+# Interactive configuration wizard or instant preset generator:
+tff init                          # Interactive step-by-step interview
+tff init --list-presets           # List presets (minimal, vim-nav, home-row-mods, full)
+tff init --preset vim-nav         # Install vim navigation layer preset
+tff init --preset minimal --print # Preview generated YAML configuration
+
 # View terminal cheat sheet or markdown table of your mappings:
 tff cheatsheet
 tff cheatsheet --markdown

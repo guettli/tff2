@@ -61,6 +61,7 @@ set(CORE_SOURCES
     src/core/tff_parser.cpp
     src/core/tff_cheatsheet.cpp
     src/core/tff_monitor.cpp
+    src/core/tff_wizard.cpp
 )
 
 # RP2040 platform source files
@@ -294,6 +295,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_tap_dance tff_core rp2040_platform)
 
+    add_executable(test_wizard
+        tests/test_wizard.cpp
+    )
+    target_link_libraries(test_wizard tff_core)
+
     # Enable testing
     enable_testing()
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
@@ -314,6 +320,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_udev COMMAND test_udev)
     add_test(NAME test_invariants COMMAND test_invariants)
     add_test(NAME test_tap_dance COMMAND test_tap_dance)
+    add_test(NAME test_wizard COMMAND test_wizard)
 
     # Ensure assertions are always active in test executables regardless of build type
     set(TEST_TARGETS
@@ -335,6 +342,7 @@ if(NOT PICO_BUILD)
         test_udev
         test_invariants
         test_tap_dance
+        test_wizard
     )
     foreach(target ${TEST_TARGETS})
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

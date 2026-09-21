@@ -4,6 +4,7 @@ for prog in tff tff2 tff_linux
     complete -c $prog -e
 
     # Subcommands
+    complete -c $prog -n "__fish_use_subcommand" -a init -d "Interactive configuration wizard and preset installer"
     complete -c $prog -n "__fish_use_subcommand" -a monitor -d "Interactive live event monitor and chord debugger"
     complete -c $prog -n "__fish_use_subcommand" -a cheatsheet -d "Display visual terminal cheat sheet or markdown table"
     complete -c $prog -n "__fish_use_subcommand" -a validate -d "Validate a combos YAML configuration file"
@@ -27,6 +28,13 @@ for prog in tff tff2 tff_linux
     complete -c $prog -l no-color -d "Disable ANSI color codes"
     complete -c $prog -s h -l help -d "Show help message and exit"
     complete -c $prog -s V -l version -d "Show program version and exit"
+
+    # Subcommand: init
+    complete -c $prog -n "__fish_seen_subcommand_from init" -s p -l preset -x -a "minimal vim-nav home-row-mods full" -d "Preset configuration"
+    complete -c $prog -n "__fish_seen_subcommand_from init" -l list-presets -d "List all available configuration presets and exit"
+    complete -c $prog -n "__fish_seen_subcommand_from init" -s o -l output -r -d "Destination file for generated configuration"
+    complete -c $prog -n "__fish_seen_subcommand_from init" -s f -l force -d "Overwrite existing destination file without confirmation"
+    complete -c $prog -n "__fish_seen_subcommand_from init" -l print -d "Print generated YAML configuration directly to stdout"
 
     # Subcommand: monitor
     complete -c $prog -n "__fish_seen_subcommand_from monitor" -l no-deltas -d "Disable timing deltas in live event monitor"

@@ -14,12 +14,24 @@ _tff_complete() {
         cword=$COMP_CWORD
     fi
 
-    local commands="monitor cheatsheet validate setup-udev combos list help version"
+    local commands="init monitor cheatsheet validate setup-udev combos list help version"
     local global_opts="-c --config -d --device -g --grab --no-grab --hotplug --no-hotplug -w --watch-config -l --list -v --verbose --plain --no-color -h --help -V --version"
 
     # Complete options that require specific arguments
     case "$prev" in
         -c|--config)
+            if declare -F _filedir >/dev/null 2>&1; then
+                _filedir '@(yaml|yml)'
+            else
+                COMPREPLY=( $(compgen -f -X '!*.@(yaml|yml)' -- "$cur") $(compgen -d -- "$cur") )
+            fi
+            return 0
+            ;;
+        -p|--preset)
+            COMPREPLY=( $(compgen -W "minimal vim-nav home-row-mods full" -- "$cur") )
+            return 0
+            ;;
+        -o|--output)
             if declare -F _filedir >/dev/null 2>&1; then
                 _filedir '@(yaml|yml)'
             else
@@ -50,7 +62,7 @@ _tff_complete() {
     local i
     for (( i=1; i < cword; i++ )); do
         case "${words[i]}" in
-            monitor|cheatsheet|validate|setup-udev|combos|list|help|version)
+            init|monitor|cheatsheet|validate|setup-udev|combos|list|help|version)
                 subcmd="${words[i]}"
                 break
                 ;;
@@ -77,6 +89,13 @@ _tff_complete() {
 
     # Subcommand-specific completion
     case "$subcmd" in
+        init)
+            if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $(compgen -W "-p --preset --list-presets -o --output -f --force --print -h --help" -- "$cur") )
+            else
+                COMPREPLY=( $(compgen -W "minimal vim-nav home-row-mods full" -- "$cur") )
+            fi
+            ;;
         monitor)
             if [[ "$cur" == -* ]]; then
                 COMPREPLY=( $(compgen -W "--no-deltas --no-emitted --plain --no-color -c --config -d --device -g --grab --no-grab -h --help" -- "$cur") )

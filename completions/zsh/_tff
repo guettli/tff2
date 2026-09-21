@@ -7,6 +7,7 @@ _tff() {
 
     local -a commands
     commands=(
+        'init:Interactive configuration wizard and preset installer'
         'monitor:Interactive live event monitor and chord debugger'
         'cheatsheet:Display visual terminal cheat sheet or markdown table'
         'validate:Validate a combos YAML configuration file'
@@ -45,6 +46,16 @@ _tff() {
             ;;
         args)
             case $line[1] in
+                init)
+                    _arguments \
+                        '(-p --preset)'{-p,--preset}'[Preset configuration]:preset:(minimal vim-nav home-row-mods full)' \
+                        '--list-presets[List all available configuration presets and exit]' \
+                        '(-o --output)'{-o,--output}'[Destination file for generated configuration]:config file:_files -g "*.yaml *.yml"' \
+                        '(-f --force)'{-f,--force}'[Overwrite existing destination file without confirmation]' \
+                        '--print[Print generated YAML configuration directly to stdout]' \
+                        '(-h --help)'{-h,--help}'[Show help]' \
+                        '1:preset:(minimal vim-nav home-row-mods full)'
+                    ;;
                 monitor)
                     _arguments \
                         '--no-deltas[Disable timing deltas in live event monitor]' \
