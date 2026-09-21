@@ -296,6 +296,10 @@ struct TapDance {
     TapDanceAction double_hold;     // 2 taps + held
     TapDanceAction triple_tap;      // 3 taps
 
+    bool isSingleTapOnly() const {
+        return double_tap.empty() && double_hold.empty() && triple_tap.empty();
+    }
+
     bool operator==(const TapDance& o) const {
         return key == o.key && timeout_us == o.timeout_us && tap == o.tap && hold == o.hold &&
                double_tap == o.double_tap && double_hold == o.double_hold &&

@@ -51,6 +51,12 @@ bool TFFEngine::isModifierActive() const {
             return true;
         }
     }
+    // Check active tap dance holding keys
+    for (KeyCode k : active_tap_dance_.held_keys) {
+        if (isModifier(k)) {
+            return true;
+        }
+    }
     // Check active layer remaps holding modifier keys
     for (const auto& kv : held_layer_remaps_) {
         for (KeyCode k : kv.second.out_keys) {
@@ -671,9 +677,7 @@ bool TFFEngine::processEvent(const Event& ev) {
                 if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
                     bool can_tap_more = false;
                     if (active_tap_dance_.tap_count == 1) {
-                        can_tap_more = !active_tap_dance_.config.double_tap.empty() ||
-                                       !active_tap_dance_.config.double_hold.empty() ||
-                                       !active_tap_dance_.config.triple_tap.empty();
+                        can_tap_more = !active_tap_dance_.config.isSingleTapOnly();
                     } else if (active_tap_dance_.tap_count == 2) {
                         can_tap_more = !active_tap_dance_.config.triple_tap.empty();
                     }
@@ -722,6 +726,9 @@ bool TFFEngine::processEvent(const Event& ev) {
                         } else if (active_tap_dance_.tap_count == 2) {
                             executeTapDanceAction(active_tap_dance_.config.double_tap, ev.time,
                                                   false);
+                        } else if (active_tap_dance_.tap_count >= 3) {
+                            executeTapDanceAction(active_tap_dance_.config.triple_tap, ev.time,
+                                                  false);
                         }
                         active_tap_dance_.stage = TapDanceStage::IDLE;
                     }
@@ -738,7 +745,9 @@ bool TFFEngine::processEvent(const Event& ev) {
                 }
             }
         }
-    } else {
+    }
+
+    if (active_tap_dance_.stage == TapDanceStage::IDLE) {
         const TapDance* td = findTapDance(ev.code);
         if (td != nullptr) {
             if (ev.value == KEY_VAL_DOWN) {

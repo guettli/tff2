@@ -578,27 +578,39 @@ bool parseDurationMicros(const std::string& str, int64_t& out_us) {
     if (s.empty())
         return false;
 
-    // Determine unit
-    if (s.length() > 2 && s.substr(s.length() - 2) == "ms") {
-        double val = std::stod(s.substr(0, s.length() - 2));
-        out_us = static_cast<int64_t>(val * 1000.0 + 0.5);
-        return true;
-    } else if (s.length() > 2 && s.substr(s.length() - 2) == "us") {
-        double val = std::stod(s.substr(0, s.length() - 2));
-        out_us = static_cast<int64_t>(val + 0.5);
-        return true;
-    } else if (s.length() > 2 && s.substr(s.length() - 2) == "ns") {
-        double val = std::stod(s.substr(0, s.length() - 2));
-        out_us = static_cast<int64_t>(val / 1000.0 + 0.5);
-        return true;
-    } else if (s.length() > 1 && s.back() == 's') {
-        double val = std::stod(s.substr(0, s.length() - 1));
-        out_us = static_cast<int64_t>(val * 1000000.0 + 0.5);
-        return true;
-    }
-
-    // Bare number defaults to milliseconds (e.g. "200" -> 200000 us)
     try {
+        // Determine unit
+        if (s.length() > 2 && s.substr(s.length() - 2) == "ms") {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 2), &idx);
+            if (idx == s.length() - 2) {
+                out_us = static_cast<int64_t>(val * 1000.0 + 0.5);
+                return true;
+            }
+        } else if (s.length() > 2 && s.substr(s.length() - 2) == "us") {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 2), &idx);
+            if (idx == s.length() - 2) {
+                out_us = static_cast<int64_t>(val + 0.5);
+                return true;
+            }
+        } else if (s.length() > 2 && s.substr(s.length() - 2) == "ns") {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 2), &idx);
+            if (idx == s.length() - 2) {
+                out_us = static_cast<int64_t>(val / 1000.0 + 0.5);
+                return true;
+            }
+        } else if (s.length() > 1 && s.back() == 's') {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 1), &idx);
+            if (idx == s.length() - 1) {
+                out_us = static_cast<int64_t>(val * 1000000.0 + 0.5);
+                return true;
+            }
+        }
+
+        // Bare number defaults to milliseconds (e.g. "200" -> 200000 us)
         size_t idx = 0;
         double val = std::stod(s, &idx);
         if (idx == s.length()) {

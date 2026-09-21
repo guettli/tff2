@@ -602,6 +602,159 @@ tap_dance:
     std::cout << "test_tap_dance_rp2040_integration: PASSED\n";
 }
 
+// 16. Compact list with tokens ending in 's' (e.g. minus, scrolllock, 200)
+static void test_tap_dance_compact_list_keys_ending_in_s() {
+    std::string yaml = R"(
+tap_dance:
+  tab: [tab, minus, 200]
+  grave: [grave, scrolllock, 180ms]
+)";
+    Config cfg;
+    std::string err;
+    bool ok = loadYamlConfig(yaml, cfg, err);
+    if (!ok) {
+        std::cerr << "Parser error: " << err << "\n";
+    }
+    assert(ok);
+    assert(cfg.tap_dances.size() == 2);
+    assert(cfg.tap_dances[0].double_tap.out_keys == std::vector<KeyCode>{Keys::KEY_MINUS});
+    assert(cfg.tap_dances[0].timeout_us == 200000LL);
+    assert(cfg.tap_dances[1].double_tap.out_keys == std::vector<KeyCode>{Keys::KEY_SCROLLLOCK});
+    assert(cfg.tap_dances[1].timeout_us == 180000LL);
+    std::cout << "test_tap_dance_compact_list_keys_ending_in_s: PASSED\n";
+}
+
+// 17. Rollover between two distinct Tap Dance keys
+static void test_tap_dance_two_key_rollover() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    TapDance td1;
+    td1.key = Keys::KEY_A;
+    td1.tap.out_keys = {Keys::KEY_A};
+    td1.double_tap.out_keys = {Keys::KEY_ESC};
+    td1.timeout_us = 200000LL;
+
+    TapDance td2;
+    td2.key = Keys::KEY_B;
+    td2.tap.out_keys = {Keys::KEY_B};
+    td2.double_tap.out_keys = {Keys::KEY_TAB};
+    td2.timeout_us = 200000LL;
+
+    engine.setTapDances({td1, td2});
+
+    // Tap A (down at 10ms, up at 30ms) -> WAITING_FOR_NEXT_TAP
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+
+    // Quickly press B DOWN at 50ms (before A's timeout at 230ms)
+    // A should commit its single tap (KEY_A), and B should start its tap dance!
+    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_B, KEY_VAL_DOWN});
+
+    // Release B UP at 70ms
+    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_B, KEY_VAL_UP});
+
+    // Advance time past B's timeout
+    engine.onTimer(TimeVal{0, 300000});
+
+    const auto& evs = writer.keyEvents();
+    // Expected: A down, A up, B down, B up
+    assert(evs.size() == 4);
+    assert(evs[0].code == Keys::KEY_A && evs[0].value == KEY_VAL_DOWN);
+    assert(evs[1].code == Keys::KEY_A && evs[1].value == KEY_VAL_UP);
+    assert(evs[2].code == Keys::KEY_B && evs[2].value == KEY_VAL_DOWN);
+    assert(evs[3].code == Keys::KEY_B && evs[3].value == KEY_VAL_UP);
+
+    std::cout << "test_tap_dance_two_key_rollover: PASSED\n";
+}
+
+// 18. Interruption during 3rd tap in WAITING_FOR_RELEASE
+static void test_tap_dance_triple_tap_interruption() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    TapDance td;
+    td.key = Keys::KEY_A;
+    td.tap.out_keys = {Keys::KEY_A};
+    td.double_tap.out_keys = {Keys::KEY_B};
+    td.triple_tap.out_keys = {Keys::KEY_C};
+    td.timeout_us = 200000LL;
+    engine.setTapDances({td});
+
+    // Tap 1: 10ms - 20ms
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+    // Tap 2: 40ms - 50ms
+    engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+    // Tap 3 down: 70ms (WAITING_FOR_RELEASE, tap_count = 3)
+    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+
+    // Interrupted by KEY_SPACE down at 80ms while A is physically down!
+    engine.processEvent(Event{TimeVal{0, 80000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
+
+    // Release A at 90ms, release SPACE at 100ms
+    engine.processEvent(Event{TimeVal{0, 90000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+
+    const auto& evs = writer.keyEvents();
+    // Expected: KEY_C down, KEY_C up (triple tap committed), then KEY_SPACE down, KEY_SPACE up
+    assert(evs.size() == 4);
+    assert(evs[0].code == Keys::KEY_C && evs[0].value == KEY_VAL_DOWN);
+    assert(evs[1].code == Keys::KEY_C && evs[1].value == KEY_VAL_UP);
+    assert(evs[2].code == Keys::KEY_SPACE && evs[2].value == KEY_VAL_DOWN);
+    assert(evs[3].code == Keys::KEY_SPACE && evs[3].value == KEY_VAL_UP);
+
+    std::cout << "test_tap_dance_triple_tap_interruption: PASSED\n";
+}
+
+// 19. AutoShift suppression while holding a Tap Dance modifier
+static void test_tap_dance_autoshift_modifier_held() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    TapDance td;
+    td.key = Keys::KEY_CAPSLOCK;
+    td.tap.out_keys = {Keys::KEY_ESC};
+    td.hold.out_keys = {Keys::KEY_LEFTCTRL};
+    td.timeout_us = 150000LL;
+    engine.setTapDances({td});
+
+    AutoShiftConfig as_cfg;
+    as_cfg.enabled = true;
+    as_cfg.timeout_us = 150000LL;
+    as_cfg.keys = {Keys::KEY_C};
+    engine.setAutoShiftConfig(as_cfg);
+
+    // Press CapsLock DOWN -> promote to hold (timeout at 160ms)
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.onTimer(TimeVal{0, 200000});
+
+    // LEFTCTRL should now be held down
+    assert(engine.isModifierActive());
+
+    // While CapsLock is held, type 'c' (Auto-Shift enabled key)
+    // Because a modifier (LEFTCTRL) is active via tap dance, AutoShift must NOT shift!
+    engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_C, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_C, KEY_VAL_UP});
+
+    // Release CapsLock
+    engine.processEvent(Event{TimeVal{0, 350000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+
+    const auto& evs = writer.keyEvents();
+    // Verify no LEFTSHIFT was emitted:
+    for (const auto& ev : evs) {
+        assert(ev.code != Keys::KEY_LEFTSHIFT);
+    }
+    // Verify LEFTCTRL was down during 'c'
+    assert(evs[0].code == Keys::KEY_LEFTCTRL && evs[0].value == KEY_VAL_DOWN);
+    assert(evs[1].code == Keys::KEY_C && evs[1].value == KEY_VAL_DOWN);
+    assert(evs[2].code == Keys::KEY_C && evs[2].value == KEY_VAL_UP);
+    assert(evs[3].code == Keys::KEY_LEFTCTRL && evs[3].value == KEY_VAL_UP);
+
+    std::cout << "test_tap_dance_autoshift_modifier_held: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Tap Dance unit test suite...\n";
 
@@ -620,6 +773,10 @@ int main() {
     test_tap_dance_validation_errors();
     test_tap_dance_cheatsheet();
     test_tap_dance_rp2040_integration();
+    test_tap_dance_compact_list_keys_ending_in_s();
+    test_tap_dance_two_key_rollover();
+    test_tap_dance_triple_tap_interruption();
+    test_tap_dance_autoshift_modifier_held();
 
     std::cout << "\nAll Tap Dance tests PASSED successfully!\n";
     return 0;
