@@ -372,6 +372,11 @@ void testPackagingLayoutAndIntegrity() {
     assert(!conffiles.empty());
     assert(conffiles.find("/etc/tff/tff-combos.yaml") != std::string::npos);
 
+    std::string prerm = readFile("packaging/debian/prerm");
+    assert(!prerm.empty());
+    assert(prerm.rfind("#!/bin/sh", 0) == 0);
+    assert(prerm.find("systemctl") != std::string::npos);
+
     std::string postinst = readFile("packaging/debian/postinst");
     assert(!postinst.empty());
     assert(postinst.rfind("#!/bin/sh", 0) == 0);

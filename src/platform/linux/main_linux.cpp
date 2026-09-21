@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <atomic>
 #include <unistd.h>
+#include <filesystem>
 
 namespace {
 std::atomic<bool> g_should_stop{false};
@@ -22,6 +23,27 @@ void signalHandler(int sig) {
     } else {
         g_should_stop.store(true);
     }
+}
+
+std::string resolveConfigFile() {
+    std::vector<std::string> candidates = {"config/tff-combos.yaml", "../config/tff-combos.yaml"};
+    const char* xdg_config = std::getenv("XDG_CONFIG_HOME");
+    if (xdg_config != nullptr && xdg_config[0] != '\0') {
+        candidates.push_back(std::string(xdg_config) + "/tff/tff-combos.yaml");
+    }
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && home[0] != '\0') {
+        candidates.push_back(std::string(home) + "/.config/tff/tff-combos.yaml");
+    }
+    candidates.push_back("/etc/tff/tff-combos.yaml");
+
+    for (const auto& path : candidates) {
+        std::error_code ec;
+        if (std::filesystem::exists(path, ec) && !std::filesystem::is_directory(path, ec)) {
+            return path;
+        }
+    }
+    return "config/tff-combos.yaml";
 }
 
 void printHelp(const char* prog) {
@@ -96,6 +118,7 @@ void printHelp(const char* prog) {
 
 int main(int argc, char* argv[]) {
     std::string config_file = "config/tff-combos.yaml";
+    bool config_explicit = false;
     std::vector<std::string> device_paths;
     bool grab = true;
     bool grab_explicit = false;
@@ -179,6 +202,7 @@ int main(int argc, char* argv[]) {
         } else if (arg == "-c" || arg == "--config") {
             if (i + 1 < argc) {
                 config_file = argv[++i];
+                config_explicit = true;
             } else {
                 std::cerr << "Error: --config requires a file argument\n";
                 return 1;
@@ -198,21 +222,27 @@ int main(int argc, char* argv[]) {
             // Positional arguments
             if (cheatsheet_only || validate_only) {
                 config_file = arg;
+                config_explicit = true;
             } else if (monitor_only) {
                 if (arg.find(".yaml") != std::string::npos ||
                     arg.find(".yml") != std::string::npos) {
                     config_file = arg;
+                    config_explicit = true;
                 } else {
                     device_paths.push_back(arg);
                 }
-            } else if (config_file == "config/tff-combos.yaml" &&
-                       (arg.find(".yaml") != std::string::npos ||
-                        arg.find(".yml") != std::string::npos)) {
+            } else if (!config_explicit && (arg.find(".yaml") != std::string::npos ||
+                                            arg.find(".yml") != std::string::npos)) {
                 config_file = arg;
+                config_explicit = true;
             } else {
                 device_paths.push_back(arg);
             }
         }
+    }
+
+    if (!config_explicit) {
+        config_file = resolveConfigFile();
     }
 
     if (monitor_only && !grab_explicit) {

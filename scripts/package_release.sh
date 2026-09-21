@@ -103,6 +103,8 @@ fi
 DEB_VERSION="${TAG#v}"
 if [ "${DEB_VERSION}" = "dev" ] || [ -z "${DEB_VERSION}" ]; then
     DEB_VERSION="2.0.0-dev"
+elif [[ ! "${DEB_VERSION}" =~ ^[0-9] ]]; then
+    DEB_VERSION="2.0.0-${DEB_VERSION}"
 fi
 
 STAGE_DEB="${DIST_DIR}/stage_deb_${DEB_ARCH}"
@@ -172,6 +174,8 @@ fi
 # Package control files
 cp "${ROOT_DIR}/packaging/debian/conffiles" "${STAGE_DEB}/DEBIAN/conffiles"
 chmod 0644 "${STAGE_DEB}/DEBIAN/conffiles"
+cp "${ROOT_DIR}/packaging/debian/prerm" "${STAGE_DEB}/DEBIAN/prerm"
+chmod 0755 "${STAGE_DEB}/DEBIAN/prerm"
 cp "${ROOT_DIR}/packaging/debian/postinst" "${STAGE_DEB}/DEBIAN/postinst"
 chmod 0755 "${STAGE_DEB}/DEBIAN/postinst"
 cp "${ROOT_DIR}/packaging/debian/postrm" "${STAGE_DEB}/DEBIAN/postrm"

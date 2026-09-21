@@ -208,7 +208,7 @@ if(NOT PICO_BUILD)
     # Installation rules using GNUInstallDirs
     include(GNUInstallDirs)
     install(TARGETS tff_linux RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-    install(FILES config/tff-combos.yaml DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/tff)
+    install(FILES config/tff-combos.yaml DESTINATION /etc/tff)
     install(FILES packaging/udev/99-tff.rules DESTINATION lib/udev/rules.d)
     install(FILES packaging/systemd/system/ten-flying-fingers.service DESTINATION lib/systemd/system)
     install(FILES packaging/systemd/user/ten-flying-fingers.service DESTINATION ${CMAKE_INSTALL_DATADIR}/systemd/user)
@@ -245,6 +245,7 @@ if(NOT PICO_BUILD)
     endif()
     set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
     set(CPACK_SET_DESTDIR ON)
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 
     # Debian generator specific settings
     set(CPACK_GENERATOR "DEB;TGZ")
@@ -254,9 +255,10 @@ if(NOT PICO_BUILD)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.31)")
     set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "udev, systemd")
     set(CPACK_DEBIAN_PACKAGE_PROVIDES "tff, tff-linux")
+    set(CPACK_DEBIAN_PACKAGE_CONFLICTS "tff (<< 2.0.0)")
     set(CPACK_DEBIAN_PACKAGE_REPLACES "tff, tff-linux")
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postrm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/conffiles"
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/prerm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postrm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/conffiles"
     )
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
     include(CPack)
