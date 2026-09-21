@@ -87,6 +87,11 @@ public:
     void setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys);
 
     /**
+     * @brief Set tap dance keys directly
+     */
+    void setTapDances(const std::vector<tff::TapDance>& tap_dances);
+
+    /**
      * @brief Set one-shot keys directly
      */
     void setOneShotKeys(const std::vector<tff::OneShotKey>& keys);

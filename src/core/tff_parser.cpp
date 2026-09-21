@@ -193,6 +193,18 @@ bool isTextSnippet(const std::string& val, std::string& text) {
         return true;
     }
 
+    // Space prefix: text "..." or type "..."
+    if (s.rfind("text ", 0) == 0 || s.rfind("type ", 0) == 0) {
+        text = unquoteAndUnescape(s.substr(5));
+        return true;
+    }
+
+    // Function call syntax: text("...") or type("...")
+    if ((s.rfind("text(", 0) == 0 || s.rfind("type(", 0) == 0) && s.back() == ')') {
+        text = unquoteAndUnescape(s.substr(5, s.size() - 6));
+        return true;
+    }
+
     return false;
 }
 
@@ -363,6 +375,143 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
     return false;
 }
 
+bool parseTapDanceAction(const std::string& val_part, TapDanceAction& act, std::string& err_msg) {
+    act = TapDanceAction{};
+    std::string s = trim(val_part);
+    if (s.empty()) {
+        err_msg = "empty action in tap_dance";
+        return false;
+    }
+
+    if (s.front() == '{' && s.back() == '}') {
+        std::map<std::string, std::string> inline_fields;
+        if (parseInlineDictFields(s, inline_fields)) {
+            for (const auto& kv : inline_fields) {
+                const std::string& k = kv.first;
+                const std::string& v = kv.second;
+                if (k == "text") {
+                    act.text = unquoteAndUnescape(v);
+                } else if (k == "toggle_layer" || k == "tg") {
+                    act.toggle_layer = unquoteAndUnescape(v);
+                } else if (k == "layer") {
+                    act.layer = unquoteAndUnescape(v);
+                } else if (k == "mouse") {
+                    std::string m_err;
+                    if (!parseMouseAction(v, act.mouse, m_err)) {
+                        err_msg = m_err;
+                        return false;
+                    }
+                    if (act.mouse.isButton()) {
+                        KeyCode btn_code =
+                            (act.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                            : (act.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                            : (act.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                            : (act.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                             : Keys::BTN_LEFT;
+                        act.out_keys = {btn_code};
+                    }
+                } else if (k == "out" || k == "keys" || k == "key") {
+                    auto out_words = parseOutputWords(v);
+                    for (const auto& w : out_words) {
+                        KeyCode code = 0;
+                        if (!wordToKeyCode(w, code, err_msg)) {
+                            return false;
+                        }
+                        act.out_keys.push_back(code);
+                    }
+                } else {
+                    err_msg = "unknown action property: " + k;
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    std::string snippet;
+    if (isTextSnippet(s, snippet)) {
+        act.text = snippet;
+        return true;
+    }
+
+    std::string toggle_layer_name;
+    std::string toggle_err;
+    if (parseToggleLayerTarget(s, toggle_layer_name, toggle_err)) {
+        act.toggle_layer = toggle_layer_name;
+        return true;
+    }
+    if (!toggle_err.empty()) {
+        err_msg = toggle_err;
+        return false;
+    }
+
+    MouseAction mouse_act;
+    std::string mouse_err;
+    if (parseMouseAction(s, mouse_act, mouse_err)) {
+        if (mouse_act.isButton()) {
+            KeyCode btn_code = (mouse_act.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                               : (mouse_act.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                               : (mouse_act.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                               : (mouse_act.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                                : Keys::BTN_LEFT;
+            act.out_keys = {btn_code};
+            act.mouse = mouse_act;
+        } else {
+            act.mouse = mouse_act;
+        }
+        return true;
+    }
+    if (!mouse_err.empty()) {
+        err_msg = mouse_err;
+        return false;
+    }
+
+    if (s.rfind("layer(", 0) == 0 && s.back() == ')') {
+        act.layer = trim(s.substr(6, s.size() - 7));
+        if (act.layer.empty()) {
+            err_msg = "empty layer name in layer(...)";
+            return false;
+        }
+        return true;
+    }
+
+    if (s.rfind("layer:", 0) == 0) {
+        act.layer = trim(s.substr(6));
+        if (act.layer.empty()) {
+            err_msg = "empty layer name in layer:";
+            return false;
+        }
+        return true;
+    }
+
+    auto out_words = parseOutputWords(s);
+    if (!out_words.empty()) {
+        std::vector<KeyCode> out_codes;
+        bool all_valid = true;
+        std::string dummy_err;
+        for (const auto& w : out_words) {
+            KeyCode code = 0;
+            if (!wordToKeyCode(w, code, dummy_err)) {
+                all_valid = false;
+                break;
+            }
+            out_codes.push_back(code);
+        }
+        if (all_valid) {
+            act.out_keys = out_codes;
+            return true;
+        }
+    }
+
+    if (s.find(' ') == std::string::npos && s.find('+') == std::string::npos) {
+        act.layer = s;
+        return true;
+    }
+
+    err_msg = "invalid tap_dance action: " + s;
+    return false;
+}
+
 void addAutoShiftPreset(const std::string& preset, std::vector<KeyCode>& keys) {
     if (preset == "letters" || preset == "alpha") {
         static const KeyCode letter_codes[] = {
@@ -429,23 +578,47 @@ bool parseDurationMicros(const std::string& str, int64_t& out_us) {
     if (s.empty())
         return false;
 
-    // Determine unit
-    if (s.length() > 2 && s.substr(s.length() - 2) == "ms") {
-        double val = std::stod(s.substr(0, s.length() - 2));
-        out_us = static_cast<int64_t>(val * 1000.0 + 0.5);
-        return true;
-    } else if (s.length() > 2 && s.substr(s.length() - 2) == "us") {
-        double val = std::stod(s.substr(0, s.length() - 2));
-        out_us = static_cast<int64_t>(val + 0.5);
-        return true;
-    } else if (s.length() > 2 && s.substr(s.length() - 2) == "ns") {
-        double val = std::stod(s.substr(0, s.length() - 2));
-        out_us = static_cast<int64_t>(val / 1000.0 + 0.5);
-        return true;
-    } else if (s.length() > 1 && s.back() == 's') {
-        double val = std::stod(s.substr(0, s.length() - 1));
-        out_us = static_cast<int64_t>(val * 1000000.0 + 0.5);
-        return true;
+    try {
+        // Determine unit
+        if (s.length() > 2 && s.substr(s.length() - 2) == "ms") {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 2), &idx);
+            if (idx == s.length() - 2) {
+                out_us = static_cast<int64_t>(val * 1000.0 + 0.5);
+                return true;
+            }
+        } else if (s.length() > 2 && s.substr(s.length() - 2) == "us") {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 2), &idx);
+            if (idx == s.length() - 2) {
+                out_us = static_cast<int64_t>(val + 0.5);
+                return true;
+            }
+        } else if (s.length() > 2 && s.substr(s.length() - 2) == "ns") {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 2), &idx);
+            if (idx == s.length() - 2) {
+                out_us = static_cast<int64_t>(val / 1000.0 + 0.5);
+                return true;
+            }
+        } else if (s.length() > 1 && s.back() == 's') {
+            size_t idx = 0;
+            double val = std::stod(s.substr(0, s.length() - 1), &idx);
+            if (idx == s.length() - 1) {
+                out_us = static_cast<int64_t>(val * 1000000.0 + 0.5);
+                return true;
+            }
+        }
+
+        // Bare number defaults to milliseconds (e.g. "200" -> 200000 us)
+        size_t idx = 0;
+        double val = std::stod(s, &idx);
+        if (idx == s.length()) {
+            out_us = static_cast<int64_t>(val * 1000.0 + 0.5);
+            return true;
+        }
+    } catch (...) {
+        return false;
     }
     return false;
 }
@@ -666,6 +839,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_auto_shift_keys_list = false;
     bool in_mouse = false;
     bool in_settings = false;
+    bool in_tap_dance = false;
     std::string current_keys;
     std::string current_outkeys;
     std::string current_text;
@@ -683,6 +857,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_auto_shift_tag = false;
     bool has_mouse_tag = false;
     bool has_settings_tag = false;
+    bool has_tap_dance_tag = false;
     size_t combos_base_indent = 0;
     size_t tap_hold_base_indent = 0;
     size_t layers_base_indent = 0;
@@ -693,6 +868,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     size_t auto_shift_keys_list_indent = 0;
     size_t mouse_base_indent = 0;
     size_t settings_base_indent = 0;
+    size_t tap_dance_base_indent = 0;
     std::string current_leader;
     size_t leader_indent = 0;
     std::string current_layer_name;
@@ -768,6 +944,30 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return true;
     };
 
+    // For multi-line tap_dance definitions
+    TapDance pending_td;
+    bool has_pending_td = false;
+    size_t pending_td_indent = 0;
+
+    auto flush_pending_td = [&]() -> bool {
+        if (has_pending_td) {
+            if (pending_td.key != 0) {
+                if (pending_td.tap.empty() && pending_td.hold.empty() &&
+                    pending_td.double_tap.empty() && pending_td.double_hold.empty() &&
+                    pending_td.triple_tap.empty()) {
+                    err_msg =
+                        "tap_dance definition requires at least one action (tap, double_tap, hold, "
+                        "triple_tap)";
+                    return false;
+                }
+                config.tap_dances.push_back(pending_td);
+            }
+            pending_td = TapDance{};
+            has_pending_td = false;
+        }
+        return true;
+    };
+
     while (std::getline(iss, line)) {
         // Strip inline comment if any (preserving '#' inside quoted strings)
         std::string clean_line = stripComment(line);
@@ -784,6 +984,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_combos = true;
             in_tap_hold = false;
             in_layers = false;
@@ -794,6 +996,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_tap_dance = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
             current_leader.clear();
@@ -810,6 +1013,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_tap_hold = true;
             in_combos = false;
             in_layers = false;
@@ -820,6 +1025,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_tap_dance = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
             continue;
@@ -832,6 +1038,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_layers = true;
             in_combos = false;
             in_tap_hold = false;
@@ -842,6 +1050,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_tap_dance = false;
             has_layers_tag = true;
             layers_base_indent = current_indent;
             current_layer_name.clear();
@@ -858,6 +1067,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_one_shot = true;
             in_combos = false;
             in_tap_hold = false;
@@ -868,6 +1079,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_tap_dance = false;
             has_one_shot_tag = true;
             one_shot_base_indent = current_indent;
             continue;
@@ -883,6 +1095,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_leader = true;
             in_combos = false;
             in_tap_hold = false;
@@ -893,6 +1107,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_tap_dance = false;
             has_leader_tag = true;
             leader_base_indent = current_indent;
             continue;
@@ -908,6 +1123,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_auto_shift = true;
             in_combos = false;
             in_tap_hold = false;
@@ -917,6 +1134,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_leader_sequences = false;
             in_mouse = false;
             in_settings = false;
+            in_tap_dance = false;
             has_auto_shift_tag = true;
             auto_shift_base_indent = current_indent;
             config.auto_shift.enabled = true;
@@ -933,6 +1151,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_mouse = true;
             in_combos = false;
             in_tap_hold = false;
@@ -943,6 +1163,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_settings = false;
+            in_tap_dance = false;
             has_mouse_tag = true;
             mouse_base_indent = current_indent;
             continue;
@@ -959,6 +1180,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             if (!flush_pending_lseq())
                 return false;
+            if (!flush_pending_td())
+                return false;
             in_settings = true;
             in_combos = false;
             in_tap_hold = false;
@@ -969,10 +1192,40 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift = false;
             in_auto_shift_keys_list = false;
             in_mouse = false;
+            in_tap_dance = false;
             has_settings_tag = true;
             settings_base_indent = current_indent;
             continue;
         } else if (t.rfind("settings", 0) == 0 && t.find(':') == std::string::npos &&
+                   (!in_layers || current_indent <= layers_base_indent)) {
+            err_msg = "mapping values are not allowed in this context";
+            return false;
+        }
+
+        if (t.rfind("tap_dance:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
+            if (!flush_pending_th())
+                return false;
+            if (!flush_pending_os())
+                return false;
+            if (!flush_pending_lseq())
+                return false;
+            if (!flush_pending_td())
+                return false;
+            in_tap_dance = true;
+            in_combos = false;
+            in_tap_hold = false;
+            in_layers = false;
+            in_one_shot = false;
+            in_leader = false;
+            in_leader_sequences = false;
+            in_auto_shift = false;
+            in_auto_shift_keys_list = false;
+            in_mouse = false;
+            in_settings = false;
+            has_tap_dance_tag = true;
+            tap_dance_base_indent = current_indent;
+            continue;
+        } else if (t.rfind("tap_dance", 0) == 0 && t.find(':') == std::string::npos &&
                    (!in_layers || current_indent <= layers_base_indent)) {
             err_msg = "mapping values are not allowed in this context";
             return false;
@@ -1026,6 +1279,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (in_settings && current_indent <= settings_base_indent &&
             t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_settings = false;
+        }
+
+        if (in_tap_dance && current_indent <= tap_dance_base_indent &&
+            t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
+            if (!flush_pending_td())
+                return false;
+            in_tap_dance = false;
         }
 
         if (in_settings) {
@@ -1978,6 +2238,205 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
         }
 
+        if (in_tap_dance) {
+            std::string line_content = t;
+            if (line_content.rfind("- key:", 0) == 0) {
+                line_content = trim(line_content.substr(2));  // "key: ..."
+            } else if (line_content.rfind("- ", 0) == 0 &&
+                       line_content.find(':') != std::string::npos) {
+                line_content = trim(line_content.substr(2));
+            }
+
+            auto colon = line_content.find(':');
+            if (colon == std::string::npos)
+                continue;
+
+            std::string key_part = trim(line_content.substr(0, colon));
+            std::string val_part = trim(line_content.substr(colon + 1));
+
+            // Check if this is a new "- key: capslock" list item
+            if (key_part == "key") {
+                if (!flush_pending_td())
+                    return false;
+                KeyCode td_code = 0;
+                if (!wordToKeyCode(val_part, td_code, err_msg)) {
+                    return false;
+                }
+                has_pending_td = true;
+                pending_td_indent = current_indent;
+                pending_td.key = td_code;
+                pending_td.timeout_us = 0;
+                continue;
+            }
+
+            // Check if this is a sub-property of pending_td
+            if (has_pending_td && current_indent > pending_td_indent) {
+                if (key_part == "tap" || key_part == "single_tap" || key_part == "1") {
+                    if (!parseTapDanceAction(val_part, pending_td.tap, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "double_tap" || key_part == "2") {
+                    if (!parseTapDanceAction(val_part, pending_td.double_tap, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "triple_tap" || key_part == "3") {
+                    if (!parseTapDanceAction(val_part, pending_td.triple_tap, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "hold" || key_part == "single_hold") {
+                    if (!parseTapDanceAction(val_part, pending_td.hold, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "double_hold") {
+                    if (!parseTapDanceAction(val_part, pending_td.double_hold, err_msg)) {
+                        return false;
+                    }
+                } else if (key_part == "timeout_ms" || key_part == "timeout") {
+                    if (!parseDurationMicros(val_part, pending_td.timeout_us)) {
+                        err_msg = "invalid timeout value: " + val_part;
+                        return false;
+                    }
+                    if (pending_td.timeout_us <= 0) {
+                        err_msg = "timeout_ms must be positive: " + val_part;
+                        return false;
+                    }
+                } else {
+                    err_msg = "unknown tap_dance property: " + key_part;
+                    return false;
+                }
+                continue;
+            }
+
+            // New key under tap_dance
+            if (!flush_pending_td())
+                return false;
+
+            KeyCode td_code = 0;
+            if (!wordToKeyCode(key_part, td_code, err_msg)) {
+                return false;
+            }
+
+            if (val_part.empty()) {
+                // Multi-line property block, e.g. "capslock:"
+                has_pending_td = true;
+                pending_td_indent = current_indent;
+                pending_td.key = td_code;
+                pending_td.timeout_us = 0;
+            } else {
+                std::map<std::string, std::string> inline_fields;
+                if (parseInlineDictFields(val_part, inline_fields)) {
+                    TapDance td;
+                    td.key = td_code;
+                    td.timeout_us = 0;
+                    for (const auto& kv : inline_fields) {
+                        const std::string& k = kv.first;
+                        const std::string& v = kv.second;
+                        if (k == "tap" || k == "single_tap" || k == "1") {
+                            if (!parseTapDanceAction(v, td.tap, err_msg))
+                                return false;
+                        } else if (k == "double_tap" || k == "2") {
+                            if (!parseTapDanceAction(v, td.double_tap, err_msg))
+                                return false;
+                        } else if (k == "triple_tap" || k == "3") {
+                            if (!parseTapDanceAction(v, td.triple_tap, err_msg))
+                                return false;
+                        } else if (k == "hold" || k == "single_hold") {
+                            if (!parseTapDanceAction(v, td.hold, err_msg))
+                                return false;
+                        } else if (k == "double_hold") {
+                            if (!parseTapDanceAction(v, td.double_hold, err_msg))
+                                return false;
+                        } else if (k == "timeout_ms" || k == "timeout") {
+                            if (!parseDurationMicros(v, td.timeout_us)) {
+                                err_msg = "invalid timeout value: " + v;
+                                return false;
+                            }
+                            if (td.timeout_us <= 0) {
+                                err_msg = "timeout_ms must be positive: " + v;
+                                return false;
+                            }
+                        } else {
+                            err_msg = "unknown tap_dance property: " + k;
+                            return false;
+                        }
+                    }
+                    if (td.tap.empty() && td.hold.empty() && td.double_tap.empty() &&
+                        td.double_hold.empty() && td.triple_tap.empty()) {
+                        err_msg =
+                            "tap_dance definition requires at least one action (tap, double_tap, "
+                            "hold, triple_tap)";
+                        return false;
+                    }
+                    config.tap_dances.push_back(td);
+                } else if (!val_part.empty() && val_part.front() == '[' && val_part.back() == ']') {
+                    std::string clean_val = val_part.substr(1, val_part.size() - 2);
+                    std::vector<std::string> parts;
+                    if (clean_val.find(',') != std::string::npos) {
+                        auto raw_parts = split(clean_val, ',');
+                        for (const auto& p : raw_parts) {
+                            std::string w = trim(p);
+                            if (!w.empty())
+                                parts.push_back(w);
+                        }
+                    } else {
+                        parts = fields(clean_val);
+                    }
+                    if (parts.empty()) {
+                        err_msg = "empty list in tap_dance is not allowed";
+                        return false;
+                    }
+                    TapDance td;
+                    td.key = td_code;
+                    td.timeout_us = 0;
+                    int64_t dur_us = 0;
+                    if (parts.size() >= 1) {
+                        if (!parseTapDanceAction(parts[0], td.tap, err_msg))
+                            return false;
+                    }
+                    if (parts.size() >= 2) {
+                        if (parseDurationMicros(parts[1], dur_us) && dur_us > 0) {
+                            td.timeout_us = dur_us;
+                        } else {
+                            if (!parseTapDanceAction(parts[1], td.double_tap, err_msg))
+                                return false;
+                        }
+                    }
+                    if (parts.size() >= 3) {
+                        if (parseDurationMicros(parts[2], dur_us) && dur_us > 0) {
+                            td.timeout_us = dur_us;
+                        } else {
+                            if (!parseTapDanceAction(parts[2], td.hold, err_msg))
+                                return false;
+                        }
+                    }
+                    if (parts.size() >= 4) {
+                        if (parseDurationMicros(parts[3], dur_us) && dur_us > 0) {
+                            td.timeout_us = dur_us;
+                        } else {
+                            if (!parseTapDanceAction(parts[3], td.triple_tap, err_msg))
+                                return false;
+                        }
+                    }
+                    if (parts.size() >= 5) {
+                        if (parseDurationMicros(parts[4], dur_us) && dur_us > 0) {
+                            td.timeout_us = dur_us;
+                        }
+                    }
+                    config.tap_dances.push_back(td);
+                } else {
+                    TapDanceAction act;
+                    if (!parseTapDanceAction(val_part, act, err_msg)) {
+                        return false;
+                    }
+                    TapDance td;
+                    td.key = td_code;
+                    td.tap = act;
+                    config.tap_dances.push_back(td);
+                }
+            }
+            continue;
+        }
+
         if (!in_combos)
             continue;
 
@@ -2439,6 +2898,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return false;
     if (!flush_pending_lseq())
         return false;
+    if (!flush_pending_td())
+        return false;
 
     if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer &&
         !has_mouse) {
@@ -2448,7 +2909,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
 
     if (!has_combos_tag && !has_tap_hold_tag && !has_layers_tag && !has_one_shot_tag &&
         !has_leader_tag && !has_auto_shift_tag && !has_mouse_tag && !has_settings_tag &&
-        !yaml_str.empty()) {
+        !has_tap_dance_tag && !yaml_str.empty()) {
         err_msg = "missing combos section";
         return false;
     }
@@ -2697,6 +3158,114 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (th.timeout_us <= 0) {
             th.timeout_us = config.settings.tap_hold_timeout_ms * 1000LL;
         }
+    }
+
+    std::vector<KeyCode> seen_tap_dance;
+    for (auto& td : config.tap_dances) {
+        if (std::find(seen_tap_dance.begin(), seen_tap_dance.end(), td.key) !=
+            seen_tap_dance.end()) {
+            err_msg = "duplicate tap_dance key: " + keyCodeToWord(td.key);
+            return false;
+        }
+        seen_tap_dance.push_back(td.key);
+
+        if (td.tap.empty() && td.hold.empty() && td.double_tap.empty() && td.double_hold.empty() &&
+            td.triple_tap.empty()) {
+            err_msg =
+                "tap_dance definition requires at least one action (tap, double_tap, hold, "
+                "triple_tap)";
+            return false;
+        }
+
+        if (td.timeout_us < 0) {
+            err_msg = "tap_dance timeout_ms must be positive";
+            return false;
+        }
+        if (td.timeout_us == 0) {
+            td.timeout_us = config.settings.tap_hold_timeout_ms * 1000LL;
+        }
+
+        for (const auto& th : config.tap_hold_keys) {
+            if (th.key == td.key) {
+                err_msg = "key '" + keyCodeToWord(td.key) +
+                          "' cannot be used in both tap_hold and tap_dance";
+                return false;
+            }
+        }
+        for (const auto& combo : config.combos) {
+            for (KeyCode k : combo.keys) {
+                if (k == td.key) {
+                    err_msg = "key '" + keyCodeToWord(td.key) +
+                              "' cannot be used in both combos and tap_dance";
+                    return false;
+                }
+            }
+        }
+        for (const auto& osk : config.one_shot_keys) {
+            if (osk.key == td.key) {
+                err_msg = "key '" + keyCodeToWord(td.key) +
+                          "' cannot be used in both one_shot and tap_dance";
+                return false;
+            }
+        }
+        if (config.leader.key != 0 && config.leader.key == td.key) {
+            err_msg =
+                "key '" + keyCodeToWord(td.key) + "' cannot be used in both leader and tap_dance";
+            return false;
+        }
+
+        auto validate_td_action = [&](const TapDanceAction& act) -> bool {
+            if (!act.layer.empty()) {
+                bool found = false;
+                for (const auto& lyr : config.layers) {
+                    if (lyr.name == act.layer) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    err_msg = "unknown layer '" + act.layer + "' referenced in tap_dance";
+                    return false;
+                }
+            }
+            if (!act.toggle_layer.empty()) {
+                bool found = false;
+                for (const auto& lyr : config.layers) {
+                    if (lyr.name == act.toggle_layer) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    err_msg = "unknown layer '" + act.toggle_layer +
+                              "' referenced in tap_dance toggle_layer";
+                    return false;
+                }
+            }
+            if (!act.text.empty()) {
+                for (char ch : act.text) {
+                    KeyCode kc = 0;
+                    bool shift = false;
+                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                        err_msg = "unsupported character in tap_dance text snippet: '" +
+                                  std::string(1, ch) + "'";
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+
+        if (!validate_td_action(td.tap))
+            return false;
+        if (!validate_td_action(td.hold))
+            return false;
+        if (!validate_td_action(td.double_tap))
+            return false;
+        if (!validate_td_action(td.double_hold))
+            return false;
+        if (!validate_td_action(td.triple_tap))
+            return false;
     }
 
     return true;

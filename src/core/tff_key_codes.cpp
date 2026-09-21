@@ -584,11 +584,21 @@ struct KeyTable {
         // Friendly name aliases
         add_alias("ctrl", "leftctrl");
         add_alias("control", "leftctrl");
+        add_alias("lctrl", "leftctrl");
+        add_alias("rctrl", "rightctrl");
         add_alias("shift", "leftshift");
+        add_alias("lshift", "leftshift");
+        add_alias("rshift", "rightshift");
         add_alias("alt", "leftalt");
+        add_alias("lalt", "leftalt");
+        add_alias("ralt", "rightalt");
         add_alias("super", "leftmeta");
+        add_alias("lsuper", "leftmeta");
+        add_alias("rsuper", "rightmeta");
         add_alias("win", "leftmeta");
         add_alias("meta", "leftmeta");
+        add_alias("lmeta", "leftmeta");
+        add_alias("rmeta", "rightmeta");
         add_alias("windows", "leftmeta");
         add_alias("escape", "esc");
         add_alias("del", "delete");

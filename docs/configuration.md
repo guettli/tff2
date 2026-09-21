@@ -415,6 +415,87 @@ tap_hold:
 - One-shot layers referenced in `one_shot` or `osl(...)` must be defined under `layers:`.
 - Modifiers in `one_shot` or `osm(...)` must be valid modifier keys (`shift`, `ctrl`, `alt`, `super`, etc.).
 
+## Tap Dance (Multi-Tap and Tap-Hold Variations on a Single Key)
+
+Tap Dance allows a single physical key to perform multiple distinct actions depending on whether it is tapped once, double-tapped, held down, double-tapped and held, or triple-tapped. This maximizes ergonomics and reduces finger travel on compact keyboards.
+
+### Supported Actions on a Single Key
+
+Each Tap Dance key can define any subset of the following actions:
+- **`tap`**: Triggered on a single tap (key pressed and released once).
+- **`double_tap`**: Triggered on a double tap (two rapid taps within the timeout window).
+- **`hold`**: Triggered when the key is held down on the first tap longer than the timeout, or when another key is pressed while held (permissive hold).
+- **`double_hold`**: Triggered when the key is tapped once and then held down on the second press.
+- **`triple_tap`**: Triggered on three rapid taps.
+- **`timeout_ms`** (or `timeout`): Multi-tap detection window in milliseconds (default: `200ms`). Supports suffixes like `180ms`, `0.2s`, or bare numbers `200`.
+
+### Fast Commit Optimization
+
+If a Tap Dance definition only specifies a single tap (and optionally a hold, but no `double_tap`, `double_hold`, or `triple_tap`), releasing the key commits the single tap **immediately** on key release without waiting for the timeout to elapse. This ensures zero latency during normal typing!
+
+### Supported Target Actions
+
+Tap Dance actions support full action polymorphism:
+- **Key chords**: `esc`, `ctrl+c`, `super+shift+q`
+- **Modal Layers**: `layer(nav)`, `layer: nav` (momentary activation while held)
+- **Toggle Layers**: `toggle_layer(numpad)`, `tg(numpad)`, `{ toggle_layer: numpad }`
+- **Text Snippets**: `text "console.log();"`, `text: ":wq\n"`
+- **Mouse Keys**: `mouse_btn_left`, `mouse_wheel_up`
+
+### Syntax Formats
+
+#### 1. Verbose Property Block (Recommended)
+
+```yaml
+tap_dance:
+  # CapsLock: Tap = Escape, Double-tap = CapsLock toggle, Hold = Ctrl, Double-tap-hold = Right Ctrl, Triple-tap = macro
+  capslock:
+    tap: esc
+    double_tap: capslock
+    hold: lctrl
+    double_hold: rctrl
+    triple_tap: text "DONE"
+    timeout_ms: 220
+
+  # Semicolon: Tap = Semicolon, Hold = Momentary Navigation Layer
+  semicolon:
+    tap: semicolon
+    hold: layer(nav)
+```
+
+#### 2. Compact Inline Dictionary
+
+```yaml
+tap_dance:
+  tab: { tap: tab, double_tap: tg(nav) }
+  grave: { tap: grave, double_tap: esc, hold: lalt }
+```
+
+#### 3. Compact List Syntax
+
+```yaml
+tap_dance:
+  # [tap, double_tap, timeout] or [tap, double_tap, hold, timeout]
+  tab: [tab, esc, lctrl, 180ms]
+  grave: [grave, esc, 150]
+```
+
+#### 4. Classic List Format
+
+```yaml
+tap_dance:
+  - key: capslock
+    tap: esc
+    hold: lctrl
+    timeout_ms: 200
+```
+
+### Validation Rules
+- Tap dance keys cannot overlap with combo keys, dual-role `tap_hold` keys, one-shot keys, or dedicated leader keys.
+- At least one action (`tap`, `double_tap`, `hold`, `double_hold`, or `triple_tap`) must be defined.
+- Referenced layers must be defined under `layers:`.
+- `timeout_ms` must be positive.
+
 ## Sequential Leader Key Sequences (Mnemonic Shortcuts)
 
 Sequential Leader key sequences allow you to trigger complex commands, hotkeys, or multi-character text snippets by pressing a leader key, followed by a sequence of mnemonic keys typed one after another (Vim and Emacs style).

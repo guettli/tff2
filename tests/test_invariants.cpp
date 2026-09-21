@@ -404,6 +404,20 @@ static void test_invariant_reset_and_finish() {
     engine.finish();
     writer.assertZeroStuckKeys("finish() with active tap-hold");
 
+    // Scenario D: Tap-dance key held -> call finish()
+    writer.clear();
+    TapDance td;
+    td.key = Keys::KEY_A;
+    td.tap.out_keys = {Keys::KEY_A};
+    td.hold.out_keys = {Keys::KEY_LEFTCTRL};
+    td.timeout_us = 200000LL;
+    engine.setTapDances({td});
+    engine.processEvent(Event{TimeVal::fromMicros(50000), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    engine.onTimer(TimeVal::fromMicros(300000));
+    assert(writer.hasStuckKeys());  // LEFTCTRL is held
+    engine.finish();
+    writer.assertZeroStuckKeys("finish() with active tap-dance hold");
+
     std::cout << "  [PASS] Reset and finish clean release invariant" << std::endl;
 }
 
