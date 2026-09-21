@@ -263,8 +263,8 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s), "
-                  << config.tap_hold_keys.size() << " tap-hold key(s), "
-                  << config.one_shot_keys.size() << " one-shot key(s), "
+                  << config.tap_hold_keys.size() << " tap-hold key(s), " << config.tap_dances.size()
+                  << " tap-dance key(s), " << config.one_shot_keys.size() << " one-shot key(s), "
                   << config.leader.sequences.size() << " leader sequence(s), "
                   << (config.auto_shift.enabled
                           ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) +
@@ -422,6 +422,7 @@ int main(int argc, char* argv[]) {
     const auto& engine = platform.getEngine();
     std::cout << "Loaded " << engine.getCombos().size() << " combo(s), "
               << engine.getTapHoldKeys().size() << " tap-hold key(s), "
+              << engine.getTapDances().size() << " tap-dance key(s), "
               << engine.getOneShotKeys().size() << " one-shot key(s), "
               << engine.getLeaderConfig().sequences.size() << " leader sequence(s), "
               << engine.getLayers().size()

@@ -249,6 +249,41 @@ layers:
 
 ---
 
+## Recipe 10: Multi-Tap and Tap-Hold Dance (Tap Dance)
+
+**Goal:** Transform CapsLock into the ultimate multi-purpose key without sacrificing any functionality:
+- **Single tap:** Escape (`esc`) - optimal for Vim users.
+- **Double tap:** Real CapsLock (`capslock`) toggle.
+- **Hold:** Control (`lctrl`) for standard shortcuts.
+- **Double tap & hold:** Right Control (`rctrl`).
+- **Triple tap:** Multi-character macro expansion (`text "DONE"`).
+
+```yaml
+tap_dance:
+  capslock:
+    tap: esc
+    double_tap: capslock
+    hold: lctrl
+    double_hold: rctrl
+    triple_tap: text "DONE"
+    timeout_ms: 220
+
+  # Semicolon: Tap = Semicolon, Double tap = Colon, Hold = Momentary Navigation Layer
+  semicolon:
+    tap: semicolon
+    double_tap: text ":"
+    hold: layer(nav)
+
+layers:
+  nav:
+    h: left
+    j: down
+    k: up
+    l: right
+```
+
+---
+
 ## See Also
 
 - [Configuration Guide](configuration.md) - Full syntax reference and configuration options

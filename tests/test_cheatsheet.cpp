@@ -15,16 +15,14 @@ static void test_empty_config() {
 
     std::string out = Cheatsheet::generate(config, opts);
     assert(out.find("TEN FLYING FINGERS — CHEAT SHEET") != std::string::npos);
-    assert(
-        out.find("(No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)") !=
-        std::string::npos);
+    assert(out.find("(No combos, tap-hold keys, one-shot keys, tap-dance keys, auto-shift, or "
+                    "layers configured)") != std::string::npos);
 
     opts.markdown = true;
     std::string md = Cheatsheet::generate(config, opts);
     assert(md.find("# Ten Flying Fingers — Cheat Sheet") != std::string::npos);
-    assert(
-        md.find("_No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured._") !=
-        std::string::npos);
+    assert(md.find("_No combos, tap-hold keys, one-shot keys, tap-dance keys, auto-shift, or "
+                   "layers configured._") != std::string::npos);
 
     std::cout << "test_empty_config: PASSED\n";
 }

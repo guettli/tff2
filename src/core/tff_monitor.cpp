@@ -200,7 +200,9 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
                 oss << "\033[35m-> " << tag << "\033[0m";
             } else if (tr->kind == TraceEvent::Kind::TapHoldHold ||
                        tr->kind == TraceEvent::Kind::TapHoldTap ||
-                       tr->kind == TraceEvent::Kind::TapHoldWait) {
+                       tr->kind == TraceEvent::Kind::TapHoldWait ||
+                       tr->kind == TraceEvent::Kind::TapDanceTap ||
+                       tr->kind == TraceEvent::Kind::TapDanceHold) {
                 oss << "\033[36m-> " << tag << "\033[0m";
             } else if (tr->kind == TraceEvent::Kind::AutoShiftHold ||
                        tr->kind == TraceEvent::Kind::AutoShiftTap) {

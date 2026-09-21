@@ -141,6 +141,15 @@ void LinuxPlatform::setTapHoldKeys(const std::vector<tff::TapHoldKey>& keys) {
     }
 }
 
+void LinuxPlatform::setTapDances(const std::vector<tff::TapDance>& tap_dances) {
+    if (!initialized_) {
+        initialize();
+    }
+    if (engine_) {
+        engine_->setTapDances(tap_dances);
+    }
+}
+
 void LinuxPlatform::setOneShotKeys(const std::vector<tff::OneShotKey>& keys) {
     if (!initialized_) {
         initialize();
@@ -199,6 +208,7 @@ void LinuxPlatform::setSettings(const tff::Settings& settings) {
 void LinuxPlatform::setConfig(const tff::Config& config) {
     setCombos(config.combos);
     setTapHoldKeys(config.tap_hold_keys);
+    setTapDances(config.tap_dances);
     setOneShotKeys(config.one_shot_keys);
     setLayers(config.layers);
     setLeaderConfig(config.leader);
@@ -278,7 +288,8 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
     setConfig(config);
     std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved << " ("
               << config.combos.size() << " combo(s), " << config.tap_hold_keys.size()
-              << " tap-hold key(s), " << config.one_shot_keys.size() << " one-shot key(s), "
+              << " tap-hold key(s), " << config.tap_dances.size() << " tap-dance key(s), "
+              << config.one_shot_keys.size() << " one-shot key(s), "
               << config.leader.sequences.size() << " leader sequence(s), "
               << (config.auto_shift.enabled ? std::to_string(config.auto_shift.keys.size()) : "0")
               << " auto-shift key(s), " << config.layers.size() << " layer(s) active)\n";

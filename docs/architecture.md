@@ -292,6 +292,31 @@ sequenceDiagram
 
 ---
 
+### 3.7 Tap Dance Multi-Tap and Tap-Hold Variations
+
+Tap Dance uses a stage state machine (`IDLE` -> `WAITING_FOR_RELEASE` -> `WAITING_FOR_NEXT_TAP` / `HELD`) with timer-assisted evaluation and fast-commit optimizations:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Engine as TFFEngine
+    participant Virtual as /dev/uinput
+
+    Note over User,Virtual: Scenario: Double-tap on 'tab' key (tap: tab, double_tap: tg(nav))
+    User->>Engine: Press 'tab' (Down) at t=100ms
+    Note over Engine: stage = WAITING_FOR_RELEASE; tap_count = 1
+    User->>Engine: Release 'tab' (Up) at t=130ms
+    Note over Engine: Can tap more -> stage = WAITING_FOR_NEXT_TAP; timer set for t=330ms
+    User->>Engine: Press 'tab' (Down) at t=210ms
+    Note over Engine: stage = WAITING_FOR_RELEASE; tap_count = 2
+    User->>Engine: Release 'tab' (Up) at t=240ms
+    Note over Engine: No triple_tap configured -> stage = IDLE; commit double-tap!
+    Engine->>Virtual: toggleLayer("nav")
+```
+
+---
+
 ## 4. Architectural Invariants & Resilience Guarantees
 
 | Invariant | Implementation Mechanism | Verification Test |

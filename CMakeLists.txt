@@ -236,6 +236,11 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_invariants tff_core)
 
+    add_executable(test_tap_dance
+        tests/test_tap_dance.cpp
+    )
+    target_link_libraries(test_tap_dance tff_core rp2040_platform)
+
     # Enable testing
     enable_testing()
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
@@ -255,6 +260,7 @@ if(NOT PICO_BUILD)
     add_test(NAME test_monitor COMMAND test_monitor)
     add_test(NAME test_udev COMMAND test_udev)
     add_test(NAME test_invariants COMMAND test_invariants)
+    add_test(NAME test_tap_dance COMMAND test_tap_dance)
 
     # Ensure assertions are always active in test executables regardless of build type
     set(TEST_TARGETS
@@ -275,6 +281,7 @@ if(NOT PICO_BUILD)
         test_monitor
         test_udev
         test_invariants
+        test_tap_dance
     )
     foreach(target ${TEST_TARGETS})
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

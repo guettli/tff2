@@ -39,6 +39,8 @@ struct TraceEvent {
         AutoShiftTap,
         AutoShiftHold,
         OneShotArmed,
+        TapDanceTap,
+        TapDanceHold,
         Info
     };
     Kind kind = Kind::Info;
@@ -82,6 +84,10 @@ public:
 
     void setConfig(const Config& config);
     Config getConfig() const;
+
+    void setTapDances(const std::vector<TapDance>& tap_dances) { tap_dances_ = tap_dances; }
+    const std::vector<TapDance>& getTapDances() const { return tap_dances_; }
+    bool isTapDanceKey(KeyCode code) const;
 
     void activateLayer(const std::string& name);
     void deactivateLayer(const std::string& name);
@@ -207,6 +213,32 @@ private:
     AutoShiftConfig auto_shift_;
     MouseConfig mouse_config_;
     Settings settings_;
+
+    enum class TapDanceStage {
+        IDLE,
+        WAITING_FOR_RELEASE,   // Physical key DOWN, waiting for UP or hold timeout
+        WAITING_FOR_NEXT_TAP,  // Physical key UP, waiting for subsequent DOWN or tap timeout
+        HELD                   // Hold action emitted, waiting for physical key UP
+    };
+
+    struct ActiveTapDance {
+        TapDance config;
+        TapDanceStage stage = TapDanceStage::IDLE;
+        int tap_count = 0;
+        TimeVal start_time;
+        TimeVal expire_time;
+        std::vector<KeyCode> held_keys;
+        std::string held_layer;
+        MouseAction held_mouse;
+    };
+
+    std::vector<TapDance> tap_dances_;
+    ActiveTapDance active_tap_dance_;
+
+    const TapDance* findTapDance(KeyCode code) const;
+    void executeTapDanceAction(const TapDanceAction& act, TimeVal time, bool is_hold);
+    void releaseActiveTapDanceHold(TimeVal time);
+
     PendingAutoShift pending_auto_shift_;
     std::vector<HeldAutoShift> auto_shift_held_;
     std::vector<KeyCode> active_modifiers_;

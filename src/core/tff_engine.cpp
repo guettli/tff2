@@ -84,6 +84,7 @@ void TFFEngine::setConfig(const Config& config) {
     setTapHoldKeys(config.tap_hold_keys);
     setLayers(config.layers);
     setOneShotKeys(config.one_shot_keys);
+    setTapDances(config.tap_dances);
     setLeaderConfig(config.leader);
     setAutoShiftConfig(config.auto_shift);
     setMouseConfig(config.mouse);
@@ -96,11 +97,117 @@ Config TFFEngine::getConfig() const {
     cfg.tap_hold_keys = tap_hold_keys_;
     cfg.layers = layers_;
     cfg.one_shot_keys = one_shot_keys_;
+    cfg.tap_dances = tap_dances_;
     cfg.leader = leader_config_;
     cfg.auto_shift = auto_shift_;
     cfg.mouse = mouse_config_;
     cfg.settings = settings_;
     return cfg;
+}
+
+const TapDance* TFFEngine::findTapDance(KeyCode code) const {
+    for (const auto& td : tap_dances_) {
+        if (td.key == code) {
+            return &td;
+        }
+    }
+    return nullptr;
+}
+
+bool TFFEngine::isTapDanceKey(KeyCode code) const {
+    return findTapDance(code) != nullptr;
+}
+
+void TFFEngine::executeTapDanceAction(const TapDanceAction& act, TimeVal time, bool is_hold) {
+    if (act.empty())
+        return;
+
+    if (act.isText()) {
+        trace(TraceEvent::Kind::TapDanceTap, "TAP-DANCE: emit text \"" + act.text + "\"");
+        emitText(act.text, time);
+    } else if (act.isToggleLayer()) {
+        trace(TraceEvent::Kind::TapDanceTap, "TAP-DANCE: toggle layer '" + act.toggle_layer + "'");
+        toggleLayer(act.toggle_layer);
+    } else if (act.isLayer()) {
+        if (is_hold) {
+            trace(TraceEvent::Kind::TapDanceHold, "TAP-DANCE: hold layer '" + act.layer + "'");
+            activateLayer(act.layer);
+            active_tap_dance_.held_layer = act.layer;
+        }
+    } else if (act.isMouse()) {
+        if (act.mouse.isButton()) {
+            KeyCode btn_code = (act.mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+                               : (act.mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+                               : (act.mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+                               : (act.mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                                : Keys::BTN_LEFT;
+            if (is_hold) {
+                trace(TraceEvent::Kind::TapDanceHold, "TAP-DANCE: hold mouse button");
+                writeKey(btn_code, KEY_VAL_DOWN, time);
+                writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>HoldMouseDown");
+                active_tap_dance_.held_mouse = act.mouse;
+            } else {
+                trace(TraceEvent::Kind::TapDanceTap, "TAP-DANCE: tap mouse button");
+                writeKey(btn_code, KEY_VAL_DOWN, time);
+                writeKey(btn_code, KEY_VAL_UP, time);
+                writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>TapMouse");
+            }
+        } else {
+            trace(TraceEvent::Kind::TapDanceTap, "TAP-DANCE: mouse action");
+            emitMouseAction(act.mouse, time);
+        }
+    } else if (act.isKey()) {
+        if (is_hold) {
+            trace(TraceEvent::Kind::TapDanceHold,
+                  "TAP-DANCE: hold key " + keyCodeToWord(act.out_keys.front()));
+            for (KeyCode c : act.out_keys) {
+                writeKey(c, KEY_VAL_DOWN, time);
+            }
+            writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>HoldDown");
+            active_tap_dance_.held_keys = act.out_keys;
+        } else {
+            trace(TraceEvent::Kind::TapDanceTap,
+                  "TAP-DANCE: tap key " + keyCodeToWord(act.out_keys.front()));
+            for (KeyCode c : act.out_keys) {
+                writeKey(c, KEY_VAL_DOWN, time);
+            }
+            writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>TapDown");
+            for (auto it = act.out_keys.rbegin(); it != act.out_keys.rend(); ++it) {
+                writeKey(*it, KEY_VAL_UP, time);
+            }
+            writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>TapUp");
+        }
+    }
+}
+
+void TFFEngine::releaseActiveTapDanceHold(TimeVal time) {
+    if (!active_tap_dance_.held_layer.empty()) {
+        trace(TraceEvent::Kind::TapDanceHold,
+              "TAP-DANCE: release held layer '" + active_tap_dance_.held_layer + "'");
+        deactivateLayer(active_tap_dance_.held_layer);
+        active_tap_dance_.held_layer.clear();
+    }
+    if (!active_tap_dance_.held_keys.empty()) {
+        trace(TraceEvent::Kind::TapDanceHold, "TAP-DANCE: release held keys");
+        for (auto it = active_tap_dance_.held_keys.rbegin();
+             it != active_tap_dance_.held_keys.rend(); ++it) {
+            writeKey(*it, KEY_VAL_UP, time);
+        }
+        writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>ReleaseHold");
+        active_tap_dance_.held_keys.clear();
+    }
+    if (active_tap_dance_.held_mouse.isButton()) {
+        trace(TraceEvent::Kind::TapDanceHold, "TAP-DANCE: release held mouse button");
+        KeyCode btn_code =
+            (active_tap_dance_.held_mouse.type == MouseActionType::BtnRight)    ? Keys::BTN_RIGHT
+            : (active_tap_dance_.held_mouse.type == MouseActionType::BtnMiddle) ? Keys::BTN_MIDDLE
+            : (active_tap_dance_.held_mouse.type == MouseActionType::BtnSide)   ? Keys::BTN_SIDE
+            : (active_tap_dance_.held_mouse.type == MouseActionType::BtnExtra)  ? Keys::BTN_EXTRA
+                                                                                : Keys::BTN_LEFT;
+        writeKey(btn_code, KEY_VAL_UP, time);
+        writeEventDirect(Event{time, EV_SYN, SYN_REPORT, 0}, "TapDance>ReleaseMouseHold");
+        active_tap_dance_.held_mouse = MouseAction{};
+    }
 }
 
 void TFFEngine::emitMouseAction(const MouseAction& action, TimeVal time) {
@@ -354,6 +461,10 @@ bool TFFEngine::hasActiveTimer() const {
     if (fake_active_timer_next_time_ < TimeVal::maxTime()) {
         return true;
     }
+    if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE ||
+        active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+        return true;
+    }
     for (const auto& ath : active_tap_holds_) {
         if (!ath.hold_emitted) {
             return true;
@@ -374,6 +485,12 @@ bool TFFEngine::hasActiveTimer() const {
 
 TimeVal TFFEngine::getActiveTimerTime() const {
     TimeVal earliest = fake_active_timer_next_time_;
+    if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE ||
+        active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+        if (active_tap_dance_.expire_time < earliest) {
+            earliest = active_tap_dance_.expire_time;
+        }
+    }
     for (const auto& ath : active_tap_holds_) {
         if (!ath.hold_emitted) {
             TimeVal th_time = TimeVal::fromMicros(ath.down_time.toMicros() + ath.config.timeout_us);
@@ -405,6 +522,11 @@ TimeVal TFFEngine::getActiveTimerTime() const {
 }
 
 void TFFEngine::reset() {
+    if (active_tap_dance_.stage == TapDanceStage::HELD) {
+        releaseActiveTapDanceHold(TimeVal{});
+    }
+    active_tap_dance_ = ActiveTapDance{};
+
     for (const auto& ath : active_tap_holds_) {
         if (ath.hold_emitted && out_dev_) {
             if (ath.config.hold_key != 0) {
@@ -524,6 +646,118 @@ bool TFFEngine::processEvent(const Event& ev) {
 
     if (leader_active_ && ev.time >= leader_expire_time_) {
         cancelLeader(ev.time);
+    }
+
+    // ------------------------------------------------------------------------
+    // Tap Dance Processing
+    // ------------------------------------------------------------------------
+    if (active_tap_dance_.stage != TapDanceStage::IDLE) {
+        if (ev.code == active_tap_dance_.config.key) {
+            if (ev.value == KEY_VAL_DOWN) {
+                if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+                    active_tap_dance_.tap_count++;
+                    active_tap_dance_.stage = TapDanceStage::WAITING_FOR_RELEASE;
+                    active_tap_dance_.expire_time = TimeVal::fromMicros(
+                        ev.time.toMicros() + active_tap_dance_.config.timeout_us);
+                    trace(
+                        TraceEvent::Kind::TapDanceTap,
+                        "TAP-DANCE: tap " + std::to_string(active_tap_dance_.tap_count) + " down");
+                    return true;
+                } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE ||
+                           active_tap_dance_.stage == TapDanceStage::HELD) {
+                    return true;
+                }
+            } else if (ev.value == KEY_VAL_UP) {
+                if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
+                    bool can_tap_more = false;
+                    if (active_tap_dance_.tap_count == 1) {
+                        can_tap_more = !active_tap_dance_.config.double_tap.empty() ||
+                                       !active_tap_dance_.config.double_hold.empty() ||
+                                       !active_tap_dance_.config.triple_tap.empty();
+                    } else if (active_tap_dance_.tap_count == 2) {
+                        can_tap_more = !active_tap_dance_.config.triple_tap.empty();
+                    }
+
+                    if (!can_tap_more) {
+                        if (active_tap_dance_.tap_count == 1) {
+                            executeTapDanceAction(active_tap_dance_.config.tap, ev.time, false);
+                        } else if (active_tap_dance_.tap_count == 2) {
+                            executeTapDanceAction(active_tap_dance_.config.double_tap, ev.time,
+                                                  false);
+                        } else if (active_tap_dance_.tap_count >= 3) {
+                            executeTapDanceAction(active_tap_dance_.config.triple_tap, ev.time,
+                                                  false);
+                        }
+                        active_tap_dance_.stage = TapDanceStage::IDLE;
+                    } else {
+                        active_tap_dance_.stage = TapDanceStage::WAITING_FOR_NEXT_TAP;
+                        active_tap_dance_.expire_time = TimeVal::fromMicros(
+                            ev.time.toMicros() + active_tap_dance_.config.timeout_us);
+                    }
+                    return true;
+                } else if (active_tap_dance_.stage == TapDanceStage::HELD) {
+                    releaseActiveTapDanceHold(ev.time);
+                    active_tap_dance_.stage = TapDanceStage::IDLE;
+                    return true;
+                } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+                    return true;
+                }
+            }
+        } else {
+            // Another key pressed while tap dance is active!
+            if (ev.value == KEY_VAL_DOWN) {
+                if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
+                    // Interruption while key physically down (permissive hold)
+                    if (active_tap_dance_.tap_count == 1 &&
+                        !active_tap_dance_.config.hold.empty()) {
+                        executeTapDanceAction(active_tap_dance_.config.hold, ev.time, true);
+                        active_tap_dance_.stage = TapDanceStage::HELD;
+                    } else if (active_tap_dance_.tap_count == 2 &&
+                               !active_tap_dance_.config.double_hold.empty()) {
+                        executeTapDanceAction(active_tap_dance_.config.double_hold, ev.time, true);
+                        active_tap_dance_.stage = TapDanceStage::HELD;
+                    } else {
+                        if (active_tap_dance_.tap_count == 1) {
+                            executeTapDanceAction(active_tap_dance_.config.tap, ev.time, false);
+                        } else if (active_tap_dance_.tap_count == 2) {
+                            executeTapDanceAction(active_tap_dance_.config.double_tap, ev.time,
+                                                  false);
+                        }
+                        active_tap_dance_.stage = TapDanceStage::IDLE;
+                    }
+                } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+                    // Interruption while waiting for next tap: commit immediately
+                    if (active_tap_dance_.tap_count == 1) {
+                        executeTapDanceAction(active_tap_dance_.config.tap, ev.time, false);
+                    } else if (active_tap_dance_.tap_count == 2) {
+                        executeTapDanceAction(active_tap_dance_.config.double_tap, ev.time, false);
+                    } else if (active_tap_dance_.tap_count >= 3) {
+                        executeTapDanceAction(active_tap_dance_.config.triple_tap, ev.time, false);
+                    }
+                    active_tap_dance_.stage = TapDanceStage::IDLE;
+                }
+            }
+        }
+    } else {
+        const TapDance* td = findTapDance(ev.code);
+        if (td != nullptr) {
+            if (ev.value == KEY_VAL_DOWN) {
+                active_tap_dance_.config = *td;
+                active_tap_dance_.stage = TapDanceStage::WAITING_FOR_RELEASE;
+                active_tap_dance_.tap_count = 1;
+                active_tap_dance_.start_time = ev.time;
+                active_tap_dance_.expire_time =
+                    TimeVal::fromMicros(ev.time.toMicros() + td->timeout_us);
+                active_tap_dance_.held_keys.clear();
+                active_tap_dance_.held_layer.clear();
+                active_tap_dance_.held_mouse = MouseAction{};
+                trace(TraceEvent::Kind::TapDanceTap,
+                      "TAP-DANCE: start " + keyCodeToWord(ev.code) + " tap 1");
+                return true;
+            } else if (ev.value == KEY_VAL_UP) {
+                return true;
+            }
+        }
     }
 
     // Check if this key is configured as a tap-hold key or one-shot key
@@ -887,6 +1121,19 @@ void TFFEngine::finish() {
     active_modifiers_.clear();
     physical_keys_down_.clear();
     swallow_keys_.clear();
+
+    if (active_tap_dance_.stage == TapDanceStage::HELD) {
+        releaseActiveTapDanceHold(TimeVal{});
+    } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+        if (active_tap_dance_.tap_count == 1) {
+            executeTapDanceAction(active_tap_dance_.config.tap, TimeVal{}, false);
+        } else if (active_tap_dance_.tap_count == 2) {
+            executeTapDanceAction(active_tap_dance_.config.double_tap, TimeVal{}, false);
+        } else if (active_tap_dance_.tap_count >= 3) {
+            executeTapDanceAction(active_tap_dance_.config.triple_tap, TimeVal{}, false);
+        }
+    }
+    active_tap_dance_ = ActiveTapDance{};
 }
 
 void TFFEngine::evictOldestBufferedEvent() {
@@ -923,6 +1170,50 @@ bool TFFEngine::handleUpChar(const Event& ev) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
+    if (active_tap_dance_.stage != TapDanceStage::IDLE && time >= active_tap_dance_.expire_time) {
+        if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
+            if (active_tap_dance_.tap_count == 1) {
+                if (!active_tap_dance_.config.hold.empty()) {
+                    executeTapDanceAction(active_tap_dance_.config.hold,
+                                          active_tap_dance_.expire_time, true);
+                    active_tap_dance_.stage = TapDanceStage::HELD;
+                } else if (!active_tap_dance_.config.tap.empty()) {
+                    executeTapDanceAction(active_tap_dance_.config.tap,
+                                          active_tap_dance_.expire_time, true);
+                    active_tap_dance_.stage = TapDanceStage::HELD;
+                }
+            } else if (active_tap_dance_.tap_count == 2) {
+                if (!active_tap_dance_.config.double_hold.empty()) {
+                    executeTapDanceAction(active_tap_dance_.config.double_hold,
+                                          active_tap_dance_.expire_time, true);
+                    active_tap_dance_.stage = TapDanceStage::HELD;
+                } else if (!active_tap_dance_.config.double_tap.empty()) {
+                    executeTapDanceAction(active_tap_dance_.config.double_tap,
+                                          active_tap_dance_.expire_time, true);
+                    active_tap_dance_.stage = TapDanceStage::HELD;
+                }
+            } else if (active_tap_dance_.tap_count >= 3) {
+                if (!active_tap_dance_.config.triple_tap.empty()) {
+                    executeTapDanceAction(active_tap_dance_.config.triple_tap,
+                                          active_tap_dance_.expire_time, true);
+                    active_tap_dance_.stage = TapDanceStage::HELD;
+                }
+            }
+        } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+            if (active_tap_dance_.tap_count == 1) {
+                executeTapDanceAction(active_tap_dance_.config.tap, active_tap_dance_.expire_time,
+                                      false);
+            } else if (active_tap_dance_.tap_count == 2) {
+                executeTapDanceAction(active_tap_dance_.config.double_tap,
+                                      active_tap_dance_.expire_time, false);
+            } else if (active_tap_dance_.tap_count >= 3) {
+                executeTapDanceAction(active_tap_dance_.config.triple_tap,
+                                      active_tap_dance_.expire_time, false);
+            }
+            active_tap_dance_.stage = TapDanceStage::IDLE;
+        }
+    }
+
     if (auto_shift_.enabled && pending_auto_shift_.key != 0 &&
         !pending_auto_shift_.shifted_emitted) {
         if (time >= pending_auto_shift_.expire_time) {

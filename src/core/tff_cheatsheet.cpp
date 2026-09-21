@@ -88,6 +88,45 @@ std::string formatOutputAction(const std::vector<KeyCode>& out_keys, const std::
     return out;
 }
 
+std::string formatTapDanceAction(const TapDanceAction& act) {
+    if (act.empty())
+        return "-";
+    if (act.mouse.type != MouseActionType::None) {
+        return mouseActionToWord(act.mouse);
+    }
+    if (!act.toggle_layer.empty()) {
+        return "toggle_layer(" + act.toggle_layer + ")";
+    }
+    if (!act.layer.empty()) {
+        return "layer(" + act.layer + ")";
+    }
+    if (!act.text.empty()) {
+        std::string escaped;
+        for (char c : act.text) {
+            if (c == '\n')
+                escaped += "\\n";
+            else if (c == '\t')
+                escaped += "\\t";
+            else if (c == '\r')
+                escaped += "\\r";
+            else if (c == '"')
+                escaped += "\\\"";
+            else
+                escaped += c;
+        }
+        return "\"" + escaped + "\"";
+    }
+    if (act.out_keys.empty())
+        return "(none)";
+    std::string out;
+    for (size_t i = 0; i < act.out_keys.size(); ++i) {
+        if (i > 0)
+            out += " + ";
+        out += Cheatsheet::formatKey(act.out_keys[i]);
+    }
+    return out;
+}
+
 void printRow(std::ostream& os, const std::string& prefix,
               const std::vector<std::pair<std::string, size_t>>& cells_plain,
               const std::vector<std::string>& cells_colored) {
@@ -185,6 +224,30 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                     !osk.layer.empty() ? "One-Shot Layer (OSL)" : "One-Shot Modifier (OSM)";
                 ss << "| " << formatMarkdownCode(formatKey(osk.key)) << " | " << target << " | "
                    << type << " | " << (osk.timeout_us / 1000) << "ms |\n";
+            }
+            ss << "\n";
+        }
+
+        // Tap Dance Keys
+        if (!config.tap_dances.empty()) {
+            ss << "## Tap Dance Keys (Multi-Tap & Tap-Hold)\n\n"
+               << "| Key | Single Tap | Double Tap | Hold | Double Hold | Triple Tap | Timeout |\n"
+               << "|:---|:---|:---|:---|:---|:---|:---|\n";
+            for (const auto& td : config.tap_dances) {
+                std::string tap_str = formatTapDanceAction(td.tap);
+                std::string dbl_tap_str = formatTapDanceAction(td.double_tap);
+                std::string hold_str = formatTapDanceAction(td.hold);
+                std::string dbl_hold_str = formatTapDanceAction(td.double_hold);
+                std::string trp_tap_str = formatTapDanceAction(td.triple_tap);
+
+                auto md_code_or_dash = [](const std::string& s) {
+                    return (s == "-") ? "-" : formatMarkdownCode(s);
+                };
+
+                ss << "| " << formatMarkdownCode(formatKey(td.key)) << " | "
+                   << md_code_or_dash(tap_str) << " | " << md_code_or_dash(dbl_tap_str) << " | "
+                   << md_code_or_dash(hold_str) << " | " << md_code_or_dash(dbl_hold_str) << " | "
+                   << md_code_or_dash(trp_tap_str) << " | " << (td.timeout_us / 1000) << "ms |\n";
             }
             ss << "\n";
         }
@@ -313,9 +376,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
         if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
             config.one_shot_keys.empty() && config.leader.sequences.empty() &&
-            !config.auto_shift.enabled) {
-            ss << "_No combos, tap-hold keys, one-shot keys, auto-shift, or layers "
-                  "configured._\n\n";
+            config.tap_dances.empty() && !config.auto_shift.enabled) {
+            ss << "_No combos, tap-hold keys, one-shot keys, tap-dance keys, auto-shift, or "
+                  "layers configured._\n\n";
         }
 
         return ss.str();
@@ -389,6 +452,64 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 ss, "  ",
                 {{plain_key, 16}, {plain_target, 20}, {plain_type, 26}, {plain_timeout, 10}},
                 {cyan(plain_key, col), target_col, dim(plain_type, col), dim(plain_timeout, col)});
+        }
+        ss << "\n";
+    }
+
+    // Tap Dance Keys
+    if (!config.tap_dances.empty()) {
+        ss << bold(blue("[ Tap Dance Keys (Multi-Tap & Tap-Hold) ] (" +
+                            std::to_string(config.tap_dances.size()) + " active)",
+                        col),
+                   col)
+           << "\n\n";
+        printRow(
+            ss, "  ",
+            {{"Key", 12},
+             {"Single Tap", 14},
+             {"Double Tap", 14},
+             {"Hold", 14},
+             {"Double Hold", 14},
+             {"Triple Tap", 14},
+             {"Timeout", 9}},
+            {bold("Key", col), bold("Single Tap", col), bold("Double Tap", col), bold("Hold", col),
+             bold("Double Hold", col), bold("Triple Tap", col), bold("Timeout", col)});
+        ss << "  " << dim(std::string(91, '-'), col) << "\n";
+
+        for (const auto& td : config.tap_dances) {
+            std::string plain_key = formatKey(td.key);
+            std::string plain_tap = formatTapDanceAction(td.tap);
+            std::string plain_dbl_tap = formatTapDanceAction(td.double_tap);
+            std::string plain_hold = formatTapDanceAction(td.hold);
+            std::string plain_dbl_hold = formatTapDanceAction(td.double_hold);
+            std::string plain_trp_tap = formatTapDanceAction(td.triple_tap);
+            std::string plain_timeout = std::to_string(td.timeout_us / 1000) + "ms";
+
+            auto colorize_action = [&](const std::string& s, const TapDanceAction& act) {
+                if (s == "-")
+                    return dim("-", col);
+                if (!act.layer.empty() || !act.toggle_layer.empty())
+                    return magenta(s, col);
+                if (!act.text.empty())
+                    return yellow(s, col);
+                if (act.mouse.type != MouseActionType::None)
+                    return blue(s, col);
+                return green(s, col);
+            };
+
+            printRow(ss, "  ",
+                     {{plain_key, 12},
+                      {plain_tap, 14},
+                      {plain_dbl_tap, 14},
+                      {plain_hold, 14},
+                      {plain_dbl_hold, 14},
+                      {plain_trp_tap, 14},
+                      {plain_timeout, 9}},
+                     {cyan(plain_key, col), colorize_action(plain_tap, td.tap),
+                      colorize_action(plain_dbl_tap, td.double_tap),
+                      colorize_action(plain_hold, td.hold),
+                      colorize_action(plain_dbl_hold, td.double_hold),
+                      colorize_action(plain_trp_tap, td.triple_tap), dim(plain_timeout, col)});
         }
         ss << "\n";
     }
@@ -563,8 +684,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
     if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
         config.one_shot_keys.empty() && config.leader.sequences.empty() &&
-        !config.auto_shift.enabled) {
-        ss << dim("  (No combos, tap-hold keys, one-shot keys, auto-shift, or layers configured)",
+        config.tap_dances.empty() && !config.auto_shift.enabled) {
+        ss << dim("  (No combos, tap-hold keys, one-shot keys, tap-dance keys, auto-shift, or "
+                  "layers configured)",
                   col)
            << "\n\n";
     }

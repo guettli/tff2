@@ -255,11 +255,60 @@ struct Settings {
     bool operator!=(const Settings& o) const { return !(*this == o); }
 };
 
+struct TapDanceAction {
+    std::vector<KeyCode> out_keys;
+    std::string text;
+    std::string layer;         // Layer activated while held (momentary)
+    std::string toggle_layer;  // Layer to toggle on/off
+    MouseAction mouse;
+
+    TapDanceAction() = default;
+    explicit TapDanceAction(std::vector<KeyCode> ok, std::string t = "", std::string l = "",
+                            std::string tl = "", MouseAction m = {})
+        : out_keys(std::move(ok)),
+          text(std::move(t)),
+          layer(std::move(l)),
+          toggle_layer(std::move(tl)),
+          mouse(m) {}
+
+    bool isKey() const { return !out_keys.empty(); }
+    bool isText() const { return !text.empty(); }
+    bool isLayer() const { return !layer.empty(); }
+    bool isToggleLayer() const { return !toggle_layer.empty(); }
+    bool isMouse() const { return mouse.type != MouseActionType::None; }
+    bool empty() const {
+        return out_keys.empty() && text.empty() && layer.empty() && toggle_layer.empty() &&
+               mouse.type == MouseActionType::None;
+    }
+
+    bool operator==(const TapDanceAction& o) const {
+        return out_keys == o.out_keys && text == o.text && layer == o.layer &&
+               toggle_layer == o.toggle_layer && mouse == o.mouse;
+    }
+};
+
+struct TapDance {
+    KeyCode key = 0;                // Intercepted trigger key (e.g. KEY_CAPSLOCK)
+    int64_t timeout_us = 200000LL;  // Multi-tap detection window in us (default 200ms)
+    TapDanceAction tap;             // 1 tap
+    TapDanceAction hold;            // 1 tap held (long press)
+    TapDanceAction double_tap;      // 2 taps
+    TapDanceAction double_hold;     // 2 taps + held
+    TapDanceAction triple_tap;      // 3 taps
+
+    bool operator==(const TapDance& o) const {
+        return key == o.key && timeout_us == o.timeout_us && tap == o.tap && hold == o.hold &&
+               double_tap == o.double_tap && double_hold == o.double_hold &&
+               triple_tap == o.triple_tap;
+    }
+};
+
 struct Config {
     std::vector<Combo> combos;
     std::vector<TapHoldKey> tap_hold_keys;
     std::vector<Layer> layers;
     std::vector<OneShotKey> one_shot_keys;
+    std::vector<TapDance> tap_dances;
     LeaderConfig leader;
     AutoShiftConfig auto_shift;
     MouseConfig mouse;
