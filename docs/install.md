@@ -4,7 +4,35 @@ This guide explains how to install and run **Ten Flying Fingers (TFF)** as a bac
 
 ---
 
-## 1. Binary Installation via mise (Recommended)
+## 1. Debian / Ubuntu Package (.deb) Installation (Recommended)
+
+Official `.deb` packages are provided for Debian, Ubuntu, Linux Mint, Pop!_OS, and other Debian-derived distributions. The package automatically installs the binary, default configuration, udev rules, systemd services, shell autocompletions, and manual page.
+
+```bash
+# Download the latest Debian package
+curl -LO https://github.com/guettli/tff2/releases/latest/download/tff2_amd64.deb
+
+# Install using apt (recommended to auto-resolve dependencies):
+sudo apt install ./tff2_amd64.deb
+
+# Or install using dpkg:
+sudo dpkg -i tff2_amd64.deb
+```
+
+### What is Included in the Debian Package:
+- **Executables**: `/usr/bin/tff_linux` with symlinks `/usr/bin/tff` and `/usr/bin/tff2`
+- **Default Configuration**: `/etc/tff/tff-combos.yaml` (protected conffile)
+- **Udev Permissions**: `/lib/udev/rules.d/99-tff.rules` granting `input` group and active console sessions (`uaccess`) non-root access
+- **Systemd Units**:
+  - System service: `/lib/systemd/system/ten-flying-fingers.service`
+  - User service: `/usr/lib/systemd/user/ten-flying-fingers.service`
+- **Shell Autocompletions**: Bash (`/usr/share/bash-completion/completions/tff`), Zsh (`/usr/share/zsh/site-functions/_tff`), and Fish (`/usr/share/fish/vendor_completions.d/tff.fish`)
+- **Manual Page**: `/usr/share/man/man1/tff.1.gz` (accessible via `man tff`)
+- **Package Triggers**: Automatically executes `udevadm control --reload-rules` and `systemctl daemon-reload` on installation and removal.
+
+---
+
+## 2. Binary Installation via mise
 
 If you use [mise-en-place (mise)](https://mise.jdx.dev/), you can install and manage Ten Flying Fingers without compiling from source:
 
@@ -25,7 +53,7 @@ mise upgrade github:guettli/tff2
 
 ---
 
-## 2. Pre-Built Binary Download (Manual)
+## 3. Pre-Built Binary Download (Manual)
 
 Pre-built binaries with statically linked C++ runtimes (`-static-libgcc -static-libstdc++`) are published on [GitHub Releases](https://github.com/guettli/tff2/releases):
 
@@ -45,7 +73,7 @@ cp tff-combos.yaml ~/.config/tff/tff-combos.yaml
 
 ---
 
-## 3. Quick Installation from Source (install.sh)
+## 4. Quick Installation from Source (install.sh)
 
 If building from source in a cloned repository, use the provided [`install.sh`](../install.sh) script.
 
@@ -69,7 +97,7 @@ Installs the `tff` binary to `~/.local/bin/tff`, configuration to `~/.config/tff
 
 ---
 
-## 4. Shell Autocompletions (Bash, Zsh, Fish)
+## 5. Shell Autocompletions (Bash, Zsh, Fish)
 
 When running `install.sh`, shell autocompletions for `bash`, `zsh`, and `fish` are automatically installed into their respective completion directories:
 - **System-wide (`sudo ./install.sh`)**:
@@ -104,7 +132,7 @@ cp completions/fish/tff.fish ~/.config/fish/completions/
 
 ---
 
-## 5. Managing the Systemd Service
+## 6. Managing the Systemd Service
 
 ### Service Control Commands
 
@@ -121,7 +149,7 @@ cp completions/fish/tff.fish ~/.config/fish/completions/
 
 ---
 
-## 6. Keyboard Device Configuration
+## 7. Keyboard Device Configuration
 
 ### Step 1: Discover Connected Keyboards
 
@@ -164,7 +192,7 @@ TFF supports two modes of keyboard detection:
 
 ---
 
-## 4. Systemd Service File Examples
+## 8. Systemd Service File Examples
 
 ### System-Wide Service (`/etc/systemd/system/ten-flying-fingers.service`)
 
@@ -238,7 +266,7 @@ WantedBy=default.target
 
 ---
 
-## 5. Linux Permissions & Udev Rules
+## 9. Linux Permissions & Udev Rules
 
 TFF needs access to:
 1. `/dev/uinput` to emit virtual keystrokes and mouse movements.
@@ -298,7 +326,7 @@ If you prefer manual setup instead of `tff setup-udev --install`:
 
 ---
 
-## 6. Validating and Customizing Combos
+## 10. Validating and Customizing Combos
 
 ### Validate Configuration
 
@@ -327,7 +355,7 @@ systemctl --user restart ten-flying-fingers
 
 ---
 
-## 7. Troubleshooting
+## 11. Troubleshooting
 
 - **Check if keyboard is grabbed**:
   Run `tff --list` to verify device paths.

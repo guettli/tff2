@@ -1,0 +1,15 @@
+[Unit]
+Description=Ten Flying Fingers (TFF) Keyboard Remapper (User Service)
+Documentation=https://github.com/guettli/tff2 man:tff(1)
+After=graphical-session.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+Nice=-20
+ExecStart=/usr/bin/tff
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=default.target

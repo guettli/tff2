@@ -1,0 +1,17 @@
+Package: tff2
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: Thomas Guettler <guettlimm@thomas-guettler.de>
+Installed-Size: @INSTALLED_SIZE@
+Depends: libc6 (>= 2.31)
+Recommends: udev, systemd
+Provides: tff, tff-linux
+Conflicts: tff (<< 2.0.0)
+Replaces: tff, tff-linux
+Section: utils
+Priority: optional
+Homepage: https://github.com/guettli/tff2
+Description: Ten Flying Fingers (TFF) Keyboard Remapper
+ High-performance userspace and embedded keyboard remapper for Linux evdev
+ and Raspberry Pi Pico RP2040. Supports combos, tap-vs-hold, modal layers,
+ one-shot modifiers, auto-shift, and home-row mouse keys.

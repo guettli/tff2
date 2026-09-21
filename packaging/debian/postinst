@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    # Reload udev rules so newly installed rules take effect immediately
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules || true
+        udevadm trigger --subsystem-match=input || true
+        udevadm trigger --subsystem-match=misc || true
+    fi
+
+    # Reload systemd system daemon if systemd is running
+    if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+        systemctl daemon-reload || true
+    fi
+fi
+
+exit 0

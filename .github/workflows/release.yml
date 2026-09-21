@@ -43,6 +43,7 @@ jobs:
           name: linux-assets
           path: |
             dist/*.tar.gz
+            dist/*.deb
           if-no-files-found: error
 
   build-rp2040:
@@ -134,7 +135,7 @@ jobs:
         run: |
           cd release-assets
           rm -f SHA256SUMS.txt
-          sha256sum *.tar.gz *.uf2 *.elf > SHA256SUMS.txt
+          sha256sum *.tar.gz *.deb *.uf2 *.elf > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Create or Update GitHub Release
