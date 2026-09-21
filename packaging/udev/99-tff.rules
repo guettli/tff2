@@ -1,0 +1,9 @@
+# Ten Flying Fingers (TFF) - User permissions for evdev and uinput
+# Allows members of the 'input' group and active console sessions (uaccess)
+# to access keyboard devices and virtual input injection without sudo/root.
+
+# /dev/uinput: virtual keyboard and mouse event emission
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput", MODE="0660", GROUP="input"
+
+# /dev/input/event*: physical keyboard event grabbing
+KERNEL=="event*", SUBSYSTEM=="input", MODE="0660", GROUP="input"

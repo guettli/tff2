@@ -87,7 +87,12 @@ sequenceDiagram
 - **Systemd Service**: Runs in the background with auto-restart and highest CPU priority (`Nice=-20`)
 
 ```bash
-# Install via mise (recommended for developers / user-level management):
+# Install official Debian / Ubuntu package:
+sudo apt install ./tff2_amd64.deb
+# Or via dpkg:
+sudo dpkg -i tff2_amd64.deb
+
+# Or install via mise (recommended for user-level management):
 mise use -g github:guettli/tff2
 # or using ubi backend:
 mise use -g ubi:guettli/tff2

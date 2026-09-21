@@ -1,0 +1,16 @@
+[Unit]
+Description=Ten Flying Fingers (TFF) Keyboard Remapper
+Documentation=https://github.com/guettli/tff2 man:tff(1)
+After=multi-user.target
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+Nice=-20
+ExecStart=/usr/bin/tff --config /etc/tff/tff-combos.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=default.target

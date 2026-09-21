@@ -335,6 +335,64 @@ void testConfigWatchInotify() {
     std::cout << "PASSED\n";
 }
 
+void testPackagingLayoutAndIntegrity() {
+    std::cout << "Test 11: Packaging layout and configuration files... ";
+
+    // Helper to read entire file (supports running from repo root or build dir)
+    auto readFile = [](const std::string& path) -> std::string {
+        std::ifstream in(path);
+        if (!in.is_open()) {
+            in.open("../" + path);
+        }
+        if (!in.is_open())
+            return "";
+        return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    };
+
+    // 1. Udev rules
+    std::string udev = readFile("packaging/udev/99-tff.rules");
+    assert(!udev.empty());
+    assert(udev.find("KERNEL==\"uinput\"") != std::string::npos);
+    assert(udev.find("GROUP=\"input\"") != std::string::npos);
+    assert(udev.find("TAG+=\"uaccess\"") != std::string::npos);
+
+    // 2. Systemd units
+    std::string sys_unit = readFile("packaging/systemd/system/ten-flying-fingers.service");
+    assert(!sys_unit.empty());
+    assert(sys_unit.find("ExecStart=/usr/bin/tff --config /etc/tff/tff-combos.yaml") !=
+           std::string::npos);
+    assert(sys_unit.find("Restart=always") != std::string::npos);
+
+    std::string user_unit = readFile("packaging/systemd/user/ten-flying-fingers.service");
+    assert(!user_unit.empty());
+    assert(user_unit.find("ExecStart=/usr/bin/tff") != std::string::npos);
+
+    // 3. Debian packaging metadata
+    std::string conffiles = readFile("packaging/debian/conffiles");
+    assert(!conffiles.empty());
+    assert(conffiles.find("/etc/tff/tff-combos.yaml") != std::string::npos);
+
+    std::string postinst = readFile("packaging/debian/postinst");
+    assert(!postinst.empty());
+    assert(postinst.rfind("#!/bin/sh", 0) == 0);
+    assert(postinst.find("udevadm") != std::string::npos);
+    assert(postinst.find("systemctl") != std::string::npos);
+
+    std::string postrm = readFile("packaging/debian/postrm");
+    assert(!postrm.empty());
+    assert(postrm.rfind("#!/bin/sh", 0) == 0);
+    assert(postrm.find("udevadm") != std::string::npos);
+    assert(postrm.find("systemctl") != std::string::npos);
+
+    std::string control_in = readFile("packaging/debian/control.in");
+    assert(!control_in.empty());
+    assert(control_in.find("Package: tff2") != std::string::npos);
+    assert(control_in.find("Provides: tff, tff-linux") != std::string::npos);
+    assert(control_in.find("Depends: libc6 (>= 2.31)") != std::string::npos);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -347,6 +405,7 @@ int main() {
     testConfigHotReloadValid();
     testConfigHotReloadInvalidSyntaxPreservesCurrent();
     testConfigWatchInotify();
+    testPackagingLayoutAndIntegrity();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

@@ -7,7 +7,7 @@ if(PICO_BUILD)
     include(pico_sdk_import.cmake)
 endif()
 
-project(tff_like_remapper VERSION 1.0.0)
+project(tff2 VERSION 2.0.0 LANGUAGES C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -205,10 +205,61 @@ if(NOT PICO_BUILD)
         COMMENT "Creating tff and tff2 symlinks for tff_linux"
     )
 
-    # Installation rules
-    install(TARGETS tff_linux RUNTIME DESTINATION bin)
-    install(FILES config/tff-combos.yaml DESTINATION share/tff)
-    install(FILES ten-flying-fingers.service.example DESTINATION share/tff)
+    # Installation rules using GNUInstallDirs
+    include(GNUInstallDirs)
+    install(TARGETS tff_linux RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES config/tff-combos.yaml DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/tff)
+    install(FILES packaging/udev/99-tff.rules DESTINATION lib/udev/rules.d)
+    install(FILES packaging/systemd/system/ten-flying-fingers.service DESTINATION lib/systemd/system)
+    install(FILES packaging/systemd/user/ten-flying-fingers.service DESTINATION ${CMAKE_INSTALL_DATADIR}/systemd/user)
+    install(FILES completions/bash/tff DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions)
+    install(FILES completions/zsh/_tff DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions)
+    install(FILES completions/fish/tff.fish DESTINATION ${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d)
+    install(FILES docs/man/tff.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+    install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+        install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} RENAME copyright)
+    endif()
+
+    install(CODE "
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff_linux \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/tff\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff_linux \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/tff2\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/bash-completion/completions/tff2\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/bash-completion/completions/tff_linux\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink _tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/zsh/site-functions/_tff2\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink _tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/zsh/site-functions/_tff_linux\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.fish \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d/tff2.fish\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.fish \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d/tff_linux.fish\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.1 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_MANDIR}/man1/tff2.1\")
+        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.1 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_MANDIR}/man1/tff_linux.1\")
+    ")
+
+    # CPack Debian and Tarball packaging configuration
+    set(CPACK_PACKAGE_NAME "tff2")
+    set(CPACK_PACKAGE_VENDOR "Thomas Guettler")
+    set(CPACK_PACKAGE_CONTACT "Thomas Guettler <guettlimm@thomas-guettler.de>")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Ten Flying Fingers (TFF) Keyboard Remapper")
+    set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/guettli/tff2")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+        set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    endif()
+    set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+    set(CPACK_SET_DESTDIR ON)
+
+    # Debian generator specific settings
+    set(CPACK_GENERATOR "DEB;TGZ")
+    set(CPACK_DEBIAN_PACKAGE_NAME "tff2")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+    set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.31)")
+    set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "udev, systemd")
+    set(CPACK_DEBIAN_PACKAGE_PROVIDES "tff, tff-linux")
+    set(CPACK_DEBIAN_PACKAGE_REPLACES "tff, tff-linux")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postrm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/conffiles"
+    )
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+    include(CPack)
 
     # Create Linux platform unit/integration test
     add_executable(test_linux_platform
