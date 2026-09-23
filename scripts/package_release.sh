@@ -238,6 +238,9 @@ if [ -n "${RP2040_UF2_CANDIDATE}" ]; then
     RP2040_ELF_CANDIDATE="${RP2040_UF2_CANDIDATE%.uf2}.elf"
     if [ -f "${RP2040_ELF_CANDIDATE}" ]; then
         cp "${RP2040_ELF_CANDIDATE}" "${DIST_DIR}/tff_rp2040.elf"
+        if [ "${TAG}" != "dev" ]; then
+            cp -P "${DIST_DIR}/tff_rp2040.elf" "${DIST_DIR}/tff_rp2040_${TAG}.elf"
+        fi
     fi
 fi
 

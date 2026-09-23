@@ -141,6 +141,9 @@ jobs:
           if [ -f "tff_rp2040.uf2" ]; then
             cp -P tff_rp2040.uf2 "tff_rp2040_${{ steps.tag.outputs.val }}.uf2"
           fi
+          if [ -f "tff_rp2040.elf" ]; then
+            cp -P tff_rp2040.elf "tff_rp2040_${{ steps.tag.outputs.val }}.elf"
+          fi
 
       - name: Generate SHA256 Checksums
         run: |

@@ -5,7 +5,13 @@
 # ==============================================================================
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 BUILD_DIR="${1:-"${ROOT_DIR}/build-rp2040"}"
@@ -62,7 +68,7 @@ if ! command -v arm-none-eabi-gcc &>/dev/null; then
     echo "To install the required toolchain on Debian / Ubuntu:" >&2
     echo "  sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib" >&2
     echo "Or on macOS (Homebrew):" >&2
-    echo "  brew install armmbed/formulae/arm-none-eabi-gcc" >&2
+    echo "  brew install --cask gcc-arm-embedded" >&2
     fail "ARM GCC toolchain is missing."
 fi
 ARM_GCC_VERSION="$(arm-none-eabi-gcc --version | head -n 1)"
@@ -108,7 +114,7 @@ success "CMake configuration successful"
 
 # 4. Build RP2040 Firmware
 step "Building RP2040 firmware target (tff_rp2040)..."
-cmake --build "${BUILD_DIR}" --target tff_rp2040 -j"$(nproc)"
+cmake --build "${BUILD_DIR}" --target tff_rp2040 --parallel
 success "Firmware compiled successfully"
 
 # 5. Verify Generated Artifacts
@@ -121,7 +127,13 @@ if [ ! -f "${UF2_FILE}" ]; then
 fi
 
 UF2_SIZE="$(stat -c %s "${UF2_FILE}" 2>/dev/null || stat -f %z "${UF2_FILE}")"
-UF2_SHA="$(sha256sum "${UF2_FILE}" | awk '{print $1}')"
+if command -v sha256sum &>/dev/null; then
+    UF2_SHA="$(sha256sum "${UF2_FILE}" | awk '{print $1}')"
+elif command -v shasum &>/dev/null; then
+    UF2_SHA="$(shasum -a 256 "${UF2_FILE}" | awk '{print $1}')"
+else
+    UF2_SHA="unavailable"
+fi
 
 echo -e "\n${COLOR_GREEN}======================================================${COLOR_RESET}"
 echo -e "${COLOR_GREEN}   RP2040 Firmware Built Successfully!               ${COLOR_RESET}"

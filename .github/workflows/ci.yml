@@ -257,10 +257,15 @@ jobs:
           python3 -c "
           import struct
           with open('build-rp2040/tff_rp2040.uf2', 'rb') as f:
-              magic1, magic2 = struct.unpack('<II', f.read(8))
-              assert magic1 == 0x0A324655, f'Invalid UF2 magic start: {hex(magic1)}'
-              assert magic2 == 0x9E5D5157, f'Invalid second magic: {hex(magic2)}'
-          print('UF2 binary magic header (0x0A324655, 0x9E5D5157) verified successfully!')
+              data = f.read()
+          assert len(data) >= 512, f'UF2 file too small: {len(data)} bytes'
+          assert len(data) % 512 == 0, f'UF2 file size not a multiple of 512: {len(data)} bytes'
+          magic1, magic2 = struct.unpack('<II', data[:8])
+          assert magic1 == 0x0A324655, f'Invalid UF2 magic start: {hex(magic1)}'
+          assert magic2 == 0x9E5D5157, f'Invalid second magic: {hex(magic2)}'
+          end_magic = struct.unpack('<I', data[508:512])[0]
+          assert end_magic == 0x0AB16F30, f'Invalid block end magic: {hex(end_magic)}'
+          print(f'UF2 binary verified ({len(data)} bytes, {len(data)//512} blocks): magics {hex(magic1)}, {hex(magic2)}, {hex(end_magic)} valid!')
           "
 
       - name: Upload RP2040 firmware artifacts

@@ -128,6 +128,8 @@ if [[ " $* " =~ " --rp2040 " || " $* " =~ " --all " ]]; then
     if command -v arm-none-eabi-gcc &>/dev/null; then
         bash "${SCRIPT_DIR}/build_rp2040.sh" "build-rp2040"
         success "RP2040 firmware built and verified"
+    elif [[ " $* " =~ " --rp2040 " ]]; then
+        fail "arm-none-eabi-gcc not found on PATH. Required for --rp2040 check."
     else
         echo -e "${COLOR_YELLOW}! arm-none-eabi-gcc not found, skipping RP2040 build${COLOR_RESET}"
     fi
