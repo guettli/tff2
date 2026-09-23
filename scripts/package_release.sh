@@ -216,9 +216,32 @@ echo "==> Verifying Debian package file tree..."
 dpkg-deb -c "${DIST_DIR}/${DEB_FILENAME}"
 
 # If RP2040 uf2 exists, copy it to dist
-if [ -f "${ROOT_DIR}/build-rp2040/tff_rp2040.uf2" ]; then
-    echo "==> Copying RP2040 firmware (.uf2)..."
-    cp "${ROOT_DIR}/build-rp2040/tff_rp2040.uf2" "${DIST_DIR}/tff_rp2040.uf2"
+RP2040_UF2_CANDIDATE=""
+if [ -n "${RP2040_UF2_PATH:-}" ] && [ -f "${RP2040_UF2_PATH}" ]; then
+    RP2040_UF2_CANDIDATE="${RP2040_UF2_PATH}"
+elif [ -f "${ROOT_DIR}/build-rp2040/tff_rp2040.uf2" ]; then
+    RP2040_UF2_CANDIDATE="${ROOT_DIR}/build-rp2040/tff_rp2040.uf2"
+elif [ -f "${BUILD_DIR}/tff_rp2040.uf2" ]; then
+    RP2040_UF2_CANDIDATE="${BUILD_DIR}/tff_rp2040.uf2"
+elif [ -f "${DIST_DIR}/tff_rp2040.uf2" ]; then
+    RP2040_UF2_CANDIDATE="${DIST_DIR}/tff_rp2040.uf2"
+fi
+
+if [ -n "${RP2040_UF2_CANDIDATE}" ]; then
+    echo "==> Packaging RP2040 firmware (.uf2)..."
+    if [ "${RP2040_UF2_CANDIDATE}" != "${DIST_DIR}/tff_rp2040.uf2" ]; then
+        cp "${RP2040_UF2_CANDIDATE}" "${DIST_DIR}/tff_rp2040.uf2"
+    fi
+    if [ "${TAG}" != "dev" ]; then
+        cp -P "${DIST_DIR}/tff_rp2040.uf2" "${DIST_DIR}/tff_rp2040_${TAG}.uf2"
+    fi
+    RP2040_ELF_CANDIDATE="${RP2040_UF2_CANDIDATE%.uf2}.elf"
+    if [ -f "${RP2040_ELF_CANDIDATE}" ]; then
+        cp "${RP2040_ELF_CANDIDATE}" "${DIST_DIR}/tff_rp2040.elf"
+        if [ "${TAG}" != "dev" ]; then
+            cp -P "${DIST_DIR}/tff_rp2040.elf" "${DIST_DIR}/tff_rp2040_${TAG}.elf"
+        fi
+    fi
 fi
 
 # Generate SHA256 checksums
@@ -226,10 +249,11 @@ echo "==> Generating SHA256 checksums..."
 (
     cd "${DIST_DIR}"
     rm -f SHA256SUMS.txt
-    sha256sum *.tar.gz *.deb > SHA256SUMS.txt
-    if [ -f "tff_rp2040.uf2" ]; then
-        sha256sum tff_rp2040.uf2 >> SHA256SUMS.txt
-    fi
+    for f in *.tar.gz *.deb *.uf2 *.elf; do
+        if [ -f "$f" ]; then
+            sha256sum "$f" >> SHA256SUMS.txt
+        fi
+    done
 )
 
 echo "=================================================="

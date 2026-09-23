@@ -216,9 +216,20 @@ jobs:
       - name: Install ARM GCC toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib
+
+      - name: Cache Pico SDK
+        id: cache-pico-sdk
+        uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-2.1.1-tinyusb
 
       - name: Checkout Pico SDK
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: raspberrypi/pico-sdk
@@ -227,26 +238,35 @@ jobs:
           path: pico-sdk
 
       - name: Initialize Pico SDK TinyUSB submodule
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
           cd pico-sdk
           git submodule update --init --depth 1 lib/tinyusb
 
-      - name: Configure CMake for RP2040
+      - name: Build RP2040 Firmware via scripts/build_rp2040.sh
         env:
           PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          PICO_BOARD: adafruit_feather_rp2040
         run: |
-          cmake -B build-rp2040 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPICO_BUILD=ON \
-            -DPICO_BOARD=adafruit_feather_rp2040
+          bash scripts/build_rp2040.sh build-rp2040
 
-      - name: Build RP2040 Firmware
-        run: cmake --build build-rp2040 -j$(nproc)
-
-      - name: Verify firmware binaries
+      - name: Verify UF2 binary structure & magic header
         run: |
-          ls -la build-rp2040/tff_rp2040.uf2
-          ls -la build-rp2040/tff_rp2040.elf
+          test -s build-rp2040/tff_rp2040.uf2
+          test -s build-rp2040/tff_rp2040.elf
+          python3 -c "
+          import struct
+          with open('build-rp2040/tff_rp2040.uf2', 'rb') as f:
+              data = f.read()
+          assert len(data) >= 512, f'UF2 file too small: {len(data)} bytes'
+          assert len(data) % 512 == 0, f'UF2 file size not a multiple of 512: {len(data)} bytes'
+          magic1, magic2 = struct.unpack('<II', data[:8])
+          assert magic1 == 0x0A324655, f'Invalid UF2 magic start: {hex(magic1)}'
+          assert magic2 == 0x9E5D5157, f'Invalid second magic: {hex(magic2)}'
+          end_magic = struct.unpack('<I', data[508:512])[0]
+          assert end_magic == 0x0AB16F30, f'Invalid block end magic: {hex(end_magic)}'
+          print(f'UF2 binary verified ({len(data)} bytes, {len(data)//512} blocks): magics {hex(magic1)}, {hex(magic2)}, {hex(end_magic)} valid!')
+          "
 
       - name: Upload RP2040 firmware artifacts
         uses: actions/upload-artifact@v4

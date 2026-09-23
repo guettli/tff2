@@ -55,19 +55,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Checkout Pico SDK
-        uses: actions/checkout@v4
-        with:
-          repository: raspberrypi/pico-sdk
-          ref: 2.1.1
-          path: pico-sdk
-          submodules: false
-
-      - name: Initialize TinyUSB submodule
-        run: |
-          cd pico-sdk
-          git submodule update --init --depth 1 lib/tinyusb
-
       - name: Install ARM Cross-Compiler Toolchain
         run: |
           sudo apt-get update
@@ -76,17 +63,34 @@ jobs:
             libnewlib-arm-none-eabi \
             libstdc++-arm-none-eabi-newlib
 
-      - name: Configure CMake for RP2040
-        run: |
-          cmake -B build-rp2040 \
-            -DPICO_BUILD=ON \
-            -DPICO_SDK_PATH=${{ github.workspace }}/pico-sdk \
-            -DPICO_BOARD=adafruit_feather_rp2040 \
-            -DCMAKE_BUILD_TYPE=Release
+      - name: Cache Pico SDK
+        id: cache-pico-sdk
+        uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-2.1.1-tinyusb
 
-      - name: Build RP2040 Firmware
+      - name: Checkout Pico SDK
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: raspberrypi/pico-sdk
+          ref: 2.1.1
+          path: pico-sdk
+          submodules: false
+
+      - name: Initialize TinyUSB submodule
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
-          cmake --build build-rp2040 --target tff_rp2040 -j$(nproc)
+          cd pico-sdk
+          git submodule update --init --depth 1 lib/tinyusb
+
+      - name: Build RP2040 Firmware via scripts/build_rp2040.sh
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          PICO_BOARD: adafruit_feather_rp2040
+        run: |
+          bash scripts/build_rp2040.sh build-rp2040
 
       - name: Upload RP2040 firmware asset
         uses: actions/upload-artifact@v4
@@ -130,6 +134,16 @@ jobs:
         with:
           name: rp2040-assets
           path: release-assets
+
+      - name: Prepare tagged firmware copy
+        run: |
+          cd release-assets
+          if [ -f "tff_rp2040.uf2" ]; then
+            cp -P tff_rp2040.uf2 "tff_rp2040_${{ steps.tag.outputs.val }}.uf2"
+          fi
+          if [ -f "tff_rp2040.elf" ]; then
+            cp -P tff_rp2040.elf "tff_rp2040_${{ steps.tag.outputs.val }}.elf"
+          fi
 
       - name: Generate SHA256 Checksums
         run: |

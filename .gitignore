@@ -36,6 +36,7 @@ Makefile
 *.hex
 *.bin
 *.elf
+pico-sdk/
 
 # Specific project build targets (if built outside build/)
 test_key_detector

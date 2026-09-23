@@ -134,10 +134,12 @@ sudo journalctl -u ten-flying-fingers -f
 
 See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, systemd user services, and [Systemd Service Example](ten-flying-fingers.service.example).
 
-### RP2040 Version  
-- **Input**: USB host port reads from connected keyboard
-- **Output**: USB device port presents as keyboard to computer
-- **Development**: Cross-compilation required
+### RP2040 Firmware (Microcontroller Mode)
+- **Zero Host Overhead**: Runs on standalone hardware without any drivers or background services on the host computer.
+- **Input**: Reads physical keyboard reports via USB Host (TinyUSB Host).
+- **Output**: Emits remapped keystrokes, combos, and layers as a standard USB HID keyboard (TinyUSB Device).
+- **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode.
+- See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware setup, wiring, and flashing steps.
 
 ## Configuration
 
@@ -190,23 +192,22 @@ make
 
 ### RP2040 Build
 
-Requires Raspberry Pi Pico SDK:
+Ten Flying Fingers provides an automated cross-compilation script (`./build_rp2040.sh`) that checks the ARM toolchain, automatically fetches Pico SDK v2.1.1 and TinyUSB (if not already installed), and compiles `tff_rp2040.uf2`:
 
 ```bash
-# Set up environment
-export PICO_SDK_PATH=/path/to/pico-sdk
-
-# Use provided build script
+# Automated cross-compilation:
 ./build_rp2040.sh
 
-# Or build manually:
-mkdir build-rp2040
-cd build-rp2040
-cmake .. -DPICO_BUILD=ON
-make
+# Or compile for a specific board:
+PICO_BOARD=pico ./build_rp2040.sh
 ```
 
-The firmware will be generated as a UF2 file that can be flashed to the RP2040 by copying it to the device when in bootloader mode.
+**Flashing via BOOTSEL**:
+1. Hold down the **BOOTSEL** button on your RP2040 board while connecting USB-C to your computer.
+2. Drag and drop `build-rp2040/tff_rp2040.uf2` onto the mounted `RPI-RP2` drive.
+3. The board flashes automatically, unmounts, and boots running Ten Flying Fingers.
+
+See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for SWD debugging and manual CMake options.
 
 ## Testing
 
