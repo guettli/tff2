@@ -58,7 +58,8 @@ combos:
     outKeys: esc
 
   # Triple combo: press d, f, and j together to emit Escape
-  d + f + j: esc
+  - keys: d + f + j
+    outKeys: esc
 
 # Tap vs Hold (Dual-role keys):
 # Short tap on CapsLock emits Escape.

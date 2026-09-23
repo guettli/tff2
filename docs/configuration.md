@@ -226,9 +226,6 @@ tap_hold:
   - key: rightalt
     tap: rightalt
     layer: numpad
-
-  # Or compact inline syntax:
-  tab: [tab, nav, 250]
 ```
 
 ### Key Behaviors
@@ -239,7 +236,7 @@ tap_hold:
 - **Layer Stacking (LIFO)**: If multiple layers are active simultaneously, key lookup resolves from the top of the stack downwards (most recently activated layer has priority).
 - **Dual-Role Tapping**: Tapping Space quickly without pressing another key emits a normal Space keystroke.
 
-### Toggle / Locking Layers (`toggle_layer` / `tg`)
+### Toggle / Locking Layers (`toggle_layer`)
 
 Toggle (or locking) layers allow you to lock a layer in an active state persistently without having to keep any physical key held down. This is ideal for:
 - Entering large amounts of numeric data using a **Numpad** layer.

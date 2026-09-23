@@ -134,29 +134,93 @@
       }
     },
     "tap_hold": {
-      "type": "object",
       "description": "Dual-role keys (tap for one key/action, hold for modifier or momentary layer)",
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "tap": {
-            "type": "string",
-            "description": "Key emitted on tap (or 'leader', 'toggle_layer(name)', 'osm(modifier)', 'osl(layer)')"
-          },
-          "hold": {
-            "type": "string",
-            "description": "Modifier key or modal layer active while held"
-          },
-          "timeout_ms": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 10000,
-            "description": "Hold threshold in milliseconds (defaults to settings.tap_hold_timeout_ms)"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "tap": {
+                "type": "string",
+                "description": "Key emitted on tap (or 'leader', 'toggle_layer(name)', 'osm(modifier)', 'osl(layer)')"
+              },
+              "hold": {
+                "type": "string",
+                "description": "Modifier key or modal layer active while held"
+              },
+              "layer": {
+                "type": "string",
+                "description": "Modal layer active while held"
+              },
+              "hold_layer": {
+                "type": "string",
+                "description": "Modal layer active while held"
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000,
+                "description": "Hold threshold in milliseconds (defaults to settings.tap_hold_timeout_ms)"
+              },
+              "timeout": {
+                "type": ["integer", "string"],
+                "description": "Hold threshold (e.g. 200ms or 200)"
+              }
+            },
+            "required": ["tap"],
+            "anyOf": [
+              { "required": ["hold"] },
+              { "required": ["layer"] },
+              { "required": ["hold_layer"] }
+            ],
+            "additionalProperties": false
           }
         },
-        "required": ["tap", "hold"],
-        "additionalProperties": false
-      }
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Physical trigger key"
+              },
+              "tap": {
+                "type": "string",
+                "description": "Key emitted on tap"
+              },
+              "hold": {
+                "type": "string",
+                "description": "Modifier key or modal layer active while held"
+              },
+              "layer": {
+                "type": "string",
+                "description": "Modal layer active while held"
+              },
+              "hold_layer": {
+                "type": "string",
+                "description": "Modal layer active while held"
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              },
+              "timeout": {
+                "type": ["integer", "string"]
+              }
+            },
+            "required": ["key", "tap"],
+            "anyOf": [
+              { "required": ["hold"] },
+              { "required": ["layer"] },
+              { "required": ["hold_layer"] }
+            ],
+            "additionalProperties": false
+          }
+        }
+      ]
     },
     "tap_dance": {
       "type": "object",
