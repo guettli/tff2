@@ -312,13 +312,9 @@ tap_hold:
 
     Config config;
     std::string err;
-    assert(loadYamlConfig(yaml, config, err));
-    assert(config.tap_hold_keys.size() == 1);
-    assert(config.tap_hold_keys[0].key == Keys::KEY_CAPSLOCK);
-    assert(config.tap_hold_keys[0].tap_key == Keys::KEY_ESC);
-    assert(config.tap_hold_keys[0].hold_key == Keys::KEY_LEFTMETA);
-    assert(config.tap_hold_keys[0].timeout_us == 150000LL);
-    std::cout << "test_parser_inline_bracket: PASSED\n";
+    assert(!loadYamlConfig(yaml, config, err));
+    assert(err.find("compact inline format for tap_hold") != std::string::npos);
+    std::cout << "test_parser_inline_bracket (rejection): PASSED\n";
 }
 
 static void test_parser_validation_errors() {
@@ -358,7 +354,10 @@ tap_hold:
     // Non-positive timeout (zero or negative)
     std::string yaml_zero_timeout = R"(
 tap_hold:
-  capslock: [esc, super, 0]
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: 0
 )";
     assert(!loadYamlConfig(yaml_zero_timeout, config, err));
     assert(!err.empty());
@@ -387,7 +386,9 @@ tap_hold:
     // Conflicting key in both tap_hold and combos
     std::string yaml_conflict = R"(
 tap_hold:
-  capslock: [esc, super]
+  capslock:
+    tap: esc
+    hold: super
 combos:
   capslock h: left
 )";

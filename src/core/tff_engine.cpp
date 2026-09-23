@@ -486,6 +486,9 @@ bool TFFEngine::hasActiveTimer() const {
         !pending_auto_shift_.shifted_emitted) {
         return true;
     }
+    if (esc_hold_active_ && !esc_reset_triggered_) {
+        return true;
+    }
     return false;
 }
 
@@ -524,10 +527,29 @@ TimeVal TFFEngine::getActiveTimerTime() const {
             earliest = pending_auto_shift_.expire_time;
         }
     }
+    if (esc_hold_active_ && !esc_reset_triggered_) {
+        TimeVal esc_expire = TimeVal::fromMicros(esc_down_time_.toMicros() + ESC_RESET_TIMEOUT_US);
+        if (esc_expire < earliest) {
+            earliest = esc_expire;
+        }
+    }
     return earliest;
 }
 
+void TFFEngine::triggerEscReset(TimeVal time) {
+    trace(TraceEvent::Kind::Reset, "EMERGENCY RESET: ESC held 3 seconds; resetting state machine");
+    if (out_dev_) {
+        writeKey(Keys::KEY_ESC, KEY_VAL_UP, time);
+    }
+    reset();
+    esc_reset_triggered_ = true;
+    esc_reset_swallow_release_ = true;
+    esc_hold_active_ = false;
+}
+
 void TFFEngine::reset() {
+    esc_hold_active_ = false;
+    esc_reset_triggered_ = false;
     if (active_tap_dance_.stage == TapDanceStage::HELD) {
         releaseActiveTapDanceHold(TimeVal{});
     }
@@ -607,7 +629,24 @@ bool TFFEngine::processEvent(const Event& ev) {
             // Drop duplicate down events (switch bounce / chatter)
             return true;
         }
+        if (ev.code == Keys::KEY_ESC && physical_keys_down_.size() == 1) {
+            esc_hold_active_ = true;
+            esc_down_time_ = ev.time;
+            esc_reset_triggered_ = false;
+        } else {
+            esc_hold_active_ = false;
+        }
     } else if (ev.value == KEY_VAL_UP) {
+        if (ev.code == Keys::KEY_ESC) {
+            esc_hold_active_ = false;
+            if (esc_reset_swallow_release_) {
+                esc_reset_swallow_release_ = false;
+                physical_keys_down_.erase(Keys::KEY_ESC);
+                return true;
+            }
+        } else {
+            esc_hold_active_ = false;
+        }
         if (physical_keys_down_.erase(ev.code) == 0) {
             // Drop spurious up events for keys not physically down
             return true;
@@ -1130,6 +1169,9 @@ void TFFEngine::finish() {
     active_modifiers_.clear();
     physical_keys_down_.clear();
     swallow_keys_.clear();
+    esc_hold_active_ = false;
+    esc_reset_triggered_ = false;
+    esc_reset_swallow_release_ = false;
 
     if (active_tap_dance_.stage == TapDanceStage::HELD) {
         releaseActiveTapDanceHold(TimeVal{});
@@ -1179,6 +1221,14 @@ bool TFFEngine::handleUpChar(const Event& ev) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
+    if (esc_hold_active_ && !esc_reset_triggered_) {
+        TimeVal esc_expire = TimeVal::fromMicros(esc_down_time_.toMicros() + ESC_RESET_TIMEOUT_US);
+        if (time >= esc_expire) {
+            triggerEscReset(time);
+            return;
+        }
+    }
+
     if (active_tap_dance_.stage != TapDanceStage::IDLE && time >= active_tap_dance_.expire_time) {
         if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
             if (active_tap_dance_.tap_count == 1) {

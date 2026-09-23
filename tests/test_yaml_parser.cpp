@@ -403,7 +403,10 @@ one_shot:
         // Validation rejection: non-modifier key in tap_hold osm(...)
         std::string bad_th_osm_yaml = R"(
 tap_hold:
-  capslock: [osm(a), super, 200]
+  capslock:
+    tap: osm(a)
+    hold: super
+    timeout_ms: 200
 )";
         tff::Config cfg_bad_th;
         assert(!tff::loadYamlConfig(bad_th_osm_yaml, cfg_bad_th, err_msg));
@@ -439,8 +442,13 @@ combos:
   j f: backspace
 
 tap_hold:
-  capslock: [esc, super]
-  space: [space, super, 150]
+  capslock:
+    tap: esc
+    hold: super
+  space:
+    tap: space
+    hold: super
+    timeout_ms: 150
 )";
         tff::Config cfg_custom;
         assert(tff::loadYamlConfig(custom_settings_yaml, cfg_custom, err_msg));
@@ -526,6 +534,33 @@ settings
         assert(engine.getSettings().combo_timeout_ms == 75);
 
         std::cout << "✓ Test 14 passed: settings section parsing, defaults, and validation\n";
+    }
+
+    // Test 15: Rejection of removed compact inline tap_hold and tg() shorthand
+    {
+        tff::Config cfg;
+        std::string err_msg;
+
+        // 1. Rejection of compact inline tap_hold
+        std::string inline_th_yaml = R"(
+tap_hold:
+  capslock: [esc, super, 200]
+)";
+        assert(!tff::loadYamlConfig(inline_th_yaml, cfg, err_msg));
+        assert(err_msg.find("compact inline format for tap_hold") != std::string::npos);
+
+        // 2. Rejection of tg() shorthand in combos
+        std::string tg_yaml = R"(
+combos:
+  f + space: tg(nav)
+layers:
+  nav:
+    h: left
+)";
+        assert(!tff::loadYamlConfig(tg_yaml, cfg, err_msg));
+        assert(err_msg.find("shorthand 'tg()' is removed") != std::string::npos);
+
+        std::cout << "✓ Test 15 passed: rejection of compact inline tap_hold and tg() shorthand\n";
     }
 
     std::cout << "\nAll YAML parser tests passed!\n";

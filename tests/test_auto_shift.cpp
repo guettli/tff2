@@ -284,7 +284,10 @@ static void test_auto_shift_tap_hold_and_oneshot_modifier_coexistence() {
 
     const std::string yaml = R"(
 tap_hold:
-  capslock: [esc, leftctrl, 200]
+  capslock:
+    tap: esc
+    hold: leftctrl
+    timeout_ms: 200
 one_shot:
   leftalt: 1000
 auto_shift:
@@ -401,7 +404,10 @@ static void test_auto_shift_with_modal_layers() {
 
     const std::string yaml = R"(
 tap_hold:
-  space: [space, nav, 200]
+  space:
+    tap: space
+    layer: nav
+    timeout_ms: 200
 layers:
   nav:
     j: down

@@ -369,8 +369,14 @@ static void test_invariant_reset_and_finish() {
         "combos:\n"
         "  f + j: ctrl+c\n"
         "tap_hold:\n"
-        "  capslock: [esc, super, 200ms]\n"
-        "  space: [space, nav, 200ms]\n"
+        "  capslock:\n"
+        "    tap: esc\n"
+        "    hold: super\n"
+        "    timeout: 200ms\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 200ms\n"
         "layers:\n"
         "  nav:\n"
         "    h: left\n",
@@ -505,8 +511,14 @@ static void test_invariant_randomized_fuzzing() {
         "  f + j: esc\n"
         "  c + v: tab\n"
         "tap_hold:\n"
-        "  capslock: [esc, super, 150ms]\n"
-        "  space: [space, nav, 150ms]\n"
+        "  capslock:\n"
+        "    tap: esc\n"
+        "    hold: super\n"
+        "    timeout: 150ms\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    h: left\n"
@@ -617,6 +629,85 @@ static void test_invariant_corrupted_and_extreme_inputs() {
     std::cout << "  [PASS] Extreme and corrupted input resilience" << std::endl;
 }
 
+// 12. Emergency State Machine Reset: Holding ESC for 3.0 seconds resets internal state
+static void test_invariant_esc_emergency_reset() {
+    TrackingEventWriter writer;
+    TFFEngine engine(&writer);
+
+    Config cfg;
+    Layer nav_layer;
+    nav_layer.name = "nav";
+    cfg.layers.push_back(nav_layer);
+    engine.setConfig(cfg);
+
+    engine.activateLayer("nav");
+    assert(engine.isLayerActive("nav"));
+
+    // Scenario A: Normal ESC tap under 3 seconds (e.g. 50ms)
+    // Passes through normally without triggering emergency reset
+    engine.processEvent(Event{TimeVal::fromMicros(1000), EV_KEY, Keys::KEY_ESC, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal::fromMicros(51000), EV_KEY, Keys::KEY_ESC, KEY_VAL_UP});
+    assert(!engine.isEscResetTriggered());
+    writer.assertZeroStuckKeys("normal esc tap");
+
+    // Scenario B: Hold ESC for 3.0 seconds (3,000,000 us)
+    engine.activateLayer("nav");
+    assert(engine.isLayerActive("nav"));
+    assert(engine.hasActiveTimer() == false);
+
+    int64_t esc_down_us = 100000;
+    engine.processEvent(
+        Event{TimeVal::fromMicros(esc_down_us), EV_KEY, Keys::KEY_ESC, KEY_VAL_DOWN});
+    assert(engine.hasActiveTimer() == true);
+    assert(engine.getActiveTimerTime() ==
+           TimeVal::fromMicros(esc_down_us + TFFEngine::ESC_RESET_TIMEOUT_US));
+
+    // Timer fires at exactly 3.0s
+    TimeVal reset_time = TimeVal::fromMicros(esc_down_us + TFFEngine::ESC_RESET_TIMEOUT_US);
+    engine.onTimer(reset_time);
+
+    // Emergency reset should now be triggered, clearing active layer stack
+    assert(engine.isEscResetTriggered());
+    assert(!engine.isLayerActive("nav"));
+    assert(!engine.hasActiveTimer());
+
+    // Releasing ESC after reset triggers must be swallowed cleanly without spurious UP
+    engine.processEvent(
+        Event{TimeVal::fromMicros(esc_down_us + TFFEngine::ESC_RESET_TIMEOUT_US + 50000), EV_KEY,
+              Keys::KEY_ESC, KEY_VAL_UP});
+    writer.assertZeroStuckKeys("esc 3s emergency reset");
+
+    // Scenario C: ESC pressed but another key pressed down cancels the 3s hold reset
+    engine.reset();
+    engine.activateLayer("nav");
+    assert(engine.isLayerActive("nav"));
+
+    int64_t t_cancel = 5000000;
+    engine.processEvent(Event{TimeVal::fromMicros(t_cancel), EV_KEY, Keys::KEY_ESC, KEY_VAL_DOWN});
+    assert(engine.hasActiveTimer() == true);
+
+    // Press another key (e.g. KEY_A) before 3s
+    engine.processEvent(
+        Event{TimeVal::fromMicros(t_cancel + 1000000), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    // Active timer for ESC emergency reset is now cancelled because ESC is no longer held alone
+    assert(engine.hasActiveTimer() == false);
+
+    // Even if timer fires after 3s from ESC down, reset is NOT triggered
+    engine.onTimer(TimeVal::fromMicros(t_cancel + TFFEngine::ESC_RESET_TIMEOUT_US + 1000));
+    assert(!engine.isEscResetTriggered());
+    assert(engine.isLayerActive("nav"));
+
+    // Release both keys
+    engine.processEvent(
+        Event{TimeVal::fromMicros(t_cancel + 3500000), EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+    engine.processEvent(
+        Event{TimeVal::fromMicros(t_cancel + 3600000), EV_KEY, Keys::KEY_ESC, KEY_VAL_UP});
+    writer.assertZeroStuckKeys("esc cancelled by other key");
+
+    engine.finish();
+    std::cout << "  [PASS] Emergency state machine reset (3-second ESC hold)" << std::endl;
+}
+
 int main() {
     std::cout << "==================================================" << std::endl;
     std::cout << "  TFF2 - Invariant & Resilience Test Suite        " << std::endl;
@@ -633,6 +724,7 @@ int main() {
     test_invariant_bounded_buffer();
     test_invariant_randomized_fuzzing();
     test_invariant_corrupted_and_extreme_inputs();
+    test_invariant_esc_emergency_reset();
 
     std::cout << "==================================================" << std::endl;
     std::cout << "  All invariant & resilience tests passed (100%)  " << std::endl;

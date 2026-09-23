@@ -471,7 +471,9 @@ tap_hold:
     tap: space
     layer: nav
     timeout_ms: 180
-  capslock: [esc, super]
+  capslock:
+    tap: esc
+    hold: super
   - key: rightalt
     tap: rightalt
     layer: numpad
@@ -729,7 +731,10 @@ static void test_toggle_layer_tap_hold() {
 
     const std::string yaml = R"(
 tap_hold:
-  capslock: [toggle_layer(numpad), super, 200]
+  capslock:
+    tap: toggle_layer(numpad)
+    hold: super
+    timeout_ms: 200
 
 layers:
   numpad:
@@ -826,8 +831,14 @@ static void test_toggle_layer_nested_with_momentary_layers() {
 
     const std::string yaml = R"(
 tap_hold:
-  space: [space, nav, 200]
-  capslock: [toggle_layer(numpad), super, 200]
+  space:
+    tap: space
+    layer: nav
+    timeout_ms: 200
+  capslock:
+    tap: toggle_layer(numpad)
+    hold: super
+    timeout_ms: 200
 
 layers:
   nav:
@@ -910,7 +921,10 @@ layers:
     // 3. Unknown layer in tap_hold
     const std::string bad_th = R"(
 tap_hold:
-  capslock: [toggle_layer(nonexistent), super, 200]
+  capslock:
+    tap: toggle_layer(nonexistent)
+    hold: super
+    timeout_ms: 200
 layers:
   numpad:
     j: "4"

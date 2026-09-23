@@ -319,13 +319,16 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
                                     (val.front() == '\'' && val.back() == '\''))) {
                 val = trim(val.substr(1, val.size() - 2));
             }
-            if (key == "toggle_layer" || key == "tg") {
+            if (key == "toggle_layer") {
                 if (val.empty()) {
                     err_msg = "empty layer name in toggle_layer";
                     return false;
                 }
                 out_layer = val;
                 return true;
+            } else if (key == "tg") {
+                err_msg = "shorthand 'tg' is removed; use 'toggle_layer' instead";
+                return false;
             }
         }
     }
@@ -345,17 +348,8 @@ bool parseToggleLayerTarget(const std::string& str, std::string& out_layer, std:
             return true;
         }
         if (s.rfind("tg(", 0) == 0) {
-            std::string inner = trim(s.substr(3, s.size() - 4));
-            if (inner.size() >= 2 && ((inner.front() == '"' && inner.back() == '"') ||
-                                      (inner.front() == '\'' && inner.back() == '\''))) {
-                inner = trim(inner.substr(1, inner.size() - 2));
-            }
-            if (inner.empty()) {
-                err_msg = "empty layer name in tg()";
-                return false;
-            }
-            out_layer = inner;
-            return true;
+            err_msg = "shorthand 'tg()' is removed; use 'toggle_layer(...)' instead";
+            return false;
         }
     }
 
@@ -391,8 +385,11 @@ bool parseTapDanceAction(const std::string& val_part, TapDanceAction& act, std::
                 const std::string& v = kv.second;
                 if (k == "text") {
                     act.text = unquoteAndUnescape(v);
-                } else if (k == "toggle_layer" || k == "tg") {
+                } else if (k == "toggle_layer") {
                     act.toggle_layer = unquoteAndUnescape(v);
+                } else if (k == "tg") {
+                    err_msg = "shorthand 'tg' is removed; use 'toggle_layer' instead";
+                    return false;
                 } else if (k == "layer") {
                     act.layer = unquoteAndUnescape(v);
                 } else if (k == "mouse") {
@@ -883,7 +880,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (has_pending_th) {
             if (pending_th.key != 0) {
                 if ((pending_th.tap_key == 0 && pending_th.tap_one_shot_modifier == 0 &&
-                     pending_th.tap_one_shot_layer.empty() && !pending_th.tap_leader) ||
+                     pending_th.tap_one_shot_layer.empty() && !pending_th.tap_leader &&
+                     pending_th.tap_toggle_layer.empty()) ||
                     (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
                     err_msg = "tap_hold definition requires both 'tap' and 'hold'";
                     return false;
@@ -1678,9 +1676,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     } else if (!wordToKeyCode(val_part, pending_th.tap_key, err_msg)) {
                         return false;
                     }
-                } else if (key_part == "toggle_layer" || key_part == "tap_toggle_layer" ||
-                           key_part == "tg") {
+                } else if (key_part == "toggle_layer" || key_part == "tap_toggle_layer") {
                     pending_th.tap_toggle_layer = val_part;
+                } else if (key_part == "tg") {
+                    err_msg = "shorthand 'tg' is removed; use 'toggle_layer' instead";
+                    return false;
                 } else if (key_part == "hold") {
                     std::string dummy_err;
                     if (wordToKeyCode(val_part, pending_th.hold_key, dummy_err)) {
@@ -1726,77 +1726,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 pending_th.key = th_code;
                 pending_th.timeout_us = 0;
             } else {
-                // Inline compact format: "capslock: [esc, super]" or "space: [space, nav, 200]"
-                std::string clean_val = val_part;
-                if (clean_val.front() == '[')
-                    clean_val = clean_val.substr(1);
-                if (!clean_val.empty() && clean_val.back() == ']')
-                    clean_val.pop_back();
-
-                std::vector<std::string> parts;
-                if (clean_val.find(',') != std::string::npos) {
-                    auto raw_parts = split(clean_val, ',');
-                    for (const auto& p : raw_parts) {
-                        std::string w = trim(p);
-                        if (!w.empty())
-                            parts.push_back(w);
-                    }
-                } else {
-                    parts = fields(clean_val);
-                }
-
-                if (parts.size() < 2) {
-                    err_msg =
-                        "tap_hold for key '" + key_part + "' requires at least tap and hold keys";
-                    return false;
-                }
-
-                TapHoldKey thk;
-                thk.timeout_us = 0;
-                thk.key = th_code;
-                std::string toggle_layer_name;
-                std::string toggle_err;
-                if (parseToggleLayerTarget(parts[0], toggle_layer_name, toggle_err)) {
-                    thk.tap_toggle_layer = toggle_layer_name;
-                } else if (!toggle_err.empty()) {
-                    err_msg = toggle_err;
-                    return false;
-                } else if (parts[0] == "leader") {
-                    thk.tap_leader = true;
-                } else if (isOneShotPattern(parts[0])) {
-                    if (!parseOneShotTarget(parts[0], thk.tap_one_shot_modifier,
-                                            thk.tap_one_shot_layer, err_msg)) {
-                        return false;
-                    }
-                } else if (!wordToKeyCode(parts[0], thk.tap_key, err_msg)) {
-                    return false;
-                }
-
-                std::string hold_target = parts[1];
-                if (hold_target.rfind("layer:", 0) == 0) {
-                    thk.hold_layer = hold_target.substr(6);
-                } else {
-                    std::string dummy_err;
-                    if (wordToKeyCode(hold_target, thk.hold_key, dummy_err)) {
-                        // hold_key set
-                    } else {
-                        thk.hold_layer = hold_target;
-                    }
-                }
-                if (parts.size() >= 3) {
-                    try {
-                        long long val = std::stoll(parts[2]);
-                        if (val <= 0) {
-                            err_msg = "timeout_ms must be positive: " + parts[2];
-                            return false;
-                        }
-                        thk.timeout_us = val * 1000LL;
-                    } catch (...) {
-                        err_msg = "invalid timeout value: " + parts[2];
-                        return false;
-                    }
-                }
-                config.tap_hold_keys.push_back(thk);
+                err_msg = "compact inline format for tap_hold ('" + key_part + ": " + val_part +
+                          "') is removed; please use multi-line property format (tap: ..., hold: "
+                          "..., timeout_ms: ...)";
+                return false;
             }
             continue;
         }
@@ -2069,8 +2002,11 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             };
 
             if (has_pending_lseq && current_indent > pending_lseq_indent) {
-                if (key_part == "toggle_layer" || key_part == "tg") {
+                if (key_part == "toggle_layer") {
                     pending_lseq.toggle_layer = val_part;
+                } else if (key_part == "tg") {
+                    err_msg = "shorthand 'tg' is removed; use 'toggle_layer' instead";
+                    return false;
                 } else if (key_part == "text" || key_part == "type") {
                     pending_lseq.text = unquoteAndUnescape(val_part);
                 } else if (key_part == "out" || key_part == "out_keys" || key_part == "keys_out" ||
@@ -2506,8 +2442,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
         } else if (t.find("outKeys:") != std::string::npos || t.rfind("out:", 0) == 0 ||
                    t.rfind("text:", 0) == 0 || t.rfind("type:", 0) == 0 ||
-                   t.rfind("toggle_layer:", 0) == 0 || t.rfind("tg:", 0) == 0 ||
-                   t.rfind("action:", 0) == 0) {
+                   t.rfind("toggle_layer:", 0) == 0 || t.rfind("action:", 0) == 0) {
             auto colon = t.find(':');
             std::string prop = trim(t.substr(0, colon));
             std::string val_part = trim(t.substr(colon + 1));
@@ -2517,13 +2452,16 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             MouseAction mouse_act;
             std::string mouse_err;
             std::string snippet;
-            if (prop == "toggle_layer" || prop == "tg") {
+            if (prop == "toggle_layer") {
                 has_toggle_layer = true;
                 current_toggle_layer = val_part;
                 if (current_toggle_layer.empty()) {
                     err_msg = "empty layer name in toggle_layer";
                     return false;
                 }
+            } else if (prop == "tg") {
+                err_msg = "shorthand 'tg' is removed; use 'toggle_layer' instead";
+                return false;
             } else if (prop == "text" || prop == "type") {
                 has_text = true;
                 current_text = unquoteAndUnescape(val_part);
@@ -2730,7 +2668,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     val_part =
                         "toggle_layer(" + unquoteAndUnescape(inline_fields["toggle_layer"]) + ")";
                 } else if (inline_fields.find("tg") != inline_fields.end()) {
-                    val_part = "tg(" + unquoteAndUnescape(inline_fields["tg"]) + ")";
+                    err_msg = "shorthand 'tg' is removed; use 'toggle_layer' instead";
+                    return false;
                 } else if (inline_fields.find("mouse") != inline_fields.end()) {
                     val_part = unquoteAndUnescape(inline_fields["mouse"]);
                 }

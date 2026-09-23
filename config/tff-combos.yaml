@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/guettli/tff2/main/schema/tff-schema.json
 # Ten Flying Fingers (TFF) is a keyboard layout.
 # It is optimized for keeping your fingers on the home row.
 # https://github.com/guettli/tff
@@ -57,7 +58,8 @@ combos:
     outKeys: esc
 
   # Triple combo: press d, f, and j together to emit Escape
-  d + f + j: esc
+  - keys: d + f + j
+    outKeys: esc
 
 # Tap vs Hold (Dual-role keys):
 # Short tap on CapsLock emits Escape.
@@ -107,8 +109,14 @@ tap_hold:
 #
 # Tap-Hold can also arm one-shot actions:
 # tap_hold:
-#   capslock: [osm(shift), super, 200]  # Tap = Sticky Shift, Hold = Super
-#   space: [osl(nav), alt, 200]         # Tap = One-Shot Nav layer, Hold = Alt
+#   capslock:
+#     tap: osm(shift)
+#     hold: super
+#     timeout_ms: 200
+#   space:
+#     tap: osl(nav)
+#     hold: alt
+#     timeout_ms: 200
 
 # Tap Dance (Multi-Tap and Tap-Hold Variations on a Single Key):
 # Single tap, double tap, hold, double-tap & hold, or triple tap actions on a single key.
@@ -121,7 +129,7 @@ tap_hold:
 #     double_hold: rctrl
 #     triple_tap: text "DONE"
 #     timeout_ms: 220
-#   tab: { tap: tab, double_tap: tg(nav) }
+#   tab: { tap: tab, double_tap: toggle_layer(nav) }
 
 # Sequential Leader Key Sequences (Mnemonic Shortcuts):
 # Tap leader key, then type mnemonic keys sequentially (Vim/Emacs style).
@@ -136,7 +144,7 @@ tap_hold:
 #     "b": ctrl+b
 #     "n p": toggle_layer(numpad)  # Mnemonic shortcut to toggle numpad layer on/off
 
-# Toggle / Locking Layers (tg / toggle_layer):
+# Toggle / Locking Layers (toggle_layer):
 # Persistently lock a layer on without holding any keys.
 # Useful for dedicated numpad data entry, gaming, or symbol layers.
 #
@@ -144,7 +152,10 @@ tap_hold:
 #   f + space: toggle_layer(numpad)  # Combo to toggle numpad on/off
 #
 # tap_hold:
-#   capslock: [toggle_layer(numpad), super, 200]  # Tap = Toggle Numpad, Hold = Super
+#   capslock:
+#     tap: toggle_layer(numpad)
+#     hold: super
+#     timeout_ms: 200
 #
 # layers:
 #   numpad:

@@ -207,6 +207,8 @@ std::string EventMonitor::formatEvent(const Event& ev, const std::string& device
             } else if (tr->kind == TraceEvent::Kind::AutoShiftHold ||
                        tr->kind == TraceEvent::Kind::AutoShiftTap) {
                 oss << "\033[33m-> " << tag << "\033[0m";
+            } else if (tr->kind == TraceEvent::Kind::Reset) {
+                oss << "\033[1;31m-> " << tag << "\033[0m";
             } else {
                 oss << "-> " << tag;
             }

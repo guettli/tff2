@@ -103,7 +103,8 @@ TFF operates at the Linux kernel `evdev` and `uinput` layer, **below** Wayland c
 ### Symptom: A modifier key (Ctrl, Shift, Alt, or Super) acts as if it is held down after closing TFF or switching windows.
 
 **Safeguards Built into TFF:**
-- TFF registers signal handlers for `SIGINT` and `SIGTERM`. When stopped cleanly (`Ctrl+C` or `systemctl stop`), the engine executes `finish()` and `reset()`, automatically releasing any active tap-hold modifiers or chorded keys and releasing all `EVIOCGRAB` locks.
+- **Emergency State Machine Reset (Hold ESC for 3 Seconds)**: If you are locked in an unexpected modal layer, locked toggle layer (`toggle_layer`), or stuck state, press and hold `ESC` continuously for 3.0 seconds. TFF will trigger a full state machine reset: clearing all modal layers, releasing held tap-holds, one-shots, auto-shift states, and leader buffers, and cleanly swallowing the `ESC` key release. This safeguard is always active without needing configuration.
+- **Clean Signal Termination**: TFF registers signal handlers for `SIGINT` and `SIGTERM`. When stopped cleanly (`Ctrl+C` or `systemctl stop`), the engine executes `finish()` and `reset()`, automatically releasing any active tap-hold modifiers or chorded keys and releasing all `EVIOCGRAB` locks.
 
 **If Process was Forcefully Killed (`kill -9`):**
 1. Press and release the physical modifier keys on your keyboard:

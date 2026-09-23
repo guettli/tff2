@@ -71,7 +71,10 @@ static void test_layer_combo_inactive_vs_active() {
     std::string err;
     std::string yaml =
         "tap_hold:\n"
-        "  space: [space, nav, 150ms]\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    h: left\n"
@@ -142,7 +145,10 @@ static void test_layer_combo_overriding_global() {
         "combos:\n"
         "  d + f: backspace\n"
         "tap_hold:\n"
-        "  capslock: [esc, nav, 150ms]\n"
+        "  capslock:\n"
+        "    tap: esc\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    d + f: pageup\n";
@@ -207,8 +213,14 @@ static void test_nested_layer_combos_priority() {
     std::string err;
     std::string yaml =
         "tap_hold:\n"
-        "  space: [space, nav, 150ms]\n"
-        "  tab: [tab, num, 150ms]\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
+        "  tab:\n"
+        "    tap: tab\n"
+        "    layer: num\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    j + k: down\n"
@@ -261,7 +273,10 @@ static void test_layer_combo_with_actions() {
     std::string err;
     std::string yaml =
         "tap_hold:\n"
-        "  space: [space, nav, 150ms]\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    p + r: { text: \"println!\" }\n"
@@ -332,7 +347,10 @@ static void test_single_key_timeout_fallback_in_layer() {
     std::string err;
     std::string yaml =
         "tap_hold:\n"
-        "  space: [space, nav, 150ms]\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    h: left\n"
@@ -380,7 +398,10 @@ static void test_zero_stuck_keys_on_layer_deactivation_during_chord() {
     std::string err;
     std::string yaml =
         "tap_hold:\n"
-        "  space: [space, nav, 150ms]\n"
+        "  space:\n"
+        "    tap: space\n"
+        "    layer: nav\n"
+        "    timeout: 150ms\n"
         "layers:\n"
         "  nav:\n"
         "    h: left\n"

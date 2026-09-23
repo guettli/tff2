@@ -141,14 +141,14 @@ combos:
 
 ### Supported Characters and Modifiers
 
-TFF translates text strings directly into synthesized Linux kernel `evdev` input events:
+TFF translates text strings directly into synthesized keystrokes and shift combinations:
 - **Letters & Digits**: `a`-`z`, `A`-`Z` (automatically activates and releases `KEY_LEFTSHIFT`), `0`-`9`.
 - **Whitespace & Control**: Space, `\t` (Tab), `\n` (Enter).
 - **Punctuation & Symbols**: All standard ASCII symbols (`,`, `.`, `;`, `:`, `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`, `(`, `)`, `_`, `+`, `-`, `=`, `{`, `}`, `[`, `]`, `|`, `\`, `"`, `'`, `<`, `>`, `?`, `~`, `` ` ``).
 - **Clean Chord Release**: When chord keys are released after triggering a text snippet, they are swallowed cleanly so that no physical chord keys leak into your text buffer or editor.
 
 > [!NOTE]
-> **Keyboard Layout Baseline**: Because TFF operates at the kernel `evdev` level before desktop environment layout translation, synthesized punctuation symbols assume standard US QWERTY keycode locations. If your desktop session uses a non-US keymap (e.g. German QWERTZ or French AZERTY), the desktop environment will translate those scancodes according to your active layout.
+> **Keyboard Layout Baseline**: Because TFF operates at the input hardware/driver level before desktop environment layout translation, synthesized punctuation symbols assume standard US QWERTY keycode locations. If your desktop session uses a non-US keymap (e.g. German QWERTZ or French AZERTY), the desktop environment will translate those scancodes according to your active layout.
 
 ## Tap-vs-Hold Keys (Dual-Role Keys)
 
@@ -158,19 +158,12 @@ Tap-vs-Hold allows a physical key to perform two completely different functions 
 
 ### Configuration Syntax
 
-#### Multi-line Property Block
 ```yaml
 tap_hold:
   capslock:
     tap: esc
     hold: super
     timeout_ms: 200
-```
-
-#### Compact Inline Format
-```yaml
-tap_hold:
-  capslock: [esc, super, 200]
 ```
 
 ### Chording and Permissive Hold
@@ -233,9 +226,6 @@ tap_hold:
   - key: rightalt
     tap: rightalt
     layer: numpad
-
-  # Or compact inline syntax:
-  tab: [tab, nav, 250]
 ```
 
 ### Key Behaviors
@@ -246,7 +236,7 @@ tap_hold:
 - **Layer Stacking (LIFO)**: If multiple layers are active simultaneously, key lookup resolves from the top of the stack downwards (most recently activated layer has priority).
 - **Dual-Role Tapping**: Tapping Space quickly without pressing another key emits a normal Space keystroke.
 
-### Toggle / Locking Layers (`toggle_layer` / `tg`)
+### Toggle / Locking Layers (`toggle_layer`)
 
 Toggle (or locking) layers allow you to lock a layer in an active state persistently without having to keep any physical key held down. This is ideal for:
 - Entering large amounts of numeric data using a **Numpad** layer.
@@ -257,15 +247,14 @@ Toggling a layer on pushes it onto the active layer stack; toggling it again pop
 
 #### Toggle Layer Syntax
 
-You can trigger `toggle_layer(name)` (or shorthand `tg(name)`) from combos, layer key mappings, tap-hold dual-role keys, and sequential leader shortcuts:
+You can trigger `toggle_layer(name)` from combos, layer key mappings, tap-hold dual-role keys, and sequential leader shortcuts:
 
 ##### 1. Combos
 ```yaml
 combos:
   # Press F and Space simultaneously to toggle numpad layer on/off
   f + space: toggle_layer(numpad)
-  # Or using shorthand tg():
-  j + space: tg(nav)
+  j + space: toggle_layer(nav)
 ```
 
 ##### 2. Layer Remaps (Unlocking / Exiting)
@@ -283,7 +272,10 @@ layers:
 Tap to toggle the layer on/off, hold for a modifier:
 ```yaml
 tap_hold:
-  capslock: [toggle_layer(numpad), super, 200]
+  capslock:
+    tap: toggle_layer(numpad)
+    hold: super
+    timeout_ms: 200
 ```
 
 ##### 4. Leader Key Sequences
@@ -292,7 +284,7 @@ Type a mnemonic sequence to toggle the layer:
 leader:
   key: capslock
   sequences:
-    "n p": toggle_layer(numpad)
+    n p: toggle_layer(numpad)
 ```
 
 #### Layer Stacking & Safety
@@ -397,16 +389,16 @@ One-shot actions can also be combined with dual-role `tap_hold:` keys using `osm
 ```yaml
 tap_hold:
   # Tap CapsLock = Sticky Shift (next key capitalized); Hold CapsLock = Super/Win key
-  capslock: [osm(shift), super, 200]
+  capslock:
+    tap: osm(shift)
+    hold: super
+    timeout_ms: 200
 
   # Tap Space = One-Shot Nav layer; Hold Space = Momentary Alt
-  space: [osl(nav), alt, 250]
-
-  # Or verbose property syntax:
-  tab:
-    tap: osm(ctrl)
+  space:
+    tap: osl(nav)
     hold: alt
-    timeout_ms: 200
+    timeout_ms: 250
 ```
 
 ### Validation Rules
@@ -438,7 +430,7 @@ If a Tap Dance definition only specifies a single tap (and optionally a hold, bu
 Tap Dance actions support full action polymorphism:
 - **Key chords**: `esc`, `ctrl+c`, `super+shift+q`
 - **Modal Layers**: `layer(nav)`, `layer: nav` (momentary activation while held)
-- **Toggle Layers**: `toggle_layer(numpad)`, `tg(numpad)`, `{ toggle_layer: numpad }`
+- **Toggle Layers**: `toggle_layer(numpad)`, `{ toggle_layer: numpad }`
 - **Text Snippets**: `text "console.log();"`, `text: ":wq\n"`
 - **Mouse Keys**: `mouse_btn_left`, `mouse_wheel_up`
 
@@ -467,7 +459,7 @@ tap_dance:
 
 ```yaml
 tap_dance:
-  tab: { tap: tab, double_tap: tg(nav) }
+  tab: { tap: tab, double_tap: toggle_layer(nav) }
   grave: { tap: grave, double_tap: esc, hold: lalt }
 ```
 
@@ -501,7 +493,7 @@ tap_dance:
 Sequential Leader key sequences allow you to trigger complex commands, hotkeys, or multi-character text snippets by pressing a leader key, followed by a sequence of mnemonic keys typed one after another (Vim and Emacs style).
 
 Unlike chords that require pressing keys at the exact same moment, leader sequences are typed **sequentially**:
-- Tap Leader key (e.g. `capslock` or a dual-role key like `capslock: [leader, super, 200]`).
+- Tap Leader key (e.g. `capslock` or a dual-role key with `tap: leader`).
 - Type `w` then `q` -> emits `:wq\n`.
 - Type `g` then `s` -> emits `git status\n`.
 - Type `b` -> emits `Ctrl + B`.
@@ -526,13 +518,16 @@ leader:
     "b": ctrl+b
 ```
 
-#### 2. Dual-Role Tap-vs-Hold Leader (`tap: leader` or `[leader, super, 200]`)
+#### 2. Dual-Role Tap-vs-Hold Leader (`tap: leader`)
 
 You can also configure the leader key as the short tap action of a dual-role key:
 
 ```yaml
 tap_hold:
-  capslock: [leader, super, 200]
+  capslock:
+    tap: leader
+    hold: super
+    timeout_ms: 200
 
 leader:
   timeout_ms: 1000
@@ -813,43 +808,3 @@ The Linux daemon (`tff_linux` / `tff`) monitors the configuration file using `in
 2. It validates the new YAML syntax.
 3. If valid, the combos are reloaded in memory without restarting the daemon or losing active device grabs.
 4. If invalid, the error is logged to stderr (and journald) and existing mappings remain active safely.
-
-## Programmatic C++ Usage
-
-### Loading via `tff::loadYamlConfig`
-
-```cpp
-#include "tff_parser.h"
-#include <iostream>
-
-std::string yaml_content = "...";
-tff::Config config;
-std::string err_msg;
-
-if (tff::loadYamlConfig(yaml_content, config, err_msg)) {
-    std::cout << "Loaded " << config.combos.size() << " combos, "
-              << config.tap_hold_keys.size() << " tap-hold keys, and "
-              << config.layers.size() << " layers.\n";
-} else {
-    std::cerr << "YAML error: " << err_msg << "\n";
-}
-```
-
-### Loading via `tff::loadYamlCombos`
-
-```cpp
-#include "tff_parser.h"
-#include <vector>
-#include <string>
-#include <iostream>
-
-std::string yaml_content = "...";
-std::vector<tff::Combo> combos;
-std::string err_msg;
-
-if (tff::loadYamlCombos(yaml_content, combos, err_msg)) {
-    std::cout << "Successfully parsed " << combos.size() << " combos.\n";
-} else {
-    std::cerr << "YAML error: " << err_msg << "\n";
-}
-```

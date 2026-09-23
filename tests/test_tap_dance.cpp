@@ -455,7 +455,7 @@ tap_dance:
   - key: semicolon
     tap: semicolon
     hold: layer(nav)
-  tab: { tap: tab, double_tap: tg(nav) }
+  tab: { tap: tab, double_tap: toggle_layer(nav) }
   grave: [grave, esc, 180]
 
 layers:
@@ -519,7 +519,9 @@ tap_dance:
     // Conflict with tap_hold
     std::string conflict_th = R"(
 tap_hold:
-  capslock: [esc, lctrl]
+  capslock:
+    tap: esc
+    hold: lctrl
 tap_dance:
   capslock:
     tap: esc

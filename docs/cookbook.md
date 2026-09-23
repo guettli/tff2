@@ -135,7 +135,7 @@ leader:
 ```yaml
 combos:
   # Toggle mouse navigation layer on/off with 3-key chord
-  d + f + m: tg(mouse_nav)
+  d + f + m: toggle_layer(mouse_nav)
 
 tap_hold:
   # Momentary hold: hold RightAlt to navigate, release to return to typing
@@ -231,7 +231,10 @@ tff cheatsheet ~/.config/tff/tff-combos.yaml
 ```yaml
 tap_hold:
   # Space: tap for space, hold for Navigation layer
-  space: [space, nav, 200]
+  space:
+    tap: space
+    layer: nav
+    timeout_ms: 200
 
 layers:
   nav:

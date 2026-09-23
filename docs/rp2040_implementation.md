@@ -67,7 +67,48 @@ Every release of Ten Flying Fingers includes pre-compiled RP2040 `.uf2` binaries
 - `tff_rp2040_<version>.elf`: ELF binary with debug symbols for GDB / SWD debugging.
 - `SHA256SUMS.txt`: Cryptographic SHA-256 checksums to verify binary integrity.
 
-You can download the latest pre-built firmware directly from the [GitHub Releases page](https://github.com/guettli/tff2/releases).
+### Downloading the Binary Directly
+
+You do not need to compile the firmware from source. You can download the latest pre-built `.uf2` binary directly from GitHub Releases:
+
+```bash
+# Download latest UF2 binary directly via curl:
+curl -fLO https://github.com/guettli/tff2/releases/latest/download/tff_rp2040.uf2
+
+# Or download using GitHub CLI:
+gh release download --pattern "tff_rp2040*.uf2"
+```
+
+Or download it manually from the [GitHub Releases page](https://github.com/guettli/tff2/releases).
+
+---
+
+## Configuration on RP2040
+
+### How to Copy / Apply YAML Configuration
+
+A frequent question is: *Can I copy my `tff-combos.yaml` over USB mass storage like CircuitPython?*
+
+- **Native C++ Performance**: Unlike CircuitPython which mounts a FAT USB drive at runtime, Ten Flying Fingers runs bare-metal compiled C++ for minimum latency and zero input lag. While running, the RP2040 presents purely as a USB HID keyboard to your host computer and a USB HID host to your physical keyboard. It does not present a FAT USB drive at runtime.
+- **Default Built-in Configuration**: The pre-built `.uf2` comes pre-configured out of the box with standard home-row chords (`j f` -> backspace, `f j` -> delete, `d f j` -> esc) and dual-role CapsLock (`tap: esc`, `hold: super`).
+- **Applying Custom Configuration**:
+  1. Open `src/platform/rp2040/rp2040_platform.cpp`.
+  2. Paste your custom YAML string into `DEFAULT_YAML_CONFIG`:
+     ```yaml
+     combos:
+       j f: backspace
+       f j: delete
+       d + f + j: esc
+
+     tap_hold:
+       capslock:
+         tap: esc
+         hold: super
+         timeout_ms: 200
+     ```
+  3. Rebuild the firmware with `./build_rp2040.sh`.
+  4. Flash the generated `build-rp2040/tff_rp2040.uf2` onto your board via BOOTSEL drag-and-drop.
+  *(Dynamic YAML configuration upload over USB CDC serial is in development).*
 
 ---
 

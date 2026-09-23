@@ -370,8 +370,14 @@ static void test_yaml_parser_one_shot() {
         "  nav:\n"
         "    k: up\n"
         "tap_hold:\n"
-        "  capslock: [osm(shift), super, 200]\n"
-        "  space: [osl(nav), alt, 250]\n";
+        "  capslock:\n"
+        "    tap: osm(shift)\n"
+        "    hold: super\n"
+        "    timeout_ms: 200\n"
+        "  space:\n"
+        "    tap: osl(nav)\n"
+        "    hold: alt\n"
+        "    timeout_ms: 250\n";
 
     Config cfg3;
     ok = loadYamlConfig(yaml_tap_hold, cfg3, err);
