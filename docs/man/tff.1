@@ -6,6 +6,9 @@ tff, tff2, tff_linux \- Ten Flying Fingers keyboard remapping daemon and chord e
 [\fIOPTIONS\fR]
 .br
 .B tff
+\fBinit\fR [\fIOPTIONS\fR] [\fIPRESET\fR]
+.br
+.B tff
 \fBmonitor\fR [\fIOPTIONS\fR] [\fIDEVICE\fR]
 .br
 .B tff
@@ -34,6 +37,9 @@ The engine supports:
 \fBHome-Row Mouse Keys\fR: Move pointer, click, drag, and scroll directly from the keyboard without reaching for a physical mouse.
 .SH SUBCOMMANDS
 .TP
+.BR init " [" \fIOPTIONS\fR "] [" \fIPRESET\fR "]"
+Launch the interactive configuration wizard or install a curated preset configuration template (e.g. \fBminimal\fR, \fBvim\-nav\fR, \fBhome\-row\-mods\fR, \fBfull\fR). Generates clean, well-commented YAML files to \fI~/.config/tff/tff\-combos.yaml\fR with automatic safety backups.
+.TP
 .BR monitor " [" \fIOPTIONS\fR "] [" \fIDEVICE\fR "]"
 Launch the interactive live event monitor and chord debugger. Displays microsecond timestamps, timing deltas, raw key codes, chord candidate matching, and action annotations in real time. Runs non-exclusively by default so normal keyboard usage is unaffected.
 .TP
@@ -46,6 +52,18 @@ Parse and validate a YAML configuration file without capturing input or creating
 .BR setup\-udev " [" \fIOPTIONS\fR "]"
 Inspect system permissions for non-root execution (access to \fI/dev/uinput\fR and \fI/dev/input/event*\fR), report diagnostic status, or generate/install standard udev rules.
 .SH OPTIONS
+.TP
+.BR \-p ", " \-\-preset " \fINAME\fR"
+Select preset configuration template (\fBminimal\fR, \fBvim\-nav\fR, \fBhome\-row\-mods\fR, \fBfull\fR) (used with \fBinit\fR).
+.TP
+.BR \-\-list\-presets
+List all available configuration presets and descriptions, then exit (used with \fBinit\fR).
+.TP
+.BR \-o ", " \-\-output " \fIPATH\fR"
+Destination file path for generated configuration (default: \fI~/.config/tff/tff\-combos.yaml\fR) (used with \fBinit\fR).
+.TP
+.BR \-f ", " \-\-force
+Overwrite existing destination configuration file without interactive confirmation (used with \fBinit\fR).
 .TP
 .BR \-c ", " \-\-config " \fIFILE\fR"
 Path to YAML combo configuration file (default: \fIconfig/tff-combos.yaml\fR).
@@ -130,6 +148,21 @@ Fish shell autocompletion script.
 .B NO_COLOR
 When set (regardless of value), disables ANSI color escape sequences across all subcommands.
 .SH EXAMPLES
+.PP
+Run the interactive configuration wizard:
+.RS 4
+.B tff init
+.RE
+.PP
+Install the Vim navigation layer preset:
+.RS 4
+.B tff init --preset vim-nav
+.RE
+.PP
+Preview the full configuration preset without writing to disk:
+.RS 4
+.B tff init --preset full --print
+.RE
 .PP
 Run the live chord monitor to debug chord timings:
 .RS 4

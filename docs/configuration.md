@@ -772,9 +772,29 @@ settings:
 | `exclusive_grab` | boolean | `true` | When true, grabs keyboard devices exclusively via `ioctl(fd, EVIOCGRAB, 1)` so original keys are intercepted. |
 | `hotplug` | boolean | `true` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. |
 
-### Aliases & Format Flexibility
-- Boolean options accept `true`/`false`, `yes`/`no`, `on`/`off`, and `1`/`0` (case-insensitive).
-- Key name aliases: `combo_timeout` / `combo_window_ms`, `tap_hold_timeout`, and `grab`.
+## Configuration Wizard and Presets (`tff init`)
+
+You can generate a custom configuration file through an interactive interview or install curated templates using `tff init`:
+
+```bash
+# Interactive configuration interview:
+tff init
+
+# List available presets:
+tff init --list-presets
+
+# Install a preset to ~/.config/tff/tff-combos.yaml:
+tff init --preset vim-nav
+
+# Preview preset without saving to disk:
+tff init --preset minimal --print
+```
+
+### Available Presets
+- `minimal`: Essential home-row index finger chords (`j+f` -> backspace, `f+j` -> delete, `d+f+j` -> escape) and dual-role CapsLock (`esc` on tap, `super` on hold).
+- `vim-nav`: Vim-style `h/j/k/l` arrow navigation, `0/4` -> `home/end`, `u/d` -> `page_up/page_down` on Space-hold.
+- `home-row-mods`: Dual-role modifiers on home row (`a/s/d/f` = Super, Alt, Ctrl, Shift on hold).
+- `full`: Comprehensive setup with combos, Space-Nav layer, dual-role CapsLock, and Auto-Shift.
 
 ## CLI Validation
 

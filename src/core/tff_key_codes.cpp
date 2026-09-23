@@ -589,12 +589,20 @@ struct KeyTable {
         add_alias("shift", "leftshift");
         add_alias("lshift", "leftshift");
         add_alias("rshift", "rightshift");
+        add_alias("left_shift", "leftshift");
+        add_alias("right_shift", "rightshift");
         add_alias("alt", "leftalt");
         add_alias("lalt", "leftalt");
         add_alias("ralt", "rightalt");
+        add_alias("left_alt", "leftalt");
+        add_alias("right_alt", "rightalt");
+        add_alias("left_ctrl", "leftctrl");
+        add_alias("right_ctrl", "rightctrl");
         add_alias("super", "leftmeta");
         add_alias("lsuper", "leftmeta");
         add_alias("rsuper", "rightmeta");
+        add_alias("left_super", "leftmeta");
+        add_alias("right_super", "rightmeta");
         add_alias("win", "leftmeta");
         add_alias("meta", "leftmeta");
         add_alias("lmeta", "leftmeta");
@@ -605,12 +613,17 @@ struct KeyTable {
         add_alias("ins", "insert");
         add_alias("return", "enter");
         add_alias("caps", "capslock");
+        add_alias("caps_lock", "capslock");
         add_alias("arrowup", "up");
         add_alias("arrowdown", "down");
         add_alias("arrowleft", "left");
         add_alias("arrowright", "right");
         add_alias("pgup", "pageup");
+        add_alias("page_up", "pageup");
+        add_alias("pg_up", "pageup");
         add_alias("pgdn", "pagedown");
+        add_alias("page_down", "pagedown");
+        add_alias("pg_dn", "pagedown");
         add_alias("pagedn", "pagedown");
 
         // Mouse button aliases
