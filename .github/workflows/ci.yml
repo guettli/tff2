@@ -216,9 +216,20 @@ jobs:
       - name: Install ARM GCC toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib
+
+      - name: Cache Pico SDK
+        id: cache-pico-sdk
+        uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-2.1.1-tinyusb
 
       - name: Checkout Pico SDK
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: raspberrypi/pico-sdk
@@ -227,26 +238,30 @@ jobs:
           path: pico-sdk
 
       - name: Initialize Pico SDK TinyUSB submodule
+        if: steps.cache-pico-sdk.outputs.cache-hit != 'true'
         run: |
           cd pico-sdk
           git submodule update --init --depth 1 lib/tinyusb
 
-      - name: Configure CMake for RP2040
+      - name: Build RP2040 Firmware via scripts/build_rp2040.sh
         env:
           PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+          PICO_BOARD: adafruit_feather_rp2040
         run: |
-          cmake -B build-rp2040 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPICO_BUILD=ON \
-            -DPICO_BOARD=adafruit_feather_rp2040
+          bash scripts/build_rp2040.sh build-rp2040
 
-      - name: Build RP2040 Firmware
-        run: cmake --build build-rp2040 -j$(nproc)
-
-      - name: Verify firmware binaries
+      - name: Verify UF2 binary structure & magic header
         run: |
-          ls -la build-rp2040/tff_rp2040.uf2
-          ls -la build-rp2040/tff_rp2040.elf
+          test -s build-rp2040/tff_rp2040.uf2
+          test -s build-rp2040/tff_rp2040.elf
+          python3 -c "
+          with open('build-rp2040/tff_rp2040.uf2', 'rb') as f:
+              magic_start = f.read(4)
+              assert magic_start == b'UF2\n', f'Invalid UF2 magic start: {magic_start}'
+              magic_2 = f.read(4)
+              assert magic_2 == b'WQE\x9e', f'Invalid second magic: {magic_2}'
+          print('UF2 binary magic header (0x0A324655, 0x9E5D5157) verified successfully!')
+          "
 
       - name: Upload RP2040 firmware artifacts
         uses: actions/upload-artifact@v4

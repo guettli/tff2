@@ -64,9 +64,9 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 # Run all pre-push checks:
 # 1. clang-format check
 # 2. Strict CMake compilation (-Wall -Wextra -Wpedantic -Werror)
-# 3. All 16 CTest unit test suites (including invariant & fuzzing suite)
+# 3. All 19 CTest unit test suites (including invariant & fuzzing suite)
 # 4. Cppcheck static code analysis
-# Run full local checks (format-check, -Werror build, ctest, cppcheck, CLI smoke tests):
+# 5. CLI smoke tests
 ./scripts/check.sh
 
 # Run with AddressSanitizer and UndefinedBehaviorSanitizer enabled:
@@ -75,7 +75,10 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 # Run code coverage analysis (gcov):
 ./scripts/check.sh --coverage
 
-# Run all checks including sanitizers and coverage:
+# Also cross-compile RP2040 firmware (requires arm-none-eabi-gcc):
+./scripts/check.sh --rp2040
+
+# Run all checks including sanitizers, coverage, and RP2040 firmware:
 ./scripts/check.sh --all
 ```
 
@@ -116,11 +119,11 @@ Before pushing your changes or opening a PR, run the unified developer check scr
 
 Every push and Pull Request triggers the GitHub Actions CI pipeline:
 1. **Code Formatting (`clang-format`)**: Verifies all C/C++ files adhere to `.clang-format`.
-2. **Multi-Compiler Build & Test (GCC & Clang Matrix)**: Builds with `-Werror`, runs all 16 test suites under both GCC and Clang, verifies CLI commands, tests `install.sh`, and validates release archive packaging.
+2. **Multi-Compiler Build & Test (GCC & Clang Matrix)**: Builds with `-Werror`, runs all 19 test suites under both GCC and Clang, verifies CLI commands, tests `install.sh`, validates Debian `.deb` package installation and removal, and checks release archive packaging.
 3. **Code Coverage (`gcov`)**: Measures line coverage across `src/core/` and `src/platform/linux/` and prints summary statistics.
 4. **Sanitizers (ASan + UBSan)**: Builds with AddressSanitizer and UndefinedBehaviorSanitizer, asserting zero memory leaks or undefined behavior.
 5. **Static Analysis (Cppcheck)**: Runs deep static code analysis with `--enable=warning,style,performance,portability --error-exitcode=1`.
-6. **RP2040 Firmware Cross-Compilation**: Cross-compiles the embedded firmware with `arm-none-eabi-gcc` and Raspberry Pi Pico SDK.
+6. **RP2040 Firmware Cross-Compilation**: Cross-compiles the embedded firmware using `arm-none-eabi-gcc` and Raspberry Pi Pico SDK v2.1.1 (with TinyUSB), and verifies binary UF2 header magic numbers.
 
 ---
 

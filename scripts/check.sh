@@ -11,14 +11,15 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    echo "Usage: $0 [--sanitizers] [--coverage] [--all]"
+    echo "Usage: $0 [--sanitizers] [--coverage] [--rp2040] [--all]"
     echo "Runs unified local verification: clang-format check, -Werror build, ctest,"
     echo "cppcheck static analysis, and CLI smoke tests."
     echo ""
     echo "Options:"
     echo "  --sanitizers          Also run AddressSanitizer and UndefinedBehaviorSanitizer suite"
     echo "  --coverage            Also build with coverage and generate gcov summary report"
-    echo "  --all                 Run all checks including sanitizers and coverage"
+    echo "  --rp2040              Also compile RP2040 microcontroller firmware (requires arm-none-eabi-gcc)"
+    echo "  --all                 Run all checks including sanitizers, coverage, and RP2040 (if toolchain present)"
     echo "  -h, --help            Show this help message"
     exit 0
 fi
@@ -98,6 +99,9 @@ step "Running CLI smoke verification..."
 ./build/tff_linux validate config/tff-combos.yaml >/dev/null
 ./build/tff_linux cheatsheet --plain >/dev/null
 ./build/tff_linux setup-udev --print >/dev/null
+./build/tff_linux --print >/dev/null
+./build/tff_linux init --list-presets >/dev/null
+./build/tff_linux init --preset minimal --print >/dev/null
 success "CLI smoke tests passed"
 
 # 7. Optional Sanitizers check if requested
@@ -116,6 +120,17 @@ if [[ " $* " =~ " --coverage " || " $* " =~ " --all " ]]; then
     step "Running Code Coverage analysis..."
     "${SCRIPT_DIR}/coverage.sh"
     success "Code coverage analysis completed"
+fi
+
+# 9. Optional RP2040 Firmware check if requested
+if [[ " $* " =~ " --rp2040 " || " $* " =~ " --all " ]]; then
+    step "Running RP2040 firmware cross-compilation..."
+    if command -v arm-none-eabi-gcc &>/dev/null; then
+        bash "${SCRIPT_DIR}/build_rp2040.sh" "build-rp2040"
+        success "RP2040 firmware built and verified"
+    else
+        echo -e "${COLOR_YELLOW}! arm-none-eabi-gcc not found, skipping RP2040 build${COLOR_RESET}"
+    fi
 fi
 
 echo -e "\n${COLOR_GREEN}======================================================${COLOR_RESET}"
