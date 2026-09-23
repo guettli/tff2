@@ -200,6 +200,9 @@ std::string generateConfigFromAnswers(const WizardAnswers& a) {
            << "    outKeys: delete\n"
            << "  - keys: d f j\n"
            << "    outKeys: esc\n\n";
+    } else if (a.enable_home_row_combos && a.enable_home_row_mods) {
+        ss << "# Note: Home-row index chords on J/F/D are omitted because Home-Row Modifiers\n"
+           << "# are configured on the same keys (avoiding tap-hold and combo conflicts).\n\n";
     }
 
     if (a.enable_caps_lock_dual_role || a.enable_space_nav_layer || a.enable_home_row_mods) {
@@ -251,6 +254,7 @@ std::string generateConfigFromAnswers(const WizardAnswers& a) {
 
     if (a.enable_leader_sequences) {
         ss << "leader:\n"
+           << "  key: right_alt\n"
            << "  timeout_ms: 800\n"
            << "  sequences:\n"
            << "    w q: \":wq\"\n"
@@ -261,12 +265,6 @@ std::string generateConfigFromAnswers(const WizardAnswers& a) {
 }
 
 std::string getDefaultOutputPath() {
-    // If running in repo root and config/ exists, default to config/tff-combos.yaml
-    std::error_code ec;
-    if (std::filesystem::is_directory("config", ec)) {
-        return "config/tff-combos.yaml";
-    }
-
     const char* xdg_config = std::getenv("XDG_CONFIG_HOME");
     if (xdg_config != nullptr && xdg_config[0] != '\0') {
         return std::string(xdg_config) + "/tff/tff-combos.yaml";
@@ -300,7 +298,9 @@ int runWizard(const WizardOptions& options, std::istream& in, std::ostream& out)
             return 1;
         }
         yaml_content = preset->yaml_content;
-        out << "Selected preset: " << preset->name << " (" << preset->description << ")\n";
+        if (!options.print_only) {
+            out << "Selected preset: " << preset->name << " (" << preset->description << ")\n";
+        }
     } else if (options.non_interactive) {
         // Default non-interactive preset
         const auto* preset = findPreset("minimal");
@@ -350,7 +350,9 @@ int runWizard(const WizardOptions& options, std::istream& in, std::ostream& out)
 
             answers.enable_home_row_mods = askYesNo(
                 in, out,
-                "4. Enable Home-Row Modifiers (A/S/D/F & J/K/L/; as Super/Alt/Ctrl/Shift on hold)?",
+                "4. Enable Home-Row Modifiers (A/S/D/F & J/K/L/; as Super/Alt/Ctrl/Shift on "
+                "hold)?\n"
+                "   (Note: Disables J/F/D home-row combos to prevent tap-hold modifier conflicts)",
                 false);
 
             answers.enable_auto_shift = askYesNo(
@@ -389,7 +391,7 @@ int runWizard(const WizardOptions& options, std::istream& in, std::ostream& out)
 
     if (file_exists && !options.force && !options.non_interactive) {
         out << "\nTarget configuration file already exists: " << target_path << "\n";
-        bool overwrite = askYesNo(in, out, "Create backup and overwrite existing file?", true);
+        bool overwrite = askYesNo(in, out, "Create backup and overwrite existing file?", false);
         if (!overwrite) {
             out << "Setup cancelled by user. Existing configuration was not modified.\n";
             return 0;
@@ -407,6 +409,11 @@ int runWizard(const WizardOptions& options, std::istream& in, std::ostream& out)
         std::string backup_path = target_path + ".bak";
         std::filesystem::copy_file(target_path, backup_path,
                                    std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec) {
+            out << "Error: Failed to create backup file " << backup_path << ": " << ec.message()
+                << "\n";
+            return 1;
+        }
         out << "Created backup: " << backup_path << "\n";
     }
 

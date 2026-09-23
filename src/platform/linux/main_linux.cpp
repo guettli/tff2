@@ -216,6 +216,9 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--print") {
             init_print = true;
             udev_opts.print_only = true;
+            if (!init_mode) {
+                setup_udev_mode = true;
+            }
         } else if (arg == "--check") {
             setup_udev_mode = true;
             udev_opts.check_only = true;

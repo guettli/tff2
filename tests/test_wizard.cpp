@@ -1,6 +1,7 @@
 #include "tff_wizard.h"
 #include "tff_engine.h"
 #include "tff_parser.h"
+#include "tff_key_codes.h"
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -87,6 +88,7 @@ void testGenerateConfigFromAnswers() {
     assert(cfg2.layers.size() == 1);
     assert(cfg2.auto_shift.enabled);
     assert(cfg2.leader.sequences.size() == 2);
+    assert(cfg2.leader.key == tff::Keys::KEY_RIGHTALT);
 
     // Minimal empty answers
     tff::wizard::WizardAnswers a3;
@@ -134,6 +136,7 @@ void testWizardPrintOnly() {
     int rc = tff::wizard::runWizard(opts, in, out);
     assert(rc == 0);
     std::string yaml = out.str();
+    assert(yaml.find("Selected preset:") == std::string::npos);
     assert(yaml.find("keys: j f") != std::string::npos);
     assert(yaml.find("outKeys: backspace") != std::string::npos);
 
