@@ -190,7 +190,7 @@ void testWizardFileCreationAndBackup() {
     std::ifstream bak_in(backup_file);
     std::string bak_content((std::istreambuf_iterator<char>(bak_in)),
                             std::istreambuf_iterator<char>());
-    assert(bak_content.find("caps_lock: [esc, super, 200]") != std::string::npos);
+    assert(bak_content.find("hold: super") != std::string::npos);
     assert(bak_content.find("nav:") == std::string::npos);
 
     std::ifstream cur_in(test_file);

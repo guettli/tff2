@@ -1,0 +1,309 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/guettli/tff2/main/schema/tff-schema.json",
+  "title": "Ten Flying Fingers (TFF) Configuration Schema",
+  "description": "JSON Schema for Ten Flying Fingers (TFF) keyboard remapping YAML configuration files.",
+  "type": "object",
+  "properties": {
+    "settings": {
+      "type": "object",
+      "description": "Global timing and daemon behavior settings",
+      "properties": {
+        "combo_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 40,
+          "description": "Maximum overlapping duration in milliseconds for chords to trigger a combo"
+        },
+        "tap_hold_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 200,
+          "description": "Default timeout in milliseconds before a held dual-role key resolves to its hold action"
+        },
+        "exclusive_grab": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to exclusively grab physical keyboard devices using EVIOCGRAB"
+        },
+        "hotplug": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to automatically detect and monitor newly connected keyboards via inotify"
+        }
+      },
+      "additionalProperties": false
+    },
+    "combos": {
+      "description": "List of multi-key chords and overlapping combinations",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "keys": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "array", "items": { "type": "string" } }
+                ],
+                "description": "Keys forming the combo chord (space-separated string or array)"
+              },
+              "out": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "array", "items": { "type": "string" } }
+                ],
+                "description": "Target key(s) or key chord to emit"
+              },
+              "outKeys": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "array", "items": { "type": "string" } }
+                ],
+                "description": "Alias for 'out'"
+              },
+              "text": {
+                "type": "string",
+                "description": "Text string snippet macro to expand"
+              },
+              "layer": {
+                "type": "string",
+                "description": "Layer scope: combo is only active when this modal layer is engaged"
+              },
+              "toggle_layer": {
+                "type": "string",
+                "description": "Modal layer to lock on or off upon triggering the combo"
+              },
+              "mouse": {
+                "type": "string",
+                "description": "Mouse movement, scroll, or button action"
+              }
+            },
+            "required": ["keys"],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "object",
+          "description": "Compact dictionary mapping chords to outputs (e.g. 'j + f: backspace')",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } },
+              {
+                "type": "object",
+                "properties": {
+                  "out": { "type": "string" },
+                  "text": { "type": "string" },
+                  "layer": { "type": "string" },
+                  "toggle_layer": { "type": "string" },
+                  "mouse": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "layers": {
+      "type": "object",
+      "description": "Modal layers defining navigation, numpad, symbol, or custom mappings",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Mappings active when this modal layer is engaged",
+        "additionalProperties": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } },
+            {
+              "type": "object",
+              "properties": {
+                "out": { "type": "string" },
+                "text": { "type": "string" },
+                "toggle_layer": { "type": "string" },
+                "mouse": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    },
+    "tap_hold": {
+      "type": "object",
+      "description": "Dual-role keys (tap for one key/action, hold for modifier or momentary layer)",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "tap": {
+            "type": "string",
+            "description": "Key emitted on tap (or 'leader', 'toggle_layer(name)', 'osm(modifier)', 'osl(layer)')"
+          },
+          "hold": {
+            "type": "string",
+            "description": "Modifier key or modal layer active while held"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "Hold threshold in milliseconds (defaults to settings.tap_hold_timeout_ms)"
+          }
+        },
+        "required": ["tap", "hold"],
+        "additionalProperties": false
+      }
+    },
+    "tap_dance": {
+      "type": "object",
+      "description": "Multi-tap and tap-hold variations on single keys",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "tap": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "object" }
+            ],
+            "description": "Action executed on single tap"
+          },
+          "double_tap": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "object" }
+            ],
+            "description": "Action executed on double tap"
+          },
+          "triple_tap": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "object" }
+            ],
+            "description": "Action executed on triple tap"
+          },
+          "hold": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "object" }
+            ],
+            "description": "Action executed when held on first tap"
+          },
+          "double_hold": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "object" }
+            ],
+            "description": "Action executed when tapped once then held"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5000,
+            "description": "Tap dance interval timeout in milliseconds"
+          }
+        },
+        "required": ["tap"],
+        "additionalProperties": false
+      }
+    },
+    "one_shot": {
+      "description": "One-shot / sticky modifiers and layers",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Target modifier (osm) or layer (osl), e.g. osm(shift)"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "modifier": { "type": "string" },
+              "layer": { "type": "string" },
+              "timeout_ms": { "type": "integer" }
+            },
+            "required": ["key"],
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    "leader": {
+      "description": "Sequential mnemonic leader key shortcuts",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Dedicated trigger key for the leader sequence"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "default": 1000,
+          "description": "Timeout between sequential keypresses in milliseconds"
+        },
+        "sequences": {
+          "type": "object",
+          "description": "Mapping of mnemonic key sequences to text snippets, chords, or layers",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } },
+              { "type": "object" }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "auto_shift": {
+      "type": "object",
+      "description": "Automatic capitalization upon long keypress",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 175,
+          "description": "Hold duration before capitalizing key"
+        },
+        "keys": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["letters", "numbers", "symbols", "all"],
+              "description": "Key preset name"
+            },
+            {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Custom list of keys eligible for auto-shift"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "mouse": {
+      "type": "object",
+      "description": "Mouse key emulation settings",
+      "properties": {
+        "speed": { "type": "integer", "default": 20, "description": "Pixel delta per tick" },
+        "acceleration": { "type": "number", "default": 1.0, "description": "Acceleration curve exponent" },
+        "scroll_speed": { "type": "integer", "default": 1, "description": "Scroll delta per tick" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

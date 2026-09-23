@@ -60,7 +60,7 @@ flowchart TD
 ## 2. Core Subsystems
 
 ### 2.1 Configuration & Parser Subsystem (`tff_parser`)
-- **Format Flexibility**: Parses both compact dictionary YAML (`f + j: esc`, `capslock: [esc, super, 200ms]`) and legacy list syntax (`- in: [f, j]`, `out: esc`).
+- **Format Flexibility**: Parses both intuitive YAML property blocks (`f + j: esc`, `tap_hold: { tap: esc, hold: super }`) and legacy list syntax (`- in: [f, j]`, `out: esc`).
 - **Symmetric Chording Permutations**: Combos declared with `+` (`d + f + j: tab`) automatically generate all $N!$ arrival permutations (`std::next_permutation`) at parse time, ensuring order-independent activation.
 - **Literal Punctuation & Friendly Aliases**: Translates symbols (`;`, `,`, `.`, `/`, `\`, `-`, `=`) and modifier names (`ctrl`, `shift`, `alt`, `super`, `win`) directly to Linux evdev / HID keycodes.
 - **Embedded Zero-Heap Parser**: Implements custom lightweight string splitting and comment stripping without external dependencies like `libyaml`.
@@ -160,7 +160,7 @@ sequenceDiagram
 
 ### 3.3 Tap-vs-Hold Permissive Chording & Timer Expiration
 
-Dual-role keys (e.g. `capslock: [esc, super, 200ms]`) choose between a short tap and a held modifier:
+Dual-role keys (e.g. `tap_hold` with `tap: esc`, `hold: super`, `timeout_ms: 200`) choose between a short tap and a held modifier:
 
 ```mermaid
 sequenceDiagram
@@ -303,7 +303,7 @@ sequenceDiagram
     participant Engine as TFFEngine
     participant Virtual as /dev/uinput
 
-    Note over User,Virtual: Scenario: Double-tap on 'tab' key (tap: tab, double_tap: tg(nav))
+    Note over User,Virtual: Scenario: Double-tap on 'tab' key (tap: tab, double_tap: toggle_layer(nav))
     User->>Engine: Press 'tab' (Down) at t=100ms
     Note over Engine: stage = WAITING_FOR_RELEASE; tap_count = 1
     User->>Engine: Release 'tab' (Up) at t=130ms

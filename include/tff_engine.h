@@ -41,6 +41,7 @@ struct TraceEvent {
         OneShotArmed,
         TapDanceTap,
         TapDanceHold,
+        Reset,
         Info
     };
     Kind kind = Kind::Info;
@@ -146,10 +147,21 @@ public:
     // Evict oldest buffered event to enforce buffer bounds
     void evictOldestBufferedEvent();
 
+    // Emergency state machine reset (automatically active when ESC is held continuously for 3.0s)
+    static constexpr int64_t ESC_RESET_TIMEOUT_US = 3000000LL;
+    bool isEscResetTriggered() const { return esc_reset_triggered_; }
+
     // Get string representation of buffer and state (matching Go state.String())
     std::string toString() const;
 
 private:
+    void triggerEscReset(TimeVal time);
+
+    bool esc_hold_active_ = false;
+    TimeVal esc_down_time_;
+    bool esc_reset_triggered_ = false;
+    bool esc_reset_swallow_release_ = false;
+
     struct ActiveTapHold {
         TapHoldKey config;
         TimeVal down_time;

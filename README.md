@@ -1,6 +1,10 @@
 # TFF-like Keyboard Remapping System
 
-A cross-platform keyboard remapping solution that allows overlapping key combinations for enhanced productivity. Inspired by the Ten Flying Fingers (TFF) project but implemented in C++ for better performance and lower latency.
+A cross-platform keyboard remapping solution that allows overlapping key combinations for enhanced productivity. Inspired by the Ten Flying Fingers (TFF) project, implemented in C++ to run both as a native Linux background daemon and directly on RP2040 hardware USB adapters without host software.
+
+### Overall Goal
+
+Keep your fingers on the home row! Stretching fingers to reach distant keys like Backspace, Delete, Escape, or arrow keys disrupts typing flow and strains hands. TFF lets you trigger these actions using fast, natural overlapping chords and dual-role keys directly on the home row (e.g. `J` + `F` for Backspace, `F` + `J` for Delete, or holding `Caps Lock` for Super while tapping for Escape).
 
 ## Features
 
@@ -31,19 +35,23 @@ A cross-platform keyboard remapping solution that allows overlapping key combina
 
 ```mermaid
 flowchart TD
-    subgraph Linux ["Linux Platform (tff / tff_linux)"]
-        K1["Physical Keyboard"] -->|"/dev/input/event*"| INOTIFY["Inotify Hotplug & Evdev Reader"]
-        INOTIFY -->|EVIOCGRAB| ENGINE_L["TFFEngine Core State Machine"]
-        ENGINE_L -->|Virtual Events| UINPUT["/dev/uinput Device"]
-        UINPUT --> APPS["Desktop Applications (Wayland / X11)"]
+    subgraph Linux ["Linux Platform (tff)"]
+        direction TB
+        K1["Physical Keyboard"]
+        -->|"/dev/input/event*"| INOTIFY["Inotify Hotplug & Evdev Reader"]
+        -->|EVIOCGRAB| ENGINE_L["TFFEngine Core State Machine"]
+        -->|Virtual Events| UINPUT["/dev/uinput Device"]
+        --> APPS["Desktop Applications (Wayland / X11)"]
     end
 
-    subgraph Hardware ["RP2040 Hardware Platform"]
-        K2["Physical USB Keyboard"] -->|USB-A Host| HOST["TinyUSB Host (MAX3421E / Native)"]
-        HOST -->|Raw Keycodes| CONV["RP2040Platform Key Translator"]
-        CONV --> ENGINE_HW["TFFEngine Core State Machine"]
-        ENGINE_HW -->|USB HID Reports| DEV["TinyUSB Device"]
-        DEV -->|USB-C Cable| PC["Host Computer (BIOS, Windows, Mac, Linux)"]
+    subgraph Hardware ["RP2040 Hardware Platform (Microcontroller USB Adapter)"]
+        direction TB
+        K2["Physical USB Keyboard"]
+        -->|USB-A Host Cable| HOST["TinyUSB Host (Native / MAX3421E)"]
+        -->|Raw Keycodes| CONV["RP2040Platform Key Translator"]
+        --> ENGINE_HW["TFFEngine Core State Machine"]
+        -->|USB HID Reports| DEV["TinyUSB Device"]
+        -->|USB-C Cable| PC["Host Computer (BIOS, Windows, Mac, Linux)"]
     end
 ```
 
@@ -70,20 +78,37 @@ sequenceDiagram
     Note over Engine: Key J marked swallowed
     Engine->>Out: Emit KEY_DELETE (Up)
 
-    Note over User,Out: Scenario 2: Dual-Role Tap-Hold (Caps Lock)
+    Note over User,Out: Scenario 2A: Dual-Role Tap (Caps Lock -> Escape)
     User->>Engine: Press Caps Lock (Down)
     Engine->>Timer: Start tap-hold timeout (default 200ms)
-    User->>Engine: Release Caps Lock (Up before 200ms)
+    User->>Engine: Release Caps Lock (Up before 200ms without other keys)
     Engine->>Out: Tap detected -> Emit KEY_ESC (Down then Up)
+
+    Note over User,Out: Scenario 2B: Dual-Role Hold (Caps Lock -> Super / Windows Key)
+    User->>Engine: Press Caps Lock (Down)
+    Engine->>Timer: Start tap-hold timeout (default 200ms)
+    Timer-->>Engine: 200ms elapsed (or user chords another key)
+    Engine->>Out: Hold detected -> Emit KEY_LEFTMETA (Down)
+    User->>Engine: Release Caps Lock (Up)
+    Engine->>Out: Emit KEY_LEFTMETA (Up)
 ```
+
+**How Dual-Role Tap-Hold Works**: Keys like Caps Lock can perform two distinct roles without any mode switching:
+- **Tapping** (pressing and releasing within 200ms without pressing another key) emits a standard keypress like `Escape`.
+- **Holding** (holding longer than 200ms, or pressing another key while holding) transforms the key into a modifier like `Super` (Windows/Cmd) or `Ctrl`.
+This completely eliminates awkward hand stretching for modifier keys.
+
+### Emergency State Machine Reset
+If you ever find yourself locked in an unexpected modal layer or state loop, simply **press and hold Escape (`ESC`) continuously for 3.0 seconds**.
+TFF will automatically trigger an emergency state machine reset: clearing all active and toggle layers, releasing any held tap-hold or one-shot modifiers, clearing leader sequences and buffers, and cleanly swallowing the `ESC` release event. This safeguard is always active by default without needing configuration.
 
 ## Platforms
 
 ### Linux Version
 - **Input**: Reads physical keyboard events via evdev (`/dev/input/event*`) with optional exclusive grab (`ioctl(fd, EVIOCGRAB, 1)`)
 - **Output**: Emits remapped virtual keyboard events via uinput (`/dev/uinput`)
-- **Core**: 100% shared `tff::TFFEngine` matching the Go `tff` state machine and CircuitPython RP2040 firmware
-- **CLI Daemon**: `tff` (or `tff_linux`) supports auto-discovery, custom YAML configs, multi-keyboard polling, and graceful signal handling
+- **Core**: 100% shared `tff::TFFEngine` running identically across Linux and embedded microcontroller firmware
+- **CLI Daemon**: `tff` supports auto-discovery, custom YAML configs, multi-keyboard polling, and graceful signal handling
 - **Systemd Service**: Runs in the background with auto-restart and highest CPU priority (`Nice=-20`)
 
 ```bash
@@ -92,10 +117,11 @@ sudo apt install ./tff2_amd64.deb
 # Or via dpkg:
 sudo dpkg -i tff2_amd64.deb
 
+# Quick installation via curl:
+curl -fsSL https://raw.githubusercontent.com/guettli/tff2/main/install.sh | sudo bash
+
 # Or install via mise (recommended for user-level management):
 mise use -g github:guettli/tff2
-# or using ubi backend:
-mise use -g ubi:guettli/tff2
 
 # Or install from source repository:
 sudo ./install.sh          # System-wide (/usr/local/bin)
@@ -120,6 +146,7 @@ tff monitor --plain               # Disable ANSI colors
 tff monitor /dev/input/eventX     # Monitor a specific input device
 
 # Validate non-root permissions or install udev rules:
+# (Udev rules grant your user account access to read physical keyboards and emit virtual keys via /dev/uinput without sudo)
 tff setup-udev                      # Check permissions and print diagnostics
 sudo tff setup-udev --install       # Install udev rules and reload udevadm
 tff setup-udev --print              # Print udev rules to stdout
@@ -135,7 +162,11 @@ sudo journalctl -u ten-flying-fingers -f
 See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, systemd user services, and [Systemd Service Example](ten-flying-fingers.service.example).
 
 ### RP2040 Firmware (Microcontroller Mode)
-- **Zero Host Overhead**: Runs on standalone hardware without any drivers or background services on the host computer.
+
+The Raspberry Pi RP2040 is an inexpensive 32-bit dual ARM Cortex-M0+ microcontroller. When flashed with Ten Flying Fingers on a board equipped with a USB Host port (such as the Adafruit Feather RP2040 USB Host), it functions as a standalone hardware keyboard adapter that sits between your physical keyboard and your computer.
+
+- **Zero Host Software**: Runs 100% on the microcontroller. Requires zero drivers, background services, or administrative rights on the host computer.
+- **Universal Compatibility**: Works seamlessly in BIOS/UEFI setup screens, on corporate-restricted laptops, Apple macOS, Microsoft Windows, Linux, and iPad/tablets.
 - **Input**: Reads physical keyboard reports via USB Host (TinyUSB Host).
 - **Output**: Emits remapped keystrokes, combos, and layers as a standard USB HID keyboard (TinyUSB Device).
 - **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode.
@@ -213,34 +244,29 @@ See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for SWD deb
 
 ### Unit Tests (Hardware-Independent C++)
 
-Run all native unit tests (including the full Go-parity test suite running in ~0.02s without requiring RP2040 or special privileges):
+Run all native unit tests (running all 19 test suites in ~0.02s without requiring special privileges or hardware):
 
 ```bash
 ./build.sh
 ```
 
-Or run the ported Go unit test suite directly:
-
-```bash
-./build/test_tff_go_suite
-```
-
 ### Pre-Push Verification & Invariant Testing
 
-Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 16 CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing), Cppcheck static analysis, and CLI smoke tests:
+Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 19 CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing), Cppcheck static analysis, and CLI smoke tests:
 
 ```bash
 ./scripts/check.sh             # Full quality verification pipeline
 ./scripts/check.sh --coverage  # Also generates gcov line coverage report
-./scripts/check.sh --all       # Runs everything including ASan/UBSan and coverage
+./scripts/check.sh --rp2040    # Also compiles RP2040 firmware (if arm toolchain present)
+./scripts/check.sh --all       # Runs everything including ASan/UBSan, coverage, and RP2040
 ```
 
 ### Automated Hardware Testing (USB-OTG Loop)
 
-End-to-end hardware testing can be run using the UpBoard's micro-USB OTG port connected to the RP2040 USB-A host port:
+End-to-end hardware testing can be run using any Linux device equipped with a USB-OTG port (such as an UpBoard, Raspberry Pi Zero, or USB gadget controller) connected to the RP2040 USB-A host port:
 
 ```bash
-./test_tff_automated.sh
+./test_tff_usb_otg.sh
 ```
 
 See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural details and test cases.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Ten Flying Fingers (TFF) hardware loop is fully verified and automated using the UpBoard's micro-USB OTG port and an Adafruit Feather RP2040 USB Host microcontroller board. No physical keyboard or manual key typing is required.
+The Ten Flying Fingers (TFF) hardware loop can be fully verified and automated using any Linux device with a USB-OTG controller (such as an UpBoard, Raspberry Pi Zero, or single-board computer with USB gadget support) connected to an Adafruit Feather RP2040 USB Host microcontroller board. No physical keyboard or manual typing is required.
 
 ## Hardware Architecture Loop
 
@@ -64,7 +64,7 @@ Mounted at `/mnt/circuitpy/code.py`. Key features:
 Execute the test suite directly:
 
 ```bash
-./test_tff_automated.sh
+./test_tff_usb_otg.sh
 ```
 
 Or run the Python test runner directly:

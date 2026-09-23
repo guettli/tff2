@@ -39,9 +39,6 @@ If you use [mise-en-place (mise)](https://mise.jdx.dev/), you can install and ma
 ```bash
 # Install globally via GitHub backend:
 mise use -g github:guettli/tff2
-
-# Or install globally via ubi backend:
-mise use -g ubi:guettli/tff2
 ```
 
 `mise` automatically downloads the pre-built, statically-linked Linux release binary for your architecture and places `tff`, `tff2`, and `tff_linux` on your `PATH`.

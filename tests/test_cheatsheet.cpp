@@ -174,7 +174,10 @@ layers:
     j: kp1
 
 tap_hold:
-  capslock: [esc, super, 200]
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: 200
   space:
     tap: space
     layer: nav
@@ -230,7 +233,10 @@ combos:
   f + space: toggle_layer(numpad)
 
 tap_hold:
-  capslock: [toggle_layer(numpad), super, 200]
+  capslock:
+    tap: toggle_layer(numpad)
+    hold: super
+    timeout_ms: 200
 
 layers:
   numpad:

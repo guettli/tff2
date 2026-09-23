@@ -339,7 +339,10 @@ leader:
     // 2. Valid list format, quoted bracketed keys, and compact tap_hold
     const std::string valid_list_yaml = R"(
 tap_hold:
-  capslock: [leader, super, 200]
+  capslock:
+    tap: leader
+    hold: super
+    timeout_ms: 200
 
 leader:
   timeout_ms: 1200

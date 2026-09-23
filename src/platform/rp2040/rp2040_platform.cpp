@@ -22,7 +22,10 @@ combos:
   d + f + j: esc
 
 tap_hold:
-  capslock: [esc, super, 200]
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: 200
 )";
 
 }  // anonymous namespace

@@ -243,7 +243,10 @@ static void test_modal_layers() {
     // Load custom configuration with a navigation layer
     std::string custom_yaml = R"(
 tap_hold:
-  space: [space, nav, 200]
+  space:
+    tap: space
+    layer: nav
+    timeout_ms: 200
 
 layers:
   nav:
