@@ -2,6 +2,7 @@
 #include "tff_key_codes.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cstdio>
 #include <cassert>
 #include <chrono>
@@ -398,6 +399,45 @@ void testPackagingLayoutAndIntegrity() {
     std::cout << "PASSED\n";
 }
 
+void testGitHookLayoutAndIntegrity() {
+    std::cout << "Test 12: Git pre-commit hook and install script integrity... ";
+
+    auto readFile = [](const std::string& path) -> std::string {
+        std::ifstream in(path);
+        if (!in.is_open()) {
+            in.open("../" + path);
+        }
+        if (!in.is_open())
+            return "";
+        std::stringstream ss;
+        ss << in.rdbuf();
+        return ss.str();
+    };
+
+    // 1. .githooks/pre-commit
+    std::string hook = readFile(".githooks/pre-commit");
+    assert(!hook.empty());
+    assert(hook.rfind("#!/usr/bin/env bash", 0) == 0);
+    assert(hook.find("clang-format") != std::string::npos);
+    assert(hook.find("validate_yaml.py") != std::string::npos);
+    assert(hook.find("git diff --cached") != std::string::npos);
+
+    // 2. scripts/install_hooks.sh
+    std::string installer = readFile("scripts/install_hooks.sh");
+    assert(!installer.empty());
+    assert(installer.rfind("#!/usr/bin/env bash", 0) == 0);
+    assert(installer.find("core.hooksPath") != std::string::npos);
+    assert(installer.find(".githooks") != std::string::npos);
+
+    // 3. scripts/validate_yaml.py
+    std::string validator = readFile("scripts/validate_yaml.py");
+    assert(!validator.empty());
+    assert(validator.rfind("#!/usr/bin/env python3", 0) == 0);
+    assert(validator.find("tff-schema.json") != std::string::npos);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -411,6 +451,7 @@ int main() {
     testConfigHotReloadInvalidSyntaxPreservesCurrent();
     testConfigWatchInotify();
     testPackagingLayoutAndIntegrity();
+    testGitHookLayoutAndIntegrity();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

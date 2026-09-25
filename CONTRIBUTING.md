@@ -54,6 +54,29 @@ cmake --build build --target format
 cmake --build build --target format-check
 ```
 
+### Git Pre-Commit Hook (.githooks)
+
+To automatically enforce formatting of staged C/C++ code and schema validation of staged YAML configurations prior to each commit, enable the repository's pre-commit hook:
+
+```bash
+# Option 1: Using scripts/check.sh
+./scripts/check.sh --install-hooks
+
+# Option 2: Using CMake target
+cmake --build build --target install-hooks
+
+# Option 3: Direct script or git config
+./scripts/install_hooks.sh
+# or: git config core.hooksPath .githooks
+```
+
+The hook automatically checks:
+- Staged `*.cpp`, `*.h`, `*.c` files using `clang-format --dry-run --Werror`.
+- Staged YAML files for syntax errors and compliance with `schema/tff-schema.json`.
+- Schema integrity of `schema/tff-schema.json`.
+
+If any issues are found, the commit is safely aborted with remediation instructions. To bypass temporarily when necessary, use `git commit --no-verify`.
+
 ---
 
 ## Local Verification (`scripts/check.sh`)
