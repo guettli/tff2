@@ -406,12 +406,18 @@ void TFFEngine::deactivateLayer(const std::string& name) {
 
 void TFFEngine::toggleLayer(const std::string& name) {
     auto it = std::find(active_layer_stack_.begin(), active_layer_stack_.end(), name);
+    bool active = false;
     if (it != active_layer_stack_.end()) {
         active_layer_stack_.erase(it);
         trace(TraceEvent::Kind::LayerInactive, "LAYER TOGGLE: " + name + " (off)");
+        active = false;
     } else {
         active_layer_stack_.push_back(name);
         trace(TraceEvent::Kind::LayerActive, "LAYER TOGGLE: " + name + " (on)");
+        active = true;
+    }
+    if (layer_toggle_callback_) {
+        layer_toggle_callback_(name, active);
     }
 }
 

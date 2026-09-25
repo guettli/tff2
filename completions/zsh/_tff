@@ -26,6 +26,8 @@ _tff() {
         '(-g --grab --no-grab)--no-grab[Do not grab device (events pass to OS)]'
         '(--hotplug --no-hotplug)--hotplug[Enable dynamic inotify keyboard hotplugging]'
         '(--hotplug --no-hotplug)--no-hotplug[Disable dynamic inotify keyboard hotplugging]'
+        '(--notify --no-notify)--notify[Enable desktop notifications on modal layer toggle]'
+        '(--notify --no-notify)--no-notify[Disable desktop notifications on modal layer toggle]'
         '(-w --watch-config)'{-w,--watch-config}'[Watch configuration file for live changes via inotify]'
         '(-l --list)'{-l,--list}'[List all discovered keyboards and exit]'
         '(-v --verbose)'{-v,--verbose}'[Print detailed key down/up event logs]'

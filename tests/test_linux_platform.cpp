@@ -438,6 +438,63 @@ void testGitHookLayoutAndIntegrity() {
     std::cout << "PASSED\n";
 }
 
+void testLayerToggleNotifications() {
+    std::cout << "Test 13: Layer toggle desktop notifications... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    assert(!platform.areNotificationsEnabled());
+    platform.setNotificationsEnabled(true);
+    assert(platform.areNotificationsEnabled());
+
+    // Notification callback tracking
+    std::vector<std::pair<std::string, std::string>> notifications;
+    platform.setNotificationCallback(
+        [&notifications](const std::string& title, const std::string& msg) {
+            notifications.push_back({title, msg});
+        });
+
+    // 1. Toggle layer ON
+    platform.getEngine().toggleLayer("numpad");
+    assert(notifications.size() == 1);
+    assert(notifications.back().first == "TFF Layer");
+    assert(notifications.back().second == "[ON] Layer: numpad");
+
+    // 2. Toggle layer OFF
+    platform.getEngine().toggleLayer("numpad");
+    assert(notifications.size() == 2);
+    assert(notifications.back().first == "TFF Layer");
+    assert(notifications.back().second == "[OFF] Layer: numpad");
+
+    // 3. Disable notifications and ensure callback is suppressed
+    platform.setNotificationsEnabled(false);
+    platform.getEngine().toggleLayer("nav");
+    assert(notifications.size() == 2);  // No new notification added
+
+    // 4. Test YAML configuration with notifications setting
+    const std::string temp_yaml = "/tmp/tff_test_config_notify.yaml";
+    {
+        std::ofstream out(temp_yaml);
+        out << "settings:\n"
+            << "  notifications: true\n"
+            << "combos:\n"
+            << "  - keys: f j\n"
+            << "    outKeys: 1\n";
+    }
+    bool loaded = platform.loadConfiguration(temp_yaml);
+    assert(loaded);
+    assert(platform.getSettings().notifications == true);
+    assert(platform.areNotificationsEnabled() == true);
+    std::remove(temp_yaml.c_str());
+
+    // 5. Direct invocation of sendLayerNotification should not crash
+    LinuxPlatform::sendLayerNotification("test_layer", true);
+    LinuxPlatform::sendLayerNotification("test_layer", false);
+
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -452,6 +509,7 @@ int main() {
     testConfigWatchInotify();
     testPackagingLayoutAndIntegrity();
     testGitHookLayoutAndIntegrity();
+    testLayerToggleNotifications();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

@@ -373,8 +373,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                << "ms` |\n"
                << "| Exclusive Grab | `" << (config.settings.exclusive_grab ? "true" : "false")
                << "` |\n"
-               << "| Inotify Hotplug | `" << (config.settings.hotplug ? "true" : "false")
-               << "` |\n\n";
+               << "| Inotify Hotplug | `" << (config.settings.hotplug ? "true" : "false") << "` |\n"
+               << "| Desktop Notifications | `"
+               << (config.settings.notifications ? "enabled" : "disabled") << "` |\n\n";
         }
 
         if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&
@@ -685,7 +686,8 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
            << cyan(std::to_string(config.settings.tap_hold_timeout_ms) + "ms", col)
            << dim(" | Exclusive Grab: ", col)
            << cyan(config.settings.exclusive_grab ? "yes" : "no", col) << dim(" | Hotplug: ", col)
-           << cyan(config.settings.hotplug ? "yes" : "no", col) << "\n\n";
+           << cyan(config.settings.hotplug ? "yes" : "no", col) << dim(" | Notifications: ", col)
+           << cyan(config.settings.notifications ? "yes" : "no", col) << "\n\n";
     }
 
     if (config.combos.empty() && config.tap_hold_keys.empty() && config.layers.empty() &&

@@ -50,6 +50,7 @@ struct TraceEvent {
 };
 
 using TraceCallback = std::function<void(const TraceEvent&)>;
+using LayerToggleCallback = std::function<void(const std::string& layer_name, bool active)>;
 
 class TFFEngine {
 public:
@@ -119,6 +120,10 @@ public:
             trace_callback_(TraceEvent{kind, text, ev});
         }
     }
+
+    void setLayerToggleCallback(LayerToggleCallback cb) { layer_toggle_callback_ = std::move(cb); }
+    const LayerToggleCallback& getLayerToggleCallback() const { return layer_toggle_callback_; }
+    bool hasLayerToggleCallback() const { return static_cast<bool>(layer_toggle_callback_); }
 
     void setFakeActiveTimer(bool fake) { fake_active_timer_ = fake; }
 
@@ -255,6 +260,7 @@ private:
     std::vector<HeldAutoShift> auto_shift_held_;
     std::vector<KeyCode> active_modifiers_;
     TraceCallback trace_callback_;
+    LayerToggleCallback layer_toggle_callback_;
 
     int64_t timeout_after_down_us_ = 150000;  // 150ms
     int64_t min_age_us_ = 140000;             // 140ms

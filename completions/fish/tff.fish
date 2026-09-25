@@ -21,6 +21,8 @@ for prog in tff tff2 tff_linux
     complete -c $prog -l no-grab -d "Do not grab device (events still pass to OS)"
     complete -c $prog -l hotplug -d "Enable dynamic inotify keyboard hotplugging"
     complete -c $prog -l no-hotplug -d "Disable dynamic inotify keyboard hotplugging"
+    complete -c $prog -l notify -d "Enable desktop notifications on modal layer toggle"
+    complete -c $prog -l no-notify -d "Disable desktop notifications on modal layer toggle"
     complete -c $prog -s w -l watch-config -d "Watch configuration file for live changes via inotify"
     complete -c $prog -s l -l list -d "List all discovered keyboards and exit"
     complete -c $prog -s v -l verbose -d "Print detailed key down/up event logs"

@@ -15,7 +15,7 @@ _tff_complete() {
     fi
 
     local commands="init monitor cheatsheet validate setup-udev combos list help version"
-    local global_opts="-c --config -d --device -g --grab --no-grab --hotplug --no-hotplug -w --watch-config -l --list -v --verbose --plain --no-color -h --help -V --version"
+    local global_opts="-c --config -d --device -g --grab --no-grab --hotplug --no-hotplug --notify --no-notify -w --watch-config -l --list -v --verbose --plain --no-color -h --help -V --version"
 
     # Complete options that require specific arguments
     case "$prev" in

@@ -429,6 +429,7 @@ combos:
         assert(cfg_default.settings.tap_hold_timeout_ms == 200);
         assert(cfg_default.settings.exclusive_grab == true);
         assert(cfg_default.settings.hotplug == true);
+        assert(cfg_default.settings.notifications == false);
 
         // 2. Custom settings and propagation to tap_hold default timeout
         std::string custom_settings_yaml = R"(
@@ -437,6 +438,7 @@ settings:
   tap_hold_timeout_ms: 350
   exclusive_grab: false
   hotplug: false
+  notifications: true
 
 combos:
   j f: backspace
@@ -456,6 +458,7 @@ tap_hold:
         assert(cfg_custom.settings.tap_hold_timeout_ms == 350);
         assert(cfg_custom.settings.exclusive_grab == false);
         assert(cfg_custom.settings.hotplug == false);
+        assert(cfg_custom.settings.notifications == true);
         assert(cfg_custom.tap_hold_keys.size() == 2);
         // capslock inherited custom default (350ms)
         assert(cfg_custom.tap_hold_keys[0].timeout_us == 350000LL);
@@ -469,6 +472,7 @@ settings:
   tap_hold_timeout: 280
   grab: off
   hotplug: yes
+  notify: on
 )";
         tff::Config cfg_aliases;
         assert(tff::loadYamlConfig(aliases_yaml, cfg_aliases, err_msg));
@@ -476,6 +480,7 @@ settings:
         assert(cfg_aliases.settings.tap_hold_timeout_ms == 280);
         assert(cfg_aliases.settings.exclusive_grab == false);
         assert(cfg_aliases.settings.hotplug == true);
+        assert(cfg_aliases.settings.notifications == true);
 
         // 4. Validation: unknown field
         std::string bad_field_yaml = R"(
@@ -513,6 +518,14 @@ settings:
         tff::Config cfg_bad_bool;
         assert(!tff::loadYamlConfig(bad_bool_yaml, cfg_bad_bool, err_msg));
         assert(err_msg.find("invalid boolean for exclusive_grab") != std::string::npos);
+
+        std::string bad_notify_yaml = R"(
+settings:
+  notifications: invalid_bool
+)";
+        tff::Config cfg_bad_notify;
+        assert(!tff::loadYamlConfig(bad_notify_yaml, cfg_bad_notify, err_msg));
+        assert(err_msg.find("invalid boolean for notifications") != std::string::npos);
 
         // 8. Validation: mapping value error without colon
         std::string no_colon_yaml = R"(
