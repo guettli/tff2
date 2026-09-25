@@ -613,9 +613,13 @@ layers:
         assert(found_jk);
         assert(found_hl);
 
-        // Validation: negative timeout
+        // Validation: negative or zero timeout
         std::string neg_yaml = "combos:\n  - keys: a + s\n    outKeys: esc\n    timeout_ms: -5\n";
         assert(!tff::loadYamlConfig(neg_yaml, cfg, err_msg));
+        assert(err_msg.find("invalid timeout value") != std::string::npos);
+
+        std::string zero_yaml = "combos:\n  - keys: a + s\n    outKeys: esc\n    timeout_ms: 0\n";
+        assert(!tff::loadYamlConfig(zero_yaml, cfg, err_msg));
         assert(err_msg.find("invalid timeout value") != std::string::npos);
 
         // Validation: timeout > 5000ms

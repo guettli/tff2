@@ -1457,7 +1457,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     if (inline_fields.find("timeout_ms") != inline_fields.end()) {
                         if (!parseDurationMicros(inline_fields["timeout_ms"],
                                                  layer_combo_timeout_us) ||
-                            layer_combo_timeout_us < 0) {
+                            layer_combo_timeout_us <= 0) {
                             err_msg =
                                 "invalid timeout value in combo: " + inline_fields["timeout_ms"];
                             return false;
@@ -1465,7 +1465,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     } else if (inline_fields.find("timeout") != inline_fields.end()) {
                         if (!parseDurationMicros(inline_fields["timeout"],
                                                  layer_combo_timeout_us) ||
-                            layer_combo_timeout_us < 0) {
+                            layer_combo_timeout_us <= 0) {
                             err_msg = "invalid timeout value in combo: " + inline_fields["timeout"];
                             return false;
                         }
@@ -2489,7 +2489,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             auto colon = t.find(':');
             std::string to_val = trim(t.substr(colon + 1));
             int64_t to_us = 0;
-            if (!parseDurationMicros(to_val, to_us) || to_us < 0) {
+            if (!parseDurationMicros(to_val, to_us) || to_us <= 0) {
                 err_msg = "invalid timeout value in combo: " + to_val;
                 return false;
             }
@@ -2723,13 +2723,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
                 if (inline_fields.find("timeout_ms") != inline_fields.end()) {
                     if (!parseDurationMicros(inline_fields["timeout_ms"], combo_timeout_us) ||
-                        combo_timeout_us < 0) {
+                        combo_timeout_us <= 0) {
                         err_msg = "invalid timeout value in combo: " + inline_fields["timeout_ms"];
                         return false;
                     }
                 } else if (inline_fields.find("timeout") != inline_fields.end()) {
                     if (!parseDurationMicros(inline_fields["timeout"], combo_timeout_us) ||
-                        combo_timeout_us < 0) {
+                        combo_timeout_us <= 0) {
                         err_msg = "invalid timeout value in combo: " + inline_fields["timeout"];
                         return false;
                     }
