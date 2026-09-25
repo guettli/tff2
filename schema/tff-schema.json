@@ -32,6 +32,16 @@
           "type": "boolean",
           "default": true,
           "description": "Whether to automatically detect and monitor newly connected keyboards via inotify"
+        },
+        "notifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to send desktop notifications when modal layers are toggled on or off"
+        },
+        "notify": {
+          "type": "boolean",
+          "default": false,
+          "description": "Alias for notifications"
         }
       },
       "additionalProperties": false

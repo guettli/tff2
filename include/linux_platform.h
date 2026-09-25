@@ -123,6 +123,24 @@ public:
     const tff::Settings& getSettings() const { return settings_; }
 
     /**
+     * @brief Enable or disable desktop notifications on modal layer toggles
+     */
+    void setNotificationsEnabled(bool enable);
+    bool areNotificationsEnabled() const { return notifications_enabled_; }
+
+    using NotificationCallback =
+        std::function<void(const std::string& title, const std::string& message)>;
+    void setNotificationCallback(NotificationCallback cb) {
+        notification_callback_ = std::move(cb);
+    }
+    const NotificationCallback& getNotificationCallback() const { return notification_callback_; }
+
+    /**
+     * @brief Send a desktop notification for layer toggles (non-blocking)
+     */
+    static void sendLayerNotification(const std::string& layer_name, bool active);
+
+    /**
      * @brief Set full configuration (combos, tap-hold keys, layers, one-shot keys, leader,
      * auto-shift, mouse, settings)
      */
@@ -267,6 +285,8 @@ private:
     bool verbose_;
     bool hotplug_enabled_;
     bool config_watch_enabled_;
+    bool notifications_enabled_;
+    NotificationCallback notification_callback_;
     int inotify_fd_;
     int hotplug_wd_;
     int config_wd_;

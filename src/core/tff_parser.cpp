@@ -1331,6 +1331,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     return false;
                 }
                 config.settings.hotplug = b;
+            } else if (k == "notifications" || k == "notify") {
+                bool b = false;
+                if (!parseBoolean(v, b)) {
+                    err_msg = "invalid boolean for notifications: " + v;
+                    return false;
+                }
+                config.settings.notifications = b;
             } else {
                 err_msg = "unknown field '" + k + "' in settings section";
                 return false;

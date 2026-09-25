@@ -100,6 +100,8 @@ void printHelp(const char* prog) {
         << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: "
            "enabled)\n"
         << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
+        << "  --notify                Enable desktop notifications on modal layer toggle\n"
+        << "  --no-notify             Disable desktop notifications on modal layer toggle\n"
         << "  -l, --list              List all discovered keyboards and exit\n"
         << "  -v, --verbose           Print detailed key down/up event logs\n"
         << "  -V, --version           Show program version information and exit\n"
@@ -137,6 +139,8 @@ int main(int argc, char* argv[]) {
     bool grab_explicit = false;
     bool hotplug = true;
     bool hotplug_explicit = false;
+    bool notify = false;
+    bool notify_explicit = false;
     bool watch_config = false;
     bool list_only = false;
     bool validate_only = false;
@@ -259,6 +263,12 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--no-hotplug") {
             hotplug = false;
             hotplug_explicit = true;
+        } else if (arg == "--notify") {
+            notify = true;
+            notify_explicit = true;
+        } else if (arg == "--no-notify") {
+            notify = false;
+            notify_explicit = true;
         } else if (arg == "-c" || arg == "--config") {
             if (i + 1 < argc) {
                 config_file = argv[++i];
@@ -539,10 +549,14 @@ int main(int argc, char* argv[]) {
     if (!hotplug_explicit) {
         hotplug = platform.getSettings().hotplug;
     }
+    if (!notify_explicit) {
+        notify = platform.getSettings().notifications;
+    }
 
     platform.setGrab(grab);
     platform.enableHotplug(hotplug);
     platform.enableConfigWatch(watch_config);
+    platform.setNotificationsEnabled(notify);
 
     if (device_paths.empty()) {
         std::cout << "Auto-discovering keyboards...\n";

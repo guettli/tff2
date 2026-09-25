@@ -778,6 +778,7 @@ settings:
   tap_hold_timeout_ms: 200   # Default timeout for dual-role keys (default: 200ms)
   exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
   hotplug: true              # Monitor /dev/input for hotplugged keyboards (default: true)
+  notifications: true        # Desktop notifications when modal layers are toggled (default: false)
 ```
 
 ### Options
@@ -788,6 +789,7 @@ settings:
 | `tap_hold_timeout_ms` | integer (1–10000) | `200` | Default timeout in milliseconds for dual-role keys. Any `tap_hold:` key without an explicit timeout inherits this value. |
 | `exclusive_grab` | boolean | `true` | When true, grabs keyboard devices exclusively via `ioctl(fd, EVIOCGRAB, 1)` so original keys are intercepted. |
 | `hotplug` | boolean | `true` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. |
+| `notifications` / `notify` | boolean | `false` | When true, sends desktop notifications on Linux (via `notify-send` or DBus) whenever a persistent modal layer is toggled ON or OFF. Can also be enabled via `--notify` on the CLI. |
 
 ## Configuration Wizard and Presets (`tff init`)
 

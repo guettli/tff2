@@ -13,6 +13,7 @@ Keep your fingers on the home row! Stretching fingers to reach distant keys like
 - **Configurable Mappings**: Custom key combinations defined in configuration files
 - **Low Latency**: Optimized for real-time keyboard processing
 - **Hardware Agnostic Core**: Same logic runs on multiple platforms
+- **Modal Layers & Notifications**: Momentary and persistent toggle layers with optional Linux desktop notifications (`notify-send` / DBus)
 - **Fast Unit Tests**: Core functionality can be tested without hardware
 
 ## How It Works
