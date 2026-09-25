@@ -11,16 +11,22 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    echo "Usage: $0 [--sanitizers] [--coverage] [--rp2040] [--all]"
+    echo "Usage: $0 [--install-hooks] [--sanitizers] [--coverage] [--rp2040] [--all]"
     echo "Runs unified local verification: clang-format check, -Werror build, ctest,"
     echo "cppcheck static analysis, and CLI smoke tests."
     echo ""
     echo "Options:"
+    echo "  --install-hooks       Configure Git pre-commit hook in local repository (.githooks)"
     echo "  --sanitizers          Also run AddressSanitizer and UndefinedBehaviorSanitizer suite"
     echo "  --coverage            Also build with coverage and generate gcov summary report"
     echo "  --rp2040              Also compile RP2040 microcontroller firmware (requires arm-none-eabi-gcc)"
     echo "  --all                 Run all checks including sanitizers, coverage, and RP2040 (if toolchain present)"
     echo "  -h, --help            Show this help message"
+    exit 0
+fi
+
+if [[ "${1:-}" == "--install-hooks" ]]; then
+    "${SCRIPT_DIR}/install_hooks.sh"
     exit 0
 fi
 
@@ -103,6 +109,12 @@ step "Running CLI smoke verification..."
 ./build/tff_linux init --list-presets >/dev/null
 ./build/tff_linux init --preset minimal --print >/dev/null
 success "CLI smoke tests passed"
+
+# 7. Git Pre-Commit Hook & YAML Validator Check
+step "Running Git hook and YAML schema validation tests..."
+python3 "${ROOT_DIR}/tests/test_pre_commit_hook.py"
+python3 "${ROOT_DIR}/scripts/validate_yaml.py" config/tff-combos.yaml
+success "Git pre-commit hook and YAML validator verified"
 
 # 7. Optional Sanitizers check if requested
 if [[ " $* " =~ " --sanitizers " || " $* " =~ " --all " ]]; then

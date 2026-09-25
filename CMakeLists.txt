@@ -322,6 +322,11 @@ if(NOT PICO_BUILD)
     add_test(NAME test_tap_dance COMMAND test_tap_dance)
     add_test(NAME test_wizard COMMAND test_wizard)
 
+    find_program(PYTHON3_EXECUTABLE NAMES python3 python)
+    if(PYTHON3_EXECUTABLE)
+        add_test(NAME test_pre_commit_hook COMMAND ${PYTHON3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pre_commit_hook.py)
+    endif()
+
     # Ensure assertions are always active in test executables regardless of build type
     set(TEST_TARGETS
         test_rp2040_platform
@@ -397,6 +402,13 @@ if(NOT PICO_BUILD)
             COMMENT "Checking code formatting with clang-format..."
         )
     endif()
+
+    # Git pre-commit hooks setup target
+    add_custom_target(install-hooks
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/install_hooks.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Configuring Git pre-commit hook (.githooks)..."
+    )
 
     # Code coverage report target
     if(ENABLE_COVERAGE)

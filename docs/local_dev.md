@@ -109,6 +109,17 @@ cmake --build build --target format
 cmake --build build --target format-check
 ```
 
+### Git Pre-Commit Hook
+
+Install the repository pre-commit hook to automatically verify staged C/C++ code and YAML configuration files:
+
+```bash
+./scripts/check.sh --install-hooks
+# or
+cmake --build build --target install-hooks
+```
+
+
 ## Documentation
 
 Detailed documentation is available:
