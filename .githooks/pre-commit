@@ -2,6 +2,7 @@
 # ==============================================================================
 # .githooks/pre-commit - Git pre-commit hook for TFF2
 # Checks formatting of staged C/C++ files and validates YAML schemas before commit.
+# Validates staged index content directly to prevent partial-staging desync.
 # ==============================================================================
 set -euo pipefail
 
@@ -23,7 +24,7 @@ fi
 
 FAILED=0
 
-# 1. Check C/C++ code formatting with clang-format
+# 1. Check C/C++ code formatting with clang-format (using staged index blobs)
 STAGED_CPP=()
 while IFS= read -r file; do
     if [[ "$file" =~ \.(cpp|h|c)$ ]]; then
@@ -44,19 +45,18 @@ if [[ ${#STAGED_CPP[@]} -gt 0 ]]; then
         echo -e "${COLOR_YELLOW}! Warning: clang-format not found on PATH. Skipping staged C++ formatting check.${COLOR_RESET}"
     else
         for f in "${STAGED_CPP[@]}"; do
-            if [[ -f "$f" ]]; then
-                if ! "${CLANG_FORMAT_BIN}" --dry-run --Werror "$f" &>/dev/null; then
-                    echo -e "${COLOR_RED}✗ Format check failed: $f${COLOR_RESET}"
-                    echo -e "  Fix with: ${CLANG_FORMAT_BIN} -i \"$f\" && git add \"$f\""
-                    echo -e "  Or: cmake --build build --target format && git add \"$f\""
-                    FAILED=1
-                fi
+            # Format check staged content from index via stdin
+            if ! git show ":$f" | "${CLANG_FORMAT_BIN}" --dry-run --Werror --assume-filename="$f" &>/dev/null; then
+                echo -e "${COLOR_RED}✗ Format check failed: $f${COLOR_RESET}"
+                echo -e "  Fix with: ${CLANG_FORMAT_BIN} -i \"$f\" && git add \"$f\""
+                echo -e "  Or: cmake --build build --target format && git add \"$f\""
+                FAILED=1
             fi
         done
     fi
 fi
 
-# 2. Check YAML syntax and schema validation
+# 2. Check YAML syntax and schema validation (using staged index blobs)
 STAGED_YAML=()
 while IFS= read -r file; do
     if [[ "$file" =~ \.(yaml|yml)$ ]]; then
@@ -66,32 +66,37 @@ done <<< "${STAGED_FILES}"
 
 if [[ ${#STAGED_YAML[@]} -gt 0 ]]; then
     VALIDATE_SCRIPT="${REPO_ROOT}/scripts/validate_yaml.py"
-    if [[ -x "${VALIDATE_SCRIPT}" || -f "${VALIDATE_SCRIPT}" ]]; then
-        for f in "${STAGED_YAML[@]}"; do
-            if [[ -f "$f" ]]; then
-                if ! python3 "${VALIDATE_SCRIPT}" "$f"; then
-                    echo -e "${COLOR_RED}✗ YAML validation failed: $f${COLOR_RESET}"
+    for f in "${STAGED_YAML[@]}"; do
+        # Validate staged YAML via stdin
+        if [[ -x "${VALIDATE_SCRIPT}" || -f "${VALIDATE_SCRIPT}" ]]; then
+            if ! git show ":$f" | python3 "${VALIDATE_SCRIPT}" --filename "$f" -; then
+                echo -e "${COLOR_RED}✗ YAML validation failed: $f${COLOR_RESET}"
+                FAILED=1
+            fi
+        fi
+
+        # If tff_linux binary exists and file contains combos:, validate with core engine
+        if [[ -x "${REPO_ROOT}/build/tff_linux" ]]; then
+            # Only run tff_linux validate if staged content contains top-level combos: key
+            if git show ":$f" | grep -qE '^[[:space:]]*combos:'; then
+                TMP_VALIDATE=$(mktemp --suffix=".yaml")
+                git show ":$f" > "${TMP_VALIDATE}"
+                if ! ERR_OUT=$("${REPO_ROOT}/build/tff_linux" validate "${TMP_VALIDATE}" 2>&1); then
+                    echo -e "${COLOR_RED}✗ TFF engine validation failed for $f:${COLOR_RESET}"
+                    echo -e "  ${ERR_OUT}"
                     FAILED=1
                 fi
-                # If tff_linux binary exists and it's a TFF config, run tff validate
-                if [[ -x "${REPO_ROOT}/build/tff_linux" && ("$f" =~ ^config/ || "$f" =~ tff) ]]; then
-                    if ! "${REPO_ROOT}/build/tff_linux" validate "$f" &>/dev/null; then
-                        echo -e "${COLOR_RED}✗ TFF engine validation failed: $f${COLOR_RESET}"
-                        FAILED=1
-                    fi
-                fi
+                rm -f "${TMP_VALIDATE}"
             fi
-        done
-    fi
+        fi
+    done
 fi
 
 # 3. Check JSON schema validity if schema file is staged
-if echo "${STAGED_FILES}" | grep -q "schema/tff-schema.json"; then
-    if [[ -f "schema/tff-schema.json" ]]; then
-        if ! python3 -m json.tool schema/tff-schema.json >/dev/null 2>&1; then
-            echo -e "${COLOR_RED}✗ Invalid JSON in schema/tff-schema.json${COLOR_RESET}"
-            FAILED=1
-        fi
+if echo "${STAGED_FILES}" | grep -q "^schema/tff-schema\.json$"; then
+    if ! git show ":schema/tff-schema.json" | python3 -m json.tool >/dev/null 2>&1; then
+        echo -e "${COLOR_RED}✗ Invalid JSON in staged schema/tff-schema.json${COLOR_RESET}"
+        FAILED=1
     fi
 fi
 

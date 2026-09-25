@@ -25,7 +25,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
-if [[ "${1:-}" == "--install-hooks" ]]; then
+if [[ " $* " =~ " --install-hooks " ]]; then
     "${SCRIPT_DIR}/install_hooks.sh"
     exit 0
 fi
@@ -116,7 +116,7 @@ python3 "${ROOT_DIR}/tests/test_pre_commit_hook.py"
 python3 "${ROOT_DIR}/scripts/validate_yaml.py" config/tff-combos.yaml
 success "Git pre-commit hook and YAML validator verified"
 
-# 7. Optional Sanitizers check if requested
+# 8. Optional Sanitizers check if requested
 if [[ " $* " =~ " --sanitizers " || " $* " =~ " --all " ]]; then
     step "Running AddressSanitizer & UndefinedBehaviorSanitizer checks..."
     export ASAN_OPTIONS="detect_leaks=1:abort_on_error=1:fast_unwind_on_fatal=0"
@@ -127,14 +127,14 @@ if [[ " $* " =~ " --sanitizers " || " $* " =~ " --all " ]]; then
     success "Sanitizers test suite passed with zero errors"
 fi
 
-# 8. Optional Code Coverage check if requested
+# 9. Optional Code Coverage check if requested
 if [[ " $* " =~ " --coverage " || " $* " =~ " --all " ]]; then
     step "Running Code Coverage analysis..."
     "${SCRIPT_DIR}/coverage.sh"
     success "Code coverage analysis completed"
 fi
 
-# 9. Optional RP2040 Firmware check if requested
+# 10. Optional RP2040 Firmware check if requested
 if [[ " $* " =~ " --rp2040 " || " $* " =~ " --all " ]]; then
     step "Running RP2040 firmware cross-compilation..."
     if command -v arm-none-eabi-gcc &>/dev/null; then

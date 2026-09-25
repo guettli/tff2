@@ -5,6 +5,11 @@
 # ==============================================================================
 set -euo pipefail
 
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Error: Not inside a Git repository. Cannot install Git hooks." >&2
+    exit 1
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "${REPO_ROOT}"
 
