@@ -458,13 +458,13 @@ void testLayerToggleNotifications() {
     platform.getEngine().toggleLayer("numpad");
     assert(notifications.size() == 1);
     assert(notifications.back().first == "TFF Layer");
-    assert(notifications.back().second == "[ON] Layer: numpad");
+    assert(notifications.back().second == "Layer 'numpad' [ON]");
 
     // 2. Toggle layer OFF
     platform.getEngine().toggleLayer("numpad");
     assert(notifications.size() == 2);
     assert(notifications.back().first == "TFF Layer");
-    assert(notifications.back().second == "[OFF] Layer: numpad");
+    assert(notifications.back().second == "Layer 'numpad' [OFF]");
 
     // 3. Disable notifications and ensure callback is suppressed
     platform.setNotificationsEnabled(false);

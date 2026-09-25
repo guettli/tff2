@@ -103,9 +103,10 @@ bool LinuxPlatform::initialize() {
     engine_->setLayerToggleCallback([this](const std::string& layer_name, bool active) {
         if (notifications_enabled_) {
             if (notification_callback_) {
-                notification_callback_(
-                    "TFF Layer",
-                    std::string(active ? "[ON] Layer: " : "[OFF] Layer: ") + layer_name);
+                std::string title = "TFF Layer";
+                std::string state_str = active ? "ON" : "OFF";
+                std::string message = "Layer '" + layer_name + "' [" + state_str + "]";
+                notification_callback_(title, message);
             } else {
                 sendLayerNotification(layer_name, active);
             }
@@ -214,9 +215,19 @@ void LinuxPlatform::setNotificationsEnabled(bool enable) {
 }
 
 void LinuxPlatform::sendLayerNotification(const std::string& layer_name, bool active) {
+    std::string safe_layer;
+    for (char c : layer_name) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == ' ') {
+            safe_layer.push_back(c);
+        }
+    }
+    if (safe_layer.empty()) {
+        safe_layer = "unknown";
+    }
+
     std::string title = "TFF Layer";
     std::string state_str = active ? "ON" : "OFF";
-    std::string message = "Layer '" + layer_name + "' [" + state_str + "]";
+    std::string message = "Layer '" + safe_layer + "' [" + state_str + "]";
 
     std::thread([title, message]() {
         // 1. Try notify-send
@@ -227,7 +238,7 @@ void LinuxPlatform::sendLayerNotification(const std::string& layer_name, bool ac
             return;
         }
 
-        // 2. Try gdbus freedesktop notifications
+        // 2. Try gdbus freedesktop notifications with synchronous hint
         std::string gdbus_cmd =
             "gdbus call --session --dest org.freedesktop.Notifications "
             "--object-path /org/freedesktop/Notifications "
@@ -235,7 +246,7 @@ void LinuxPlatform::sendLayerNotification(const std::string& layer_name, bool ac
             "\"TFF\" 0 \"\" \"" +
             title + "\" \"" + message +
             "\" "
-            "\"[]\" \"{'urgency': <byte 1>}\" 1500 >/dev/null 2>&1";
+            "\"[]\" \"{'urgency': <byte 1>, 'synchronous': <'tff-layer'>}\" 1500 >/dev/null 2>&1";
         int gdbus_ret = std::system(gdbus_cmd.c_str());
         (void)gdbus_ret;
     }).detach();
