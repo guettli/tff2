@@ -80,6 +80,16 @@
               "mouse": {
                 "type": "string",
                 "description": "Mouse movement, scroll, or button action"
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5000,
+                "description": "Custom overlap timeout for this combo in milliseconds"
+              },
+              "timeout": {
+                "type": ["integer", "string"],
+                "description": "Custom overlap timeout for this combo (e.g. 70ms or 70)"
               }
             },
             "required": ["keys"],
@@ -100,7 +110,9 @@
                   "text": { "type": "string" },
                   "layer": { "type": "string" },
                   "toggle_layer": { "type": "string" },
-                  "mouse": { "type": "string" }
+                  "mouse": { "type": "string" },
+                  "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 5000 },
+                  "timeout": { "type": ["integer", "string"] }
                 },
                 "additionalProperties": false
               }
@@ -125,7 +137,9 @@
                 "out": { "type": "string" },
                 "text": { "type": "string" },
                 "toggle_layer": { "type": "string" },
-                "mouse": { "type": "string" }
+                "mouse": { "type": "string" },
+                "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 5000 },
+                "timeout": { "type": ["integer", "string"] }
               },
               "additionalProperties": false
             }

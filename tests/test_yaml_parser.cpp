@@ -563,6 +563,73 @@ layers:
         std::cout << "✓ Test 15 passed: rejection of compact inline tap_hold and tg() shorthand\n";
     }
 
+    // Test 16: Per-combo custom timeout parsing, list format, compact dict, and layer combos
+    {
+        tff::Config cfg;
+        std::string err_msg;
+
+        std::string yaml = R"(
+# yaml-language-server: $schema=https://raw.githubusercontent.com/guettli/tff2/main/schema/tff-schema.json
+settings:
+  combo_timeout_ms: 40
+combos:
+  - keys: a + s
+    outKeys: esc
+    timeout_ms: 70
+  - keys: d + f
+    timeout: 80ms
+    outKeys: tab
+  j + k: { out: enter, timeout_ms: 65 }
+layers:
+  nav:
+    h + l: { out: end, timeout: 55ms }
+)";
+        assert(tff::loadYamlConfig(yaml, cfg, err_msg));
+
+        bool found_as = false;
+        bool found_df = false;
+        bool found_jk = false;
+        bool found_hl = false;
+        for (const auto& c : cfg.combos) {
+            if (c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_ESC) {
+                assert(c.timeout_us == 70000);
+                found_as = true;
+            }
+            if (c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_TAB) {
+                assert(c.timeout_us == 80000);
+                found_df = true;
+            }
+            if (c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_ENTER) {
+                assert(c.timeout_us == 65000);
+                found_jk = true;
+            }
+            if (c.layer == "nav" && c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_END) {
+                assert(c.timeout_us == 55000);
+                found_hl = true;
+            }
+        }
+        assert(found_as);
+        assert(found_df);
+        assert(found_jk);
+        assert(found_hl);
+
+        // Validation: negative or zero timeout
+        std::string neg_yaml = "combos:\n  - keys: a + s\n    outKeys: esc\n    timeout_ms: -5\n";
+        assert(!tff::loadYamlConfig(neg_yaml, cfg, err_msg));
+        assert(err_msg.find("invalid timeout value") != std::string::npos);
+
+        std::string zero_yaml = "combos:\n  - keys: a + s\n    outKeys: esc\n    timeout_ms: 0\n";
+        assert(!tff::loadYamlConfig(zero_yaml, cfg, err_msg));
+        assert(err_msg.find("invalid timeout value") != std::string::npos);
+
+        // Validation: timeout > 5000ms
+        std::string big_yaml = "combos:\n  - keys: a + s\n    outKeys: esc\n    timeout_ms: 6000\n";
+        assert(!tff::loadYamlConfig(big_yaml, cfg, err_msg));
+        assert(err_msg.find("combo timeout exceeds maximum") != std::string::npos);
+
+        std::cout << "✓ Test 16 passed: per-combo custom timeout parsing and validation\n";
+    }
+
     std::cout << "\nAll YAML parser tests passed!\n";
     return 0;
 }
