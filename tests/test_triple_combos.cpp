@@ -295,6 +295,67 @@ void test_repo_config_triple_combo() {
     std::cout << "PASS\n";
 }
 
+// 7. Per-combo custom timeout: required overlap differs from global settings
+void test_per_combo_custom_timeout() {
+    std::cout << "[TEST] Per-combo custom timeout (required overlap override)... ";
+
+    // Global combo timeout is 40ms.
+    // Combo 'a + s: esc' overrides timeout_ms: 80 (requires 80ms overlap).
+    std::string yaml = R"(
+settings:
+  combo_timeout_ms: 40
+combos:
+  - keys: a + s
+    outKeys: esc
+    timeout_ms: 80
+)";
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    assert(config.combos.size() == 2);
+    assert(config.combos[0].timeout_us == 80000);
+
+    // Scenario A: Overlap is 50ms (greater than global 40ms, but less than combo's 80ms)
+    // Keys pressed: A down at t=1000ms, S down at t=1020ms.
+    // A released at t=1070ms -> overlap = 50ms.
+    // Because 50ms < 80ms, the combo must NOT fire! It passes through raw A and S.
+    {
+        std::vector<Event> events;
+        int64_t t_us = 1000000;
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+        t_us += 20000;
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_S, KEY_VAL_DOWN});
+        t_us += 50000;  // Overlap = 50ms
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+        t_us += 20000;
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_S, KEY_VAL_UP});
+
+        std::string expected = "A-down\nS-down\nA-up\nS-up\n";
+        runAndCheck(events, config.combos, expected, "50ms overlap insufficient for 80ms combo");
+    }
+
+    // Scenario B: Overlap is 90ms (greater than combo's 80ms requirement)
+    // Keys pressed: A down at t=2000ms, S down at t=2020ms.
+    // A released at t=2110ms -> overlap = 90ms.
+    // 90ms >= 80ms -> combo matches and emits ESC!
+    {
+        std::vector<Event> events;
+        int64_t t_us = 2000000;
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+        t_us += 20000;
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_S, KEY_VAL_DOWN});
+        t_us += 90000;  // Overlap = 90ms
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+        t_us += 20000;
+        events.push_back(Event{TimeVal::fromMicros(t_us), EV_KEY, Keys::KEY_S, KEY_VAL_UP});
+
+        std::string expected = "ESC-down\nESC-up\n";
+        runAndCheck(events, config.combos, expected, "90ms overlap matches 80ms combo");
+    }
+
+    std::cout << "PASS\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "  Testing Triple Combos & N-Key Chording        \n";
@@ -306,6 +367,7 @@ int main() {
     test_leader_with_triple_combo();
     test_incomplete_chord_released_early();
     test_repo_config_triple_combo();
+    test_per_combo_custom_timeout();
 
     std::cout << "================================================\n";
     std::cout << "ALL TRIPLE COMBO & N-KEY CHORDING TESTS PASSED! ✓\n";

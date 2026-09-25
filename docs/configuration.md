@@ -88,6 +88,28 @@ combos:
     outKeys: backspace
   - keys: f j
     outKeys: delete
+
+#### 3. Per-Combo Custom Timeouts (`timeout_ms`)
+By default, all combos inherit the global `combo_timeout_ms` (default: 40ms) defined under `settings:`. For chords requiring wider windows (such as triple combos like `d + f + j` or difficult finger stretches), you can configure a custom `timeout_ms` (or duration string like `80ms`) override per chord:
+
+```yaml
+combos:
+  # Compact format with inline dictionary:
+  d + f + j: { out: esc, timeout_ms: 80 }
+  a + s + d: { out: backspace, timeout: 70ms }
+
+  # Classic list format:
+  - keys: d + f + j
+    outKeys: esc
+    timeout_ms: 80
+
+  # Layer-scoped combo with custom timeout:
+  - keys: h + l
+    outKeys: end
+    layer: nav
+    timeout_ms: 60
+```
+
 ```
 
 ## Text Snippets & Multi-Character Macro Expansion
@@ -762,7 +784,7 @@ settings:
 
 | Option | Type | Default | Description |
 |:---|:---|:---|:---|
-| `combo_timeout_ms` | integer (1–5000) | `40` | Overlap window in milliseconds required to trigger simultaneous chords. Fast typists can decrease this (e.g. `30`–`35ms`) to avoid accidental chords during rapid rolls; others can increase it (e.g. `60`–`80ms`). |
+| `combo_timeout_ms` | integer (1–5000) | `40` | Overlap window in milliseconds required to trigger simultaneous chords. Can be overridden on individual chords using `timeout_ms:`. Fast typists can decrease this (e.g. `30`–`35ms`) to avoid accidental chords during rapid rolls; others can increase it (e.g. `60`–`80ms`). |
 | `tap_hold_timeout_ms` | integer (1–10000) | `200` | Default timeout in milliseconds for dual-role keys. Any `tap_hold:` key without an explicit timeout inherits this value. |
 | `exclusive_grab` | boolean | `true` | When true, grabs keyboard devices exclusively via `ioctl(fd, EVIOCGRAB, 1)` so original keys are intercepted. |
 | `hotplug` | boolean | `true` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. |

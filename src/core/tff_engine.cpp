@@ -1624,7 +1624,8 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     if (first_up_event && last_down_event && last_down_event->time < first_up_event->time &&
         last_down_event->code != first_up_event->code) {
         int64_t overlap = timeSubMicros(last_down_event->time, first_up_event->time);
-        if (overlap < min_overlap_us_) {
+        int64_t required_overlap = (combo.timeout_us > 0) ? combo.timeout_us : min_overlap_us_;
+        if (overlap < required_overlap) {
             msg = "Overlap too short";
             return EvalResult::NoMatch;
         }

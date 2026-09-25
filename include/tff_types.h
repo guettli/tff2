@@ -122,20 +122,24 @@ struct Combo {
     std::string toggle_layer;  // Layer to toggle on/off when combo triggered
     MouseAction mouse;
     std::string layer;  // If non-empty, combo is only active when this modal layer is active
+    int64_t timeout_us =
+        0;  // Custom required overlap timeout (0 = fallback to settings.combo_timeout_ms)
 
     Combo() = default;
     Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "",
-          MouseAction m = {}, std::string l = "")
+          MouseAction m = {}, std::string l = "", int64_t to_us = 0)
         : keys(std::move(k)),
           out_keys(std::move(ok)),
           text(std::move(t)),
           toggle_layer(std::move(tl)),
           mouse(m),
-          layer(std::move(l)) {}
+          layer(std::move(l)),
+          timeout_us(to_us) {}
 
     bool operator==(const Combo& o) const {
         return keys == o.keys && out_keys == o.out_keys && text == o.text &&
-               toggle_layer == o.toggle_layer && mouse == o.mouse && layer == o.layer;
+               toggle_layer == o.toggle_layer && mouse == o.mouse && layer == o.layer &&
+               timeout_us == o.timeout_us;
     }
 };
 

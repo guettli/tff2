@@ -277,6 +277,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 if (!c.layer.empty()) {
                     type += " (Layer: `" + c.layer + "`)";
                 }
+                if (c.timeout_us > 0) {
+                    type += " [" + std::to_string(c.timeout_us / 1000) + "ms]";
+                }
                 ss << "| " << formatMarkdownCode(in_keys) << " | " << formatMarkdownCode(out_act)
                    << " | " << type << " |\n";
             }
@@ -541,6 +544,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                                                                   : "Single Key"))));
             if (!c.layer.empty()) {
                 type_plain += " (Layer: " + c.layer + ")";
+            }
+            if (c.timeout_us > 0) {
+                type_plain += " [" + std::to_string(c.timeout_us / 1000) + "ms]";
             }
 
             std::string out_col =
