@@ -359,7 +359,7 @@ tff validate /etc/tff/tff-combos.yaml
 
 Output:
 ```text
-Configuration is valid! Loaded 13 combo(s) from /etc/tff/tff-combos.yaml
+Configuration is valid! Loaded 18 combo(s), 1 tap-hold key(s), 0 tap-dance key(s), 0 one-shot key(s), 0 leader sequence(s), 0 layer(s), and settings (combo: 40ms, tap-hold: 200ms) from /etc/tff/tff-combos.yaml
 ```
 
 ### Apply Changes

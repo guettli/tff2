@@ -130,9 +130,9 @@ Before pushing your changes or opening a PR, run the unified developer check scr
   ```
 
 ### Hardware Testing (RP2040 USB-OTG Loop)
-- If you have an UpBoard connected to an RP2040 host rig, run the 30-case automated hardware test suite:
+- If you have a Linux USB-OTG device connected to an RP2040 host rig, run the 30-case automated hardware test suite:
   ```bash
-  ./test_tff_automated.sh
+  ./test_tff_usb_otg.sh
   ```
 - See [`docs/hardware_testing.md`](docs/hardware_testing.md) for full architectural details.
 
