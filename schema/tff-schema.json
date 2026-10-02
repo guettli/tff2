@@ -16,6 +16,18 @@
           "default": 40,
           "description": "Maximum overlapping duration in milliseconds for chords to trigger a combo"
         },
+        "combo_timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Alias for combo_timeout_ms"
+        },
+        "combo_window_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Alias for combo_timeout_ms"
+        },
         "tap_hold_timeout_ms": {
           "type": "integer",
           "minimum": 1,
@@ -23,10 +35,20 @@
           "default": 200,
           "description": "Default timeout in milliseconds before a held dual-role key resolves to its hold action"
         },
+        "tap_hold_timeout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Alias for tap_hold_timeout_ms"
+        },
         "exclusive_grab": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Whether to exclusively grab physical keyboard devices using EVIOCGRAB"
+        },
+        "grab": {
+          "type": "boolean",
+          "description": "Alias for exclusive_grab"
         },
         "hotplug": {
           "type": "boolean",
@@ -340,15 +362,30 @@
           "description": "Timeout between sequential keypresses in milliseconds"
         },
         "sequences": {
-          "type": "object",
-          "description": "Mapping of mnemonic key sequences to text snippets, chords, or layers",
-          "additionalProperties": {
-            "oneOf": [
-              { "type": "string" },
-              { "type": "array", "items": { "type": "string" } },
-              { "type": "object" }
-            ]
-          }
+          "description": "Mnemonic key sequences mapped to text snippets, chords, or layers. Either a mapping of sequence name to action, or a list of items each with a keys/seq/in field.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "array", "items": { "type": "string" } },
+                  { "type": "object" }
+                ]
+              }
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "keys": { "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" } } ] },
+                  "seq": { "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" } } ] },
+                  "in": { "oneOf": [ { "type": "string" }, { "type": "array", "items": { "type": "string" } } ] }
+                }
+              }
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -386,9 +423,12 @@
       "type": "object",
       "description": "Mouse key emulation settings",
       "properties": {
-        "speed": { "type": "integer", "default": 20, "description": "Pixel delta per tick" },
-        "acceleration": { "type": "number", "default": 1.0, "description": "Acceleration curve exponent" },
-        "scroll_speed": { "type": "integer", "default": 1, "description": "Scroll delta per tick" }
+        "speed": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 10, "description": "Pixel delta per tick for mouse movement" },
+        "move_speed": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Alias for speed" },
+        "mouse_speed": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Alias for speed" },
+        "wheel_step": { "type": "integer", "minimum": 1, "maximum": 100, "default": 1, "description": "Scroll delta per tick for the mouse wheel" },
+        "wheel_speed": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Alias for wheel_step" },
+        "scroll_step": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Alias for wheel_step" }
       },
       "additionalProperties": false
     }
