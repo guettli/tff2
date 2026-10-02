@@ -16,17 +16,17 @@ The Ten Flying Fingers (TFF) hardware loop can be fully verified and automated u
                     │ Micro-USB OTG Cable
                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Adafruit Feather RP2040 with USB Host (CircuitPython 10.3.0)           │
+│ Adafruit Feather RP2040 with USB Host (bare-metal C++ / TinyUSB)       │
 │                                                                        │
-│ 2. USB-A Host Port (board.USB_HOST_DATA_PLUS/MINUS + 5V Boost Enable)  │
-│    Reads raw HID reports using usb_host.Port & descriptor parsing      │
+│ 2. USB-A Host Port (TinyUSB host stack)                                │
+│    Reads raw HID keyboard reports and parses descriptors               │
 │                                                                        │
-│ 3. TFF Remapper Core (code.py)                                         │
+│ 3. TFF Remapper Core (shared tff::TFFEngine, compiled firmware)        │
 │    - Detects key press timestamps and sequence                         │
-│    - Evaluates overlapping combinations (OVERLAP_THRESHOLD_MS = 120ms) │
+│    - Evaluates overlapping combos within the configured window         │
 │    - Emits remapped keys or single-key passthroughs                    │
 │                                                                        │
-│ 4. USB-C Device Port (adafruit_hid Keyboard)                           │
+│ 4. USB-C Device Port (TinyUSB HID keyboard)                            │
 │    Emits standard USB HID reports back to host computer                │
 └───────────────────┬────────────────────────────────────────────────────┘
                     │ USB-C to USB-A Cable
@@ -51,13 +51,18 @@ The script configures `libcomposite` with:
 - Vendor ID `0x1d6b`, Product ID `0x0104`
 - Read/write permissions (`0666`) on `/dev/hidg0`
 
-### 2. RP2040 Firmware (`src/platform/rp2040/code.py`)
-Mounted at `/mnt/circuitpy/code.py`. Key features:
-- Activates onboard 5V boost power via `board.USB_HOST_5V_POWER`.
-- Initializes PIO USB Host via `usb_host.Port(board.USB_HOST_DATA_PLUS, board.USB_HOST_DATA_MINUS)`.
-- Monitors USB HID endpoints, tracking key sequences with microsecond resolution.
-- Evaluates configured combo pairs (`J + F` -> `Backspace`, `F + J` -> `Delete`, pinky combos, navigation combos, escape combo).
-- Sends remapped HID scancodes via CircuitPython `adafruit_hid.keyboard.Keyboard`.
+### 2. RP2040 Firmware (`src/platform/rp2040/`)
+The RP2040 runs bare-metal compiled C++ firmware (not CircuitPython). Build it
+with `scripts/build_rp2040.sh`, which produces `build-rp2040/tff_rp2040.uf2`;
+flash it by holding BOOTSEL and copying the `.uf2` onto the `RPI-RP2` drive. See
+[docs/rp2040_implementation.md](rp2040_implementation.md) for the full firmware
+architecture. Key features:
+- Reads raw HID keyboard reports from connected keyboards via the **TinyUSB host** stack.
+- Runs the **shared `tff::TFFEngine`** — the exact same combo, tap-hold, layer,
+  and macro logic as the Linux daemon, so hardware behavior matches the unit tests.
+- Evaluates combo pairs (`J + F` -> `Backspace`, `F + J` -> `Delete`, pinky combos,
+  navigation combos, escape combo) within the configured combo window.
+- Sends remapped HID scancodes back to the host via the **TinyUSB device** stack.
 
 ## Running the Automated Test Suite
 
@@ -77,19 +82,19 @@ python3 test_tff_automated.py
 
 | Test Case | Simulated Combination / Action | Timing / Order | Expected Output Key(s) | Status |
 |-----------|--------------------------------|----------------|------------------------|--------|
-| 1 | J + F | Rapid overlap (<120ms) | `KEY_BACKSPACE` (14) | **PASS** |
-| 2 | F + J | Rapid overlap (<120ms) | `KEY_DELETE` (111) | **PASS** |
-| 3 | Semicolon + A | Rapid overlap (<120ms) | `KEY_HOME` (102) | **PASS** |
-| 4 | A + Semicolon | Rapid overlap (<120ms) | `KEY_END` (107) | **PASS** |
-| 5 | F + N | Rapid overlap (<120ms) | `KEY_DOWN` (108) | **PASS** |
-| 6 | F + U | Rapid overlap (<120ms) | `KEY_UP` (103) | **PASS** |
-| 7 | F + M | Rapid overlap (<120ms) | `KEY_DOWN` (108) | **PASS** |
-| 8 | F + K | Rapid overlap (<120ms) | `KEY_LEFT` (105) | **PASS** |
-| 9 | F + L | Rapid overlap (<120ms) | `KEY_RIGHT` (106) | **PASS** |
-| 10 | F + I | Rapid overlap (<120ms) | `KEY_PAGEUP` (104) | **PASS** |
-| 11 | F + Comma | Rapid overlap (<120ms) | `KEY_PAGEDOWN` (109) | **PASS** |
-| 12 | G + H | Rapid overlap (<120ms) | `KEY_ESC` (1) | **PASS** |
-| 13 | D + F + J | Triple combo (<120ms) | `KEY_ESC` (1) | **PASS** |
+| 1 | J + F | Rapid overlap (within combo window) | `KEY_BACKSPACE` (14) | **PASS** |
+| 2 | F + J | Rapid overlap (within combo window) | `KEY_DELETE` (111) | **PASS** |
+| 3 | Semicolon + A | Rapid overlap (within combo window) | `KEY_HOME` (102) | **PASS** |
+| 4 | A + Semicolon | Rapid overlap (within combo window) | `KEY_END` (107) | **PASS** |
+| 5 | F + N | Rapid overlap (within combo window) | `KEY_DOWN` (108) | **PASS** |
+| 6 | F + U | Rapid overlap (within combo window) | `KEY_UP` (103) | **PASS** |
+| 7 | F + M | Rapid overlap (within combo window) | `KEY_DOWN` (108) | **PASS** |
+| 8 | F + K | Rapid overlap (within combo window) | `KEY_LEFT` (105) | **PASS** |
+| 9 | F + L | Rapid overlap (within combo window) | `KEY_RIGHT` (106) | **PASS** |
+| 10 | F + I | Rapid overlap (within combo window) | `KEY_PAGEUP` (104) | **PASS** |
+| 11 | F + Comma | Rapid overlap (within combo window) | `KEY_PAGEDOWN` (109) | **PASS** |
+| 12 | G + H | Rapid overlap (within combo window) | `KEY_ESC` (1) | **PASS** |
+| 13 | D + F + J | Triple combo (within combo window) | `KEY_ESC` (1) | **PASS** |
 | 14 | J then F | Sequential (>250ms) | `KEY_J` (36) then `KEY_F` (33) | **PASS** |
 | 15 | LeftShift + A | Physical Modifier Pass-through | `KEY_LEFTSHIFT` (42) + `KEY_A` (30) | **PASS** |
 | 16 | LeftCtrl + C | Physical Modifier Pass-through | `KEY_LEFTCTRL` (29) + `KEY_C` (46) | **PASS** |
