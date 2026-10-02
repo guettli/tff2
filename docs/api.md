@@ -57,6 +57,8 @@ struct Combo {
     std::string text;               // Output text snippet macro (e.g. "email@example.com")
     std::string toggle_layer;       // Toggle layer on/off when chord triggers
     MouseAction mouse;              // Emitted mouse action (click / movement / scroll)
+    std::string layer;              // If set, combo is active only while this modal layer is active
+    int64_t timeout_us = 0;         // Custom required overlap (0 = use settings.combo_timeout_ms)
 };
 ```
 
@@ -132,7 +134,29 @@ struct LeaderConfig {
 };
 ```
 
-### 2.9 `Config`
+### 2.9 `TapDance` and `TapDanceAction`
+Defines multi-tap / tap-hold variations on a single key (tap, hold, double-tap, double-hold, triple-tap):
+```cpp
+struct TapDanceAction {
+    std::vector<KeyCode> out_keys;  // Emitted keys
+    std::string text;               // Emitted text snippet
+    std::string layer;              // Layer activated while held (momentary)
+    std::string toggle_layer;       // Layer to toggle on/off
+    MouseAction mouse;              // Emitted mouse action
+};
+
+struct TapDance {
+    KeyCode key = 0;                // Intercepted trigger key (e.g. KEY_CAPSLOCK)
+    int64_t timeout_us = 200000LL;  // Multi-tap detection window in us (default 200ms)
+    TapDanceAction tap;             // 1 tap
+    TapDanceAction hold;            // 1 tap held (long press)
+    TapDanceAction double_tap;      // 2 taps
+    TapDanceAction double_hold;     // 2 taps + held
+    TapDanceAction triple_tap;      // 3 taps
+};
+```
+
+### 2.10 `Config`
 Master configuration struct encapsulating an entire keyboard layout:
 ```cpp
 struct Config {
@@ -140,6 +164,7 @@ struct Config {
     std::vector<TapHoldKey> tap_hold_keys;
     std::vector<Layer> layers;
     std::vector<OneShotKey> one_shot_keys;
+    std::vector<TapDance> tap_dances;
     LeaderConfig leader;
     AutoShiftConfig auto_shift;
     MouseConfig mouse;

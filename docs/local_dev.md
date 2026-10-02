@@ -12,9 +12,8 @@
 
 ```bash
 sudo apt update
-sudo apt install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi \
-    libstdc++-arm-none-eabi-newlib libusb-1.0-0-dev libudev-dev \
-    pkg-config libgtest-dev catch2
+sudo apt install -y build-essential cmake gcc-arm-none-eabi \
+    libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
 ```
 
 ### Raspberry Pi Pico SDK

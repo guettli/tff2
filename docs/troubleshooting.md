@@ -178,7 +178,7 @@ Configuration reloaded successfully.
 3. Plug the USB cable back into the computer while continuing to hold BOOTSEL.
 4. Release the button after 2 seconds.
 5. The board will mount as a mass-storage drive named `RPI-RP2`.
-6. Copy `build/tff_rp2040.uf2` to the drive. The Pico will flash and immediately reboot.
+6. Copy `build-rp2040/tff_rp2040.uf2` to the drive. The Pico will flash and immediately reboot.
 
 ### Symptom: Keyboard plugged into RP2040 host port does not respond
 1. **USB Host Port vs USB Device Port:**
