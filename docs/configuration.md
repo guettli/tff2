@@ -78,7 +78,7 @@ combos:
     k: left
     l: right
     i: pageup
-    ,: pagedown
+    ",": pagedown
 ```
 
 #### 2. Classic List Format
@@ -88,6 +88,7 @@ combos:
     outKeys: backspace
   - keys: f j
     outKeys: delete
+```
 
 #### 3. Per-Combo Custom Timeouts (`timeout_ms`)
 By default, all combos inherit the global `combo_timeout_ms` (default: 40ms) defined under `settings:`. For chords requiring wider windows (such as triple combos like `d + f + j` or difficult finger stretches), you can configure a custom `timeout_ms` (or duration string like `80ms`) override per chord:
@@ -97,8 +98,12 @@ combos:
   # Compact format with inline dictionary:
   d + f + j: { out: esc, timeout_ms: 80 }
   a + s + d: { out: backspace, timeout: 70ms }
+```
 
-  # Classic list format:
+Or in classic list format:
+
+```yaml
+combos:
   - keys: d + f + j
     outKeys: esc
     timeout_ms: 80
@@ -108,8 +113,6 @@ combos:
     outKeys: end
     layer: nav
     timeout_ms: 60
-```
-
 ```
 
 ## Text Snippets & Multi-Character Macro Expansion
@@ -243,8 +246,12 @@ tap_hold:
     tap: space
     layer: nav
     timeout_ms: 200
+```
 
-  # Or classic list syntax:
+Or classic list syntax:
+
+```yaml
+tap_hold:
   - key: rightalt
     tap: rightalt
     layer: numpad
@@ -352,8 +359,12 @@ combos:
 
   # Inline compact format:
   j + k: { out: pagedown, layer: nav }
+```
 
-  # Classic list format:
+Or in classic list format:
+
+```yaml
+combos:
   - in: [h, l]
     out: end
     layer: nav
