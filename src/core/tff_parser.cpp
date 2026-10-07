@@ -1289,7 +1289,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 if (current_indent <= settings_devices_list_indent && t.rfind("-", 0) != 0) {
                     in_settings_devices_list = false;
                 } else if (t.rfind("-", 0) == 0) {
-                    std::string item = trim(t.substr(1));
+                    std::string item = unquoteAndUnescape(trim(t.substr(1)));
                     if (!item.empty()) {
                         config.settings.devices.push_back(item);
                     }
@@ -1352,7 +1352,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     std::stringstream ss(v);
                     std::string item;
                     while (std::getline(ss, item, ',')) {
-                        item = trim(item);
+                        item = unquoteAndUnescape(trim(item));
                         if (!item.empty()) {
                             config.settings.devices.push_back(item);
                         }
