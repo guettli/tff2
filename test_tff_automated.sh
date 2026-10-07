@@ -1,1 +1,0 @@
-test_tff_usb_otg.sh

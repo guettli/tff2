@@ -198,6 +198,16 @@ inline bool isModifier(KeyCode code) {
            code == Keys::KEY_RIGHTMETA;
 }
 
+/**
+ * @brief Trims leading and trailing whitespace from a string.
+ */
+std::string trim(const std::string& s);
+
+/**
+ * @brief Converts an ASCII string to lowercase.
+ */
+std::string toLower(const std::string& s);
+
 }  // namespace tff
 
 #endif  // TFF_KEY_CODES_H

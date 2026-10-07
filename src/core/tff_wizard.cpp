@@ -1,6 +1,7 @@
 #include "tff_wizard.h"
 #include "tff_engine.h"
 #include "tff_parser.h"
+#include "tff_key_codes.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -11,21 +12,6 @@ namespace tff {
 namespace wizard {
 
 namespace {
-
-std::string trim(const std::string& s) {
-    auto start = s.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos)
-        return "";
-    auto end = s.find_last_not_of(" \t\r\n");
-    return s.substr(start, end - start + 1);
-}
-
-std::string toLower(const std::string& s) {
-    std::string res = s;
-    std::transform(res.begin(), res.end(), res.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    return res;
-}
 
 bool askYesNo(std::istream& in, std::ostream& out, const std::string& prompt, bool default_val) {
     out << prompt << (default_val ? " [Y/n]: " : " [y/N]: ");

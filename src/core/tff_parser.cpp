@@ -10,14 +10,6 @@ namespace tff {
 
 namespace {
 
-std::string trim(const std::string& s) {
-    auto start = s.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos)
-        return "";
-    auto end = s.find_last_not_of(" \t\r\n");
-    return s.substr(start, end - start + 1);
-}
-
 bool parseBoolean(const std::string& s, bool& out_val) {
     std::string val = trim(s);
     for (char& c : val) {

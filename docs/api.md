@@ -202,6 +202,9 @@ const std::vector<OneShotKey>& getOneShotKeys() const;
 void setLeaderConfig(const LeaderConfig& config);
 const LeaderConfig& getLeaderConfig() const;
 
+void setTapDances(const std::vector<TapDance>& tap_dances);
+const std::vector<TapDance>& getTapDances() const;
+
 void setAutoShiftConfig(const AutoShiftConfig& config);
 const AutoShiftConfig& getAutoShiftConfig() const;
 
@@ -269,6 +272,10 @@ bool isLeaderActive() const;
 // Register a callback for real-time diagnostic event tracing (used by tff monitor)
 void setTraceCallback(TraceCallback cb);
 bool hasTraceCallback() const;
+
+// Register a callback triggered when modal layers are toggled ON or OFF (e.g. for desktop notifications)
+void setLayerToggleCallback(LayerToggleCallback cb);
+bool hasLayerToggleCallback() const;
 ```
 
 ---

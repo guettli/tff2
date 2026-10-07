@@ -94,18 +94,20 @@ A frequent question is: *Can I copy my `tff-combos.yaml` over USB mass storage l
 - **Applying Custom Configuration**:
   1. Open `src/platform/rp2040/rp2040_platform.cpp`.
   2. Paste your custom YAML string into `DEFAULT_YAML_CONFIG`:
-     ```yaml
-     combos:
-       j f: backspace
-       f j: delete
-       d + f + j: esc
 
-     tap_hold:
-       capslock:
-         tap: esc
-         hold: super
-         timeout_ms: 200
-     ```
+```yaml
+combos:
+  j f: backspace
+  f j: delete
+  d + f + j: esc
+
+tap_hold:
+  capslock:
+    tap: esc
+    hold: super
+    timeout_ms: 200
+```
+
   3. Rebuild the firmware with `./build_rp2040.sh`.
   4. Flash the generated `build-rp2040/tff_rp2040.uf2` onto your board via BOOTSEL drag-and-drop.
   *(Dynamic YAML configuration upload over USB CDC serial is in development).*
