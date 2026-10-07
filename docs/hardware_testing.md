@@ -16,9 +16,9 @@ The Ten Flying Fingers (TFF) hardware loop can be fully verified and automated u
                     │ Micro-USB OTG Cable
                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Adafruit Feather RP2040 with USB Host (bare-metal C++ / TinyUSB)       │
+│ Adafruit Feather RP2040 with USB Host (CircuitPython / C++)             │
 │                                                                        │
-│ 2. USB-A Host Port (TinyUSB host stack)                                │
+│ 2. USB-A Host Port (Pico-PIO-USB / TinyUSB Host)                       │
 │    Reads raw HID keyboard reports and parses descriptors               │
 │                                                                        │
 │ 3. TFF Remapper Core (shared tff::TFFEngine, compiled firmware)        │

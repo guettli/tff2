@@ -16,6 +16,46 @@ MOUNT_POINT_RP2="/mnt/rpi-rp2"
 
 UF2_PATH="${1:-}"
 
+get_mount_point() {
+    local label_dev="$1"
+    local default_target="$2"
+
+    # 1. Check if already mounted
+    local existing
+    existing="$(findmnt -n -o TARGET "${label_dev}" 2>/dev/null || true)"
+    if [[ -n "${existing}" && -d "${existing}" ]]; then
+        echo "${existing}"
+        return 0
+    fi
+
+    # 2. Check desktop media mounts
+    local label_name="${label_dev##*/}"
+    for candidate in /media/*/"${label_name}" /run/media/*/"${label_name}"; do
+        if [[ -d "${candidate}" ]]; then
+            echo "${candidate}"
+            return 0
+        fi
+    done
+
+    # 3. Try udisksctl mount (unprivileged user friendly)
+    if command -v udisksctl &>/dev/null; then
+        local udisks_out
+        udisks_out="$(udisksctl mount -b "${label_dev}" 2>/dev/null || true)"
+        existing="$(echo "${udisks_out}" | grep -o '/.*' || true)"
+        if [[ -n "${existing}" && -d "${existing}" ]]; then
+            echo "${existing}"
+            return 0
+        fi
+    fi
+
+    # 4. Fallback to sudo / root mount
+    mkdir -p "${default_target}" 2>/dev/null || sudo mkdir -p "${default_target}"
+    if ! mountpoint -q "${default_target}"; then
+        mount "${label_dev}" "${default_target}" 2>/dev/null || sudo mount "${label_dev}" "${default_target}"
+    fi
+    echo "${default_target}"
+}
+
 echo "=============================================="
 echo "   TFF RP2040 Deployment / Sync Tool         "
 echo "=============================================="
@@ -45,10 +85,9 @@ if [[ -n "${UF2_PATH}" ]]; then
         exit 1
     fi
 
-    mkdir -p "${MOUNT_POINT_RP2}"
-    mount "${BOOTSEL_LABEL}" "${MOUNT_POINT_RP2}"
-    echo "Flashing ${UF2_PATH} to RP2040..."
-    cp "${UF2_PATH}" "${MOUNT_POINT_RP2}/"
+    TARGET_DIR="$(get_mount_point "${BOOTSEL_LABEL}" "${MOUNT_POINT_RP2}")"
+    echo "Flashing ${UF2_PATH} to RP2040 (${TARGET_DIR})..."
+    cp "${UF2_PATH}" "${TARGET_DIR}/"
     sync
     echo "✓ UF2 firmware flashed successfully! Board is rebooting..."
     exit 0
@@ -76,12 +115,8 @@ if [[ ! -e "${CIRCUITPY_LABEL}" ]]; then
     exit 1
 fi
 
-mkdir -p "${MOUNT_POINT_CP}"
-if ! mountpoint -q "${MOUNT_POINT_CP}"; then
-    mount "${CIRCUITPY_LABEL}" "${MOUNT_POINT_CP}"
-fi
-
-echo "Copying code.py to ${MOUNT_POINT_CP}/code.py..."
-cp "${CODE_PY}" "${MOUNT_POINT_CP}/code.py"
+TARGET_DIR="$(get_mount_point "${CIRCUITPY_LABEL}" "${MOUNT_POINT_CP}")"
+echo "Copying code.py to ${TARGET_DIR}/code.py..."
+cp "${CODE_PY}" "${TARGET_DIR}/code.py"
 sync
 echo "✓ code.py deployed successfully! CircuitPython will auto-reload."
