@@ -234,12 +234,13 @@ Ten Flying Fingers provides an automated cross-compilation script (`./build_rp20
 PICO_BOARD=pico ./build_rp2040.sh
 ```
 
-**Flashing via BOOTSEL**:
-1. Hold down the **BOOTSEL** button on your RP2040 board while connecting USB-C to your computer.
-2. Drag and drop `build-rp2040/tff_rp2040.uf2` onto the mounted `RPI-RP2` drive.
-3. The board flashes automatically, unmounts, and boots running Ten Flying Fingers.
+**Deploying & Flashing**:
+- **Cabling**: Physical keyboard connects to **USB-A (Host)**; computer connects to **USB-C (Device)**.
+- **CircuitPython Deployment**: Copy `src/platform/rp2040/code.py` directly to the mounted `CIRCUITPY` drive, or run `./scripts/deploy_rp2040.sh`.
+- **Automated Reboot**: When running CircuitPython, run `python3 scripts/reboot_rp2040_bootloader.py` to reboot directly into the `RPI-RP2` bootloader without pressing any buttons.
+- **Hardware Button Recovery**: Hold **BOOT**, click **RESET**, then release **BOOT** to enter the `RPI-RP2` bootloader drive.
 
-See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for SWD debugging and manual CMake options.
+See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware details and architecture.
 
 ## Testing
 
