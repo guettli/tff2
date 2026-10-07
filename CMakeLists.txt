@@ -113,8 +113,6 @@ if(PICO_BUILD)
         tinyusb_device
         tinyusb_host
     )
-    pico_enable_stdio_usb(tff_rp2040 1)
-    pico_enable_stdio_uart(tff_rp2040 0)
     pico_add_extra_outputs(tff_rp2040)
 else()
     target_link_libraries(tff_rp2040 tff_core rp2040_platform)
