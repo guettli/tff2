@@ -828,6 +828,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool in_auto_shift_keys_list = false;
     bool in_mouse = false;
     bool in_settings = false;
+    bool in_settings_devices_list = false;
+    size_t settings_devices_list_indent = 0;
     bool in_tap_dance = false;
     std::string current_keys;
     std::string current_outkeys;
@@ -987,6 +989,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_settings_devices_list = false;
             in_tap_dance = false;
             has_combos_tag = true;
             combos_base_indent = current_indent;
@@ -1016,6 +1019,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_auto_shift_keys_list = false;
             in_mouse = false;
             in_settings = false;
+            in_settings_devices_list = false;
             in_tap_dance = false;
             has_tap_hold_tag = true;
             tap_hold_base_indent = current_indent;
@@ -1270,6 +1274,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (in_settings && current_indent <= settings_base_indent &&
             t.find(':') != std::string::npos && t.rfind("-", 0) != 0) {
             in_settings = false;
+            in_settings_devices_list = false;
         }
 
         if (in_tap_dance && current_indent <= tap_dance_base_indent &&
@@ -1280,6 +1285,18 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         }
 
         if (in_settings) {
+            if (in_settings_devices_list) {
+                if (current_indent <= settings_devices_list_indent && t.rfind("-", 0) != 0) {
+                    in_settings_devices_list = false;
+                } else if (t.rfind("-", 0) == 0) {
+                    std::string item = trim(t.substr(1));
+                    if (!item.empty()) {
+                        config.settings.devices.push_back(item);
+                    }
+                    continue;
+                }
+            }
+
             auto colon = t.find(':');
             if (colon == std::string::npos)
                 continue;
@@ -1330,6 +1347,20 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     return false;
                 }
                 config.settings.notifications = b;
+            } else if (k == "devices" || k == "device") {
+                if (!v.empty()) {
+                    std::stringstream ss(v);
+                    std::string item;
+                    while (std::getline(ss, item, ',')) {
+                        item = trim(item);
+                        if (!item.empty()) {
+                            config.settings.devices.push_back(item);
+                        }
+                    }
+                } else {
+                    in_settings_devices_list = true;
+                    settings_devices_list_indent = current_indent;
+                }
             } else {
                 err_msg = "unknown field '" + k + "' in settings section";
                 return false;

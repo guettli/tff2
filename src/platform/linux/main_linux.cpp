@@ -44,7 +44,7 @@ std::string resolveConfigFile() {
             return path;
         }
     }
-    return "config/tff-combos.yaml";
+    return "";
 }
 
 void printHelp(const char* prog) {
@@ -98,7 +98,7 @@ void printHelp(const char* prog) {
            "false for monitor)\n"
         << "  --no-grab               Do not grab device (events still pass to OS)\n"
         << "  --hotplug               Enable dynamic inotify keyboard hotplugging (default: "
-           "enabled)\n"
+           "disabled)\n"
         << "  --no-hotplug            Disable dynamic inotify keyboard hotplugging\n"
         << "  --notify                Enable desktop notifications on modal layer toggle\n"
         << "  --no-notify             Disable desktop notifications on modal layer toggle\n"
@@ -132,12 +132,12 @@ void printHelp(const char* prog) {
 }  // anonymous namespace
 
 int main(int argc, char* argv[]) {
-    std::string config_file = "config/tff-combos.yaml";
+    std::string config_file;
     bool config_explicit = false;
     std::vector<std::string> device_paths;
     bool grab = true;
     bool grab_explicit = false;
-    bool hotplug = true;
+    bool hotplug = false;
     bool hotplug_explicit = false;
     bool notify = false;
     bool notify_explicit = false;
@@ -360,6 +360,11 @@ int main(int argc, char* argv[]) {
     }
 
     if (validate_only) {
+        if (config_file.empty()) {
+            std::cerr << "Error: Configuration file is missing. Please specify a config file to "
+                         "validate.\n";
+            return 1;
+        }
         std::ifstream file(config_file);
         if (!file.is_open() && config_file.rfind("../", 0) != 0) {
             file.open("../" + config_file);
@@ -392,6 +397,11 @@ int main(int argc, char* argv[]) {
     }
 
     if (cheatsheet_only) {
+        if (config_file.empty()) {
+            std::cerr << "Error: Configuration file is missing. Please specify a config file via "
+                         "--config or create ~/.config/tff/tff-combos.yaml\n";
+            return 1;
+        }
         std::ifstream file(config_file);
         if (!file.is_open() && config_file.rfind("../", 0) != 0) {
             file.open("../" + config_file);
@@ -465,19 +475,62 @@ int main(int argc, char* argv[]) {
         platform.setVerbose(verbose);
         platform.setGrab(grab);
         platform.setEmitToUinput(grab);
-        platform.enableHotplug(hotplug);
+        std::string resolved_config = config_file;
+        if (!config_explicit) {
+            resolved_config = resolveConfigFile();
+        }
+        if (resolved_config.empty()) {
+            std::cerr << "Error: Configuration file is missing. Please provide a configuration "
+                         "file via --config or create ~/.config/tff/tff-combos.yaml\n";
+            return 1;
+        }
+        std::error_code ec;
+        if (!std::filesystem::exists(resolved_config, ec) ||
+            std::filesystem::is_directory(resolved_config, ec)) {
+            std::cerr << "Error: Configuration file is missing or not found: " << resolved_config
+                      << "\n";
+            return 1;
+        }
 
-        // Load configuration if available
-        bool config_loaded = platform.loadConfiguration(config_file);
+        // Load configuration
+        bool config_loaded = platform.loadConfiguration(resolved_config);
         if (!config_loaded) {
-            if (config_file == "config/tff-combos.yaml" &&
+            if (resolved_config == "config/tff-combos.yaml" &&
                 platform.loadConfiguration("../config/tff-combos.yaml")) {
                 config_loaded = true;
             }
         }
-        if (!config_loaded && config_file != "config/tff-combos.yaml") {
-            std::cerr << "Error: Could not load configuration file: " << config_file << "\n";
+        if (!config_loaded) {
+            std::cerr << "Error: Could not load configuration file: " << resolved_config << "\n";
             return 1;
+        }
+
+        if (!hotplug_explicit) {
+            hotplug = platform.getSettings().hotplug;
+        }
+        if (device_paths.empty() && !platform.getSettings().devices.empty()) {
+            device_paths = platform.getSettings().devices;
+        }
+        bool has_device_config = !device_paths.empty();
+        if (has_device_config && hotplug) {
+            std::cerr
+                << "Error: Keyboard devices are explicitly configured and hotplug is enabled.\n"
+                << "These options are mutually exclusive (XOR). Do not specify keyboard devices "
+                   "when hotplug is enabled.\n";
+            return 1;
+        }
+        if (!has_device_config && !hotplug) {
+            std::cerr
+                << "Error: Keyboard device configuration is missing and hotplug is disabled.\n"
+                << "Exactly one must be configured (XOR). Either specify keyboard device(s) or "
+                   "enable hotplug (--hotplug).\n";
+            return 1;
+        }
+
+        platform.enableHotplug(hotplug);
+
+        if (hotplug && device_paths.empty()) {
+            device_paths = LinuxPlatform::discoverKeyboards();
         }
 
         if (!device_paths.empty()) {
@@ -522,13 +575,30 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "Loading configuration: " << config_file << "\n";
-    if (!platform.loadConfiguration(config_file)) {
-        if (config_file == "config/tff-combos.yaml" &&
+    std::string resolved_config = config_file;
+    if (!config_explicit) {
+        resolved_config = resolveConfigFile();
+    }
+    if (resolved_config.empty()) {
+        std::cerr << "Error: Configuration file is missing. Please provide a configuration file "
+                     "via --config or create ~/.config/tff/tff-combos.yaml\n";
+        return 1;
+    }
+    std::error_code ec;
+    if (!std::filesystem::exists(resolved_config, ec) ||
+        std::filesystem::is_directory(resolved_config, ec)) {
+        std::cerr << "Error: Configuration file is missing or not found: " << resolved_config
+                  << "\n";
+        return 1;
+    }
+
+    std::cout << "Loading configuration: " << resolved_config << "\n";
+    if (!platform.loadConfiguration(resolved_config)) {
+        if (resolved_config == "config/tff-combos.yaml" &&
             platform.loadConfiguration("../config/tff-combos.yaml")) {
             std::cout << "Loaded configuration from ../config/tff-combos.yaml\n";
         } else {
-            std::cerr << "Failed to load combo configuration file: " << config_file << "\n";
+            std::cerr << "Failed to load combo configuration file: " << resolved_config << "\n";
             return 1;
         }
     }
@@ -553,23 +623,35 @@ int main(int argc, char* argv[]) {
         notify = platform.getSettings().notifications;
     }
 
+    if (device_paths.empty() && !platform.getSettings().devices.empty()) {
+        device_paths = platform.getSettings().devices;
+    }
+
+    bool has_device_config = !device_paths.empty();
+    if (has_device_config && hotplug) {
+        std::cerr << "Error: Keyboard devices are explicitly configured and hotplug is enabled.\n"
+                  << "These options are mutually exclusive (XOR). Do not specify keyboard devices "
+                     "when hotplug is enabled.\n";
+        return 1;
+    }
+    if (!has_device_config && !hotplug) {
+        std::cerr << "Error: Keyboard device configuration is missing and hotplug is disabled.\n"
+                  << "Exactly one must be configured (XOR). Either specify keyboard device(s) or "
+                     "enable hotplug (--hotplug).\n";
+        return 1;
+    }
+
     platform.setGrab(grab);
     platform.enableHotplug(hotplug);
     platform.enableConfigWatch(watch_config);
     platform.setNotificationsEnabled(notify);
 
-    if (device_paths.empty()) {
+    if (hotplug) {
         std::cout << "Auto-discovering keyboards...\n";
         device_paths = LinuxPlatform::discoverKeyboards();
         if (device_paths.empty()) {
-            if (hotplug) {
-                std::cout
-                    << "No keyboard devices currently found in /dev/input/.\n"
-                    << "Dynamic hotplugging active: waiting for keyboards to be plugged in...\n";
-            } else {
-                std::cerr << "Error: No keyboard devices found in /dev/input/\n";
-                return 1;
-            }
+            std::cout << "No keyboard devices currently found in /dev/input/.\n"
+                      << "Dynamic hotplugging active: waiting for keyboards to be plugged in...\n";
         }
     }
 

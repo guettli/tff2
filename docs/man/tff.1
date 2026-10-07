@@ -81,10 +81,10 @@ Acquire an exclusive grab (\fBEVIOCGRAB\fR) on input keyboards so raw keypresses
 Disable exclusive device grab. Raw events are mirrored to the host OS in addition to remapped virtual events.
 .TP
 .BR \-\-hotplug
-Enable dynamic device hotplugging via \fBinotify\fR (default). Automatically attaches newly plugged keyboards and detaches unplugged keyboards without daemon restart.
+Enable dynamic device hotplugging via \fBinotify\fR. Automatically attaches newly plugged keyboards and detaches unplugged keyboards without daemon restart. Mutually exclusive (XOR) with explicit device configurations.
 .TP
 .BR \-\-no\-hotplug
-Disable dynamic inotify hotplugging.
+Disable dynamic inotify hotplugging (default).
 .TP
 .BR \-\-notify
 Enable desktop notifications whenever persistent modal layers are toggled ON or OFF (via \fBnotify\-send\fR or DBus).

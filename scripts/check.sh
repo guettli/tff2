@@ -108,6 +108,10 @@ step "Running CLI smoke verification..."
 ./build/tff_linux --print >/dev/null
 ./build/tff_linux init --list-presets >/dev/null
 ./build/tff_linux init --preset minimal --print >/dev/null
+# Verify XOR and config missing error checks
+! ./build/tff_linux --config /tmp/nonexistent_cfg_xyz.yaml >/dev/null 2>&1 || fail "Expected failure on missing config"
+! ./build/tff_linux --config config/tff-combos.yaml >/dev/null 2>&1 || fail "Expected failure on missing devices and hotplug disabled"
+! ./build/tff_linux --hotplug --config config/tff-combos.yaml /dev/input/event0 >/dev/null 2>&1 || fail "Expected failure when both devices and hotplug specified"
 success "CLI smoke tests passed"
 
 # 7. Git Pre-Commit Hook & YAML Validator Check

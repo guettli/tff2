@@ -801,16 +801,21 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
     }
 
     if (devices_.empty()) {
-        auto discovered = discoverKeyboards();
-        if (discovered.empty()) {
-            std::cout << "No keyboard devices currently connected in /dev/input/. Waiting for "
-                         "keyboards...\n";
-        } else {
-            std::cout << "Auto-discovered " << discovered.size() << " keyboard(s):\n";
-            for (const auto& p : discovered) {
-                std::cout << "  " << p << "\n";
+        if (hotplug_enabled_) {
+            auto discovered = discoverKeyboards();
+            if (discovered.empty()) {
+                std::cout << "No keyboard devices currently connected in /dev/input/. Waiting for "
+                             "keyboards...\n";
+            } else {
+                std::cout << "Auto-discovered " << discovered.size() << " keyboard(s):\n";
+                for (const auto& p : discovered) {
+                    std::cout << "  " << p << "\n";
+                }
+                openInputDevices(discovered, grabbed_);
             }
-            openInputDevices(discovered, grabbed_);
+        } else {
+            std::cerr << "Error: No keyboard devices attached and hotplug is disabled.\n";
+            return;
         }
     }
 
@@ -981,12 +986,17 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
     monitor.attachToEngine(*engine_);
 
     if (devices_.empty()) {
-        auto discovered = discoverKeyboards();
-        if (discovered.empty()) {
-            out << "No keyboard devices currently connected in /dev/input/. Waiting for "
-                   "keyboards...\n";
+        if (hotplug_enabled_) {
+            auto discovered = discoverKeyboards();
+            if (discovered.empty()) {
+                out << "No keyboard devices currently connected in /dev/input/. Waiting for "
+                       "keyboards...\n";
+            } else {
+                openInputDevices(discovered, grabbed_);
+            }
         } else {
-            openInputDevices(discovered, grabbed_);
+            out << "Error: No keyboard devices attached and hotplug is disabled.\n";
+            return;
         }
     }
 

@@ -35,8 +35,8 @@ RestartSec=3
 # Run with highest CPU scheduling priority to minimize keyboard input latency
 Nice=-20
 
-# Option A: Auto-discover all connected keyboards
-ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml
+# Option A: Auto-discover all connected keyboards (via --hotplug)
+ExecStart=/usr/local/bin/tff --hotplug --config /etc/tff/tff-combos.yaml
 
 # Option B: Specify persistent device paths explicitly
 # ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml /dev/input/by-id/usb-SOME_KEYBOARD-event-kbd

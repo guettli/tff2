@@ -248,13 +248,14 @@ struct Settings {
     int64_t combo_timeout_ms = 40;      // Overlap detection window in ms (default 40ms)
     int64_t tap_hold_timeout_ms = 200;  // Default timeout for dual-role keys in ms (default 200ms)
     bool exclusive_grab = true;         // Exclusive device grab (default true)
-    bool hotplug = true;                // Inotify device hotplugging (default true)
+    bool hotplug = false;               // Inotify device hotplugging (default false)
     bool notifications = false;         // Desktop notifications on layer toggle (default false)
+    std::vector<std::string> devices;   // Explicit keyboard input device paths
 
     bool operator==(const Settings& o) const {
         return combo_timeout_ms == o.combo_timeout_ms &&
                tap_hold_timeout_ms == o.tap_hold_timeout_ms && exclusive_grab == o.exclusive_grab &&
-               hotplug == o.hotplug && notifications == o.notifications;
+               hotplug == o.hotplug && notifications == o.notifications && devices == o.devices;
     }
 
     bool operator!=(const Settings& o) const { return !(*this == o); }
