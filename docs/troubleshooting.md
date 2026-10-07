@@ -124,8 +124,8 @@ TFF operates at the Linux kernel `evdev` and `uinput` layer, **below** Wayland c
 ### Symptom: New keyboards plugged in via USB are not automatically detected
 
 **Diagnosis:**
-1. Check if hotplugging was explicitly disabled:
-   Verify whether `--no-hotplug` was passed in the systemd service command or CLI invocation. (Hotplugging is enabled by default in TFF).
+1. Check if hotplugging was enabled:
+   Verify whether `--hotplug` was passed in the systemd service command or enabled in `settings.hotplug`. (Hotplugging is disabled by default in TFF; when disabled, only explicitly configured device paths are attached).
 2. Check if the Linux kernel inotify watch table is exhausted:
    ```bash
    cat /proc/sys/fs/inotify/max_user_watches

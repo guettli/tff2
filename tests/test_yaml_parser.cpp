@@ -428,8 +428,9 @@ combos:
         assert(cfg_default.settings.combo_timeout_ms == 40);
         assert(cfg_default.settings.tap_hold_timeout_ms == 200);
         assert(cfg_default.settings.exclusive_grab == true);
-        assert(cfg_default.settings.hotplug == true);
+        assert(cfg_default.settings.hotplug == false);
         assert(cfg_default.settings.notifications == false);
+        assert(cfg_default.settings.devices.empty());
 
         // 2. Custom settings and propagation to tap_hold default timeout
         std::string custom_settings_yaml = R"(
@@ -536,7 +537,33 @@ settings
         assert(!tff::loadYamlConfig(no_colon_yaml, cfg_no_colon, err_msg));
         assert(err_msg == "mapping values are not allowed in this context");
 
-        // 9. TFFEngine integration with Settings
+        // 9. Devices configuration in settings (list and single string)
+        std::string devices_list_yaml = R"(
+settings:
+  devices:
+    - /dev/input/by-id/usb-kbd1
+    - /dev/input/by-id/usb-kbd2
+combos:
+  j f: backspace
+)";
+        tff::Config cfg_devs;
+        assert(tff::loadYamlConfig(devices_list_yaml, cfg_devs, err_msg));
+        assert(cfg_devs.settings.devices.size() == 2);
+        assert(cfg_devs.settings.devices[0] == "/dev/input/by-id/usb-kbd1");
+        assert(cfg_devs.settings.devices[1] == "/dev/input/by-id/usb-kbd2");
+
+        std::string single_dev_yaml = R"(
+settings:
+  device: /dev/input/event3
+combos:
+  j f: backspace
+)";
+        tff::Config cfg_single_dev;
+        assert(tff::loadYamlConfig(single_dev_yaml, cfg_single_dev, err_msg));
+        assert(cfg_single_dev.settings.devices.size() == 1);
+        assert(cfg_single_dev.settings.devices[0] == "/dev/input/event3");
+
+        // 10. TFFEngine integration with Settings
         tff::TFFEngine engine;
         engine.setConfig(cfg_custom);
         assert(engine.getSettings().combo_timeout_ms == 60);

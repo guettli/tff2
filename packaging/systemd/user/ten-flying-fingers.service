@@ -8,7 +8,7 @@ Type=simple
 Restart=always
 RestartSec=3
 Nice=-20
-ExecStart=/usr/bin/tff
+ExecStart=/usr/bin/tff --hotplug
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]

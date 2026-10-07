@@ -788,8 +788,10 @@ settings:
   combo_timeout_ms: 40       # Overlap detection window for chords (default: 40ms)
   tap_hold_timeout_ms: 200   # Default timeout for dual-role keys (default: 200ms)
   exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
-  hotplug: true              # Monitor /dev/input for hotplugged keyboards (default: true)
+  hotplug: false             # Monitor /dev/input for hotplugged keyboards (default: false, XOR with devices)
   notifications: true        # Desktop notifications when modal layers are toggled (default: false)
+  devices:                   # Explicit keyboard device paths (mutually exclusive / XOR with hotplug)
+    - /dev/input/by-id/usb-Lenovo_ThinkPad_Compact_USB_Keyboard_with_TrackPoint-event-kbd
 ```
 
 ### Options
@@ -799,7 +801,8 @@ settings:
 | `combo_timeout_ms` | integer (1–5000) | `40` | Overlap window in milliseconds required to trigger simultaneous chords. Can be overridden on individual chords using `timeout_ms:`. Fast typists can decrease this (e.g. `30`–`35ms`) to avoid accidental chords during rapid rolls; others can increase it (e.g. `60`–`80ms`). |
 | `tap_hold_timeout_ms` | integer (1–10000) | `200` | Default timeout in milliseconds for dual-role keys. Any `tap_hold:` key without an explicit timeout inherits this value. |
 | `exclusive_grab` | boolean | `true` | When true, grabs keyboard devices exclusively via `ioctl(fd, EVIOCGRAB, 1)` so original keys are intercepted. |
-| `hotplug` | boolean | `true` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. |
+| `hotplug` | boolean | `false` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. Mutually exclusive (XOR) with explicit device configurations. |
+| `devices` / `device` | array or string | (empty) | List of explicit keyboard device paths (e.g. `/dev/input/by-id/...`). Mutually exclusive (XOR) with `hotplug`. |
 | `notifications` / `notify` | boolean | `false` | When true, sends desktop notifications on Linux (via `notify-send` or DBus) whenever a persistent modal layer is toggled ON or OFF. Can also be enabled via `--notify` on the CLI. |
 
 ## Configuration Wizard and Presets (`tff init`)

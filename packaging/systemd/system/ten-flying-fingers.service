@@ -9,7 +9,7 @@ Type=simple
 Restart=always
 RestartSec=3
 Nice=-20
-ExecStart=/usr/bin/tff --config /etc/tff/tff-combos.yaml
+ExecStart=/usr/bin/tff --hotplug --config /etc/tff/tff-combos.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]

@@ -360,7 +360,7 @@ void testPackagingLayoutAndIntegrity() {
     // 2. Systemd units
     std::string sys_unit = readFile("packaging/systemd/system/ten-flying-fingers.service");
     assert(!sys_unit.empty());
-    assert(sys_unit.find("ExecStart=/usr/bin/tff --config /etc/tff/tff-combos.yaml") !=
+    assert(sys_unit.find("ExecStart=/usr/bin/tff --hotplug --config /etc/tff/tff-combos.yaml") !=
            std::string::npos);
     assert(sys_unit.find("Restart=always") != std::string::npos);
 
@@ -495,6 +495,65 @@ void testLayerToggleNotifications() {
     std::cout << "PASSED\n";
 }
 
+void testHotplugDefaultAndXorBehavior() {
+    std::cout << "Test 14: Hotplug default false and device XOR rules... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    // 1. Verify hotplug is disabled by default
+    assert(platform.getSettings().hotplug == false);
+    assert(platform.isHotplugEnabled() == false);
+
+    // 2. Verify settings with explicit devices
+    const std::string temp_yaml = "/tmp/tff_test_devices_settings.yaml";
+    {
+        std::ofstream out(temp_yaml);
+        out << "settings:\n"
+            << "  hotplug: false\n"
+            << "  devices:\n"
+            << "    - /dev/input/by-id/usb-test-kbd\n"
+            << "combos:\n"
+            << "  - keys: f j\n"
+            << "    outKeys: 1\n";
+    }
+    assert(platform.loadConfiguration(temp_yaml));
+    assert(platform.getSettings().devices.size() == 1);
+    assert(platform.getSettings().devices[0] == "/dev/input/by-id/usb-test-kbd");
+    assert(platform.getSettings().hotplug == false);
+    std::remove(temp_yaml.c_str());
+
+    // 3. Verify CLI XOR behavior using tff_linux binary
+    // 3a. Missing config file fails
+    int rc_no_config =
+        std::system("./tff_linux --config /tmp/nonexistent_tff_cfg_12345.yaml >/dev/null 2>&1");
+    if (rc_no_config != 0 && std::system("test -f ./build/tff_linux") == 0) {
+        rc_no_config = std::system(
+            "./build/tff_linux --config /tmp/nonexistent_tff_cfg_12345.yaml >/dev/null 2>&1");
+    }
+    assert(rc_no_config != 0);
+
+    // 3b. Missing devices AND hotplug disabled fails (XOR missing)
+    int rc_missing = std::system("./tff_linux --config config/tff-combos.yaml >/dev/null 2>&1");
+    if (rc_missing != 0 && std::system("test -f ./build/tff_linux") == 0) {
+        rc_missing =
+            std::system("./build/tff_linux --config config/tff-combos.yaml >/dev/null 2>&1");
+    }
+    assert(rc_missing != 0);
+
+    // 3c. Explicit devices AND hotplug enabled fails (XOR both set)
+    int rc_both = std::system(
+        "./tff_linux --hotplug --config config/tff-combos.yaml /dev/input/event0 >/dev/null 2>&1");
+    if (rc_both != 0 && std::system("test -f ./build/tff_linux") == 0) {
+        rc_both = std::system(
+            "./build/tff_linux --hotplug --config config/tff-combos.yaml /dev/input/event0 "
+            ">/dev/null 2>&1");
+    }
+    assert(rc_both != 0);
+
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -510,6 +569,7 @@ int main() {
     testPackagingLayoutAndIntegrity();
     testGitHookLayoutAndIntegrity();
     testLayerToggleNotifications();
+    testHotplugDefaultAndXorBehavior();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

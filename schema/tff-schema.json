@@ -52,8 +52,25 @@
         },
         "hotplug": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Whether to automatically detect and monitor newly connected keyboards via inotify"
+        },
+        "devices": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "List of explicit keyboard device paths (e.g. /dev/input/by-id/...)"
+            },
+            {
+              "type": "string",
+              "description": "Explicit keyboard device path or comma-separated list of paths"
+            }
+          ]
+        },
+        "device": {
+          "type": "string",
+          "description": "Alias for devices"
         },
         "notifications": {
           "type": "boolean",
