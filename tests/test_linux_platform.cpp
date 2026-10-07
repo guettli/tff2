@@ -516,7 +516,8 @@ void testHotplugDefaultAndXorBehavior() {
             << "  - keys: f j\n"
             << "    outKeys: 1\n";
     }
-    assert(platform.loadConfiguration(temp_yaml));
+    bool loaded = platform.loadConfiguration(temp_yaml);
+    assert(loaded);
     assert(platform.getSettings().devices.size() == 1);
     assert(platform.getSettings().devices[0] == "/dev/input/by-id/usb-test-kbd");
     assert(platform.getSettings().hotplug == false);

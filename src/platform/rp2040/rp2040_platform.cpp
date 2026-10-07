@@ -296,6 +296,10 @@ void RP2040Platform::cleanup() {
 bool RP2040Platform::initUsbHost() {
 #ifdef PICO_BUILD
     printf("USB host initialization (TinyUSB tuh_init)\n");
+    // Enable 5V boost converter on Adafruit Feather RP2040 USB Host (GPIO 18)
+    gpio_init(18);
+    gpio_set_dir(18, GPIO_OUT);
+    gpio_put(18, 1);
     return true;
 #else
     printf("USB host initialization (testing mode)\n");
@@ -306,7 +310,11 @@ bool RP2040Platform::initUsbHost() {
 bool RP2040Platform::initUsbDevice() {
 #ifdef PICO_BUILD
     printf("USB device initialization (TinyUSB tud_init)\n");
-    return true;
+#if defined(BOARD_TUD_RHPORT)
+    return tud_init(BOARD_TUD_RHPORT);
+#else
+    return tud_init(0);
+#endif
 #else
     printf("USB device initialization (testing mode)\n");
     return true;

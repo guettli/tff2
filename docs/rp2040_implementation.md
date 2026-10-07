@@ -81,61 +81,85 @@ gh release download --pattern "tff_rp2040*.uf2"
 
 Or download it manually from the [GitHub Releases page](https://github.com/guettli/tff2/releases).
 
+## Firmware Options
+
+The RP2040 platform supports two firmware options:
+
+### 1. CircuitPython Firmware (`src/platform/rp2040/code.py`) — Recommended & Turnkey
+The primary, battle-tested firmware for the **Adafruit Feather RP2040 with USB Type A Host**:
+- **Hardware Integration**:
+  - Automatically enables the onboard 5V boost converter on **GPIO 18** (`board.USB_HOST_5V_POWER`) so connected keyboards receive 5V power.
+  - Runs USB host using the built-in **Pico-PIO-USB** driver on GPIO 16 (D+) and GPIO 17 (D-) to communicate with keyboards connected to the USB-A port.
+  - Emulates a standard USB HID keyboard over the native USB-C port to the host computer.
+- **No-Button Flashing & Live Updates**:
+  - The board mounts as a USB mass storage drive named **`CIRCUITPY`**.
+  - You can update `code.py` or configuration directly on `CIRCUITPY` without recompiling or rebooting!
+  - You can reboot the board into bootloader mode (`RPI-RP2`) **from software without pressing buttons** using `python3 scripts/reboot_rp2040_bootloader.py`.
+- **Pre-Built UF2**: Runs on the official Adafruit CircuitPython release (`adafruit-circuitpython-adafruit_feather_rp2040_usb_host-*.uf2`).
+
+### 2. Native C++ Firmware (`src/platform/rp2040/main_rp2040.cpp`)
+Bare-metal C++ implementation using TinyUSB and the shared `tff::TFFEngine`.
+- Compiles via `./build_rp2040.sh` into `build-rp2040/tff_rp2040.uf2`.
+- Direct C++ compilation for embedded integration.
+
+---
+
+## Hardware Cabling & Connectors
+
+When connecting the Adafruit Feather RP2040 USB Host:
+
+```
+Physical Keyboard / Fake OTG Input  -->  Normal USB (USB-A Host Port)
+Host Computer / UpBoard             <--  USB-C (Device Port)
+```
+
+- **USB-C (Device Port)**: Connects to your PC / laptop / UpBoard. The RP2040 emulates a virtual USB HID keyboard to the host and receives power over this connection.
+- **Normal USB / USB-A (Host Port)**: Connects to your physical USB keyboard (or UpBoard USB-OTG port for automated testing).
+
+---
+
+## Flashing & Rebooting the RP2040
+
+### Method 1: Automated Software Reboot (No Buttons Needed)
+When CircuitPython (or firmware with active USB CDC) is running on the RP2040, you can reboot directly into the `RPI-RP2` bootloader mode from software:
+
+```bash
+# Automated reboot into bootloader via USB CDC serial:
+python3 scripts/reboot_rp2040_bootloader.py
+```
+
+This sends `microcontroller.on_next_reset(microcontroller.RunMode.BOOTLOADER)` over `/dev/ttyACM0` and triggers a software reset. The board immediately mounts as **`RPI-RP2`** without touching any buttons.
+
+### Method 2: Deploying via `scripts/deploy_rp2040.sh`
+The repo provides a unified deployment helper:
+
+```bash
+# Update code.py on running CircuitPython (copies to CIRCUITPY):
+./scripts/deploy_rp2040.sh
+
+# Flash a new UF2 firmware binary (triggers automated reboot if running):
+./scripts/deploy_rp2040.sh path/to/firmware.uf2
+```
+
+### Method 3: Hardware Button Recovery (Fallback)
+If the board is unresponsive, frozen, or running firmware without an active USB CDC stack:
+
+1. **Press and hold** the **BOOT** (or **BOOTSEL**) button on the RP2040 board.
+2. While holding BOOT, **click (press and release)** the **RESET** button.
+3. **Release** the BOOT button.
+4. The board will immediately mount as **`RPI-RP2`** for drag-and-drop UF2 flashing.
+
 ---
 
 ## Configuration on RP2040
 
-### How to Copy / Apply YAML Configuration
+### CircuitPython Mode
+Simply edit or copy `src/platform/rp2040/code.py` directly onto the `CIRCUITPY` drive (or use `./scripts/deploy_rp2040.sh`). CircuitPython automatically reloads the new configuration within seconds without dropping the USB connection.
 
-A frequent question is: *Can I copy my `tff-combos.yaml` over USB mass storage like CircuitPython?*
-
-- **Native C++ Performance**: Unlike CircuitPython which mounts a FAT USB drive at runtime, Ten Flying Fingers runs bare-metal compiled C++ for minimum latency and zero input lag. While running, the RP2040 presents purely as a USB HID keyboard to your host computer and a USB HID host to your physical keyboard. It does not present a FAT USB drive at runtime.
-- **Default Built-in Configuration**: The pre-built `.uf2` comes pre-configured out of the box with standard home-row chords (`j f` -> backspace, `f j` -> delete, `d f j` -> esc) and dual-role CapsLock (`tap: esc`, `hold: super`).
-- **Applying Custom Configuration**:
-  1. Open `src/platform/rp2040/rp2040_platform.cpp`.
-  2. Paste your custom YAML string into `DEFAULT_YAML_CONFIG`:
-
-```yaml
-combos:
-  j f: backspace
-  f j: delete
-  d + f + j: esc
-
-tap_hold:
-  capslock:
-    tap: esc
-    hold: super
-    timeout_ms: 200
-```
-
-  3. Rebuild the firmware with `./build_rp2040.sh`.
-  4. Flash the generated `build-rp2040/tff_rp2040.uf2` onto your board via BOOTSEL drag-and-drop.
-  *(Dynamic YAML configuration upload over USB CDC serial is in development).*
-
----
-
-## Flashing the Firmware
-
-### Method 1: Drag-and-Drop BOOTSEL Mode (Recommended)
-
-1. Unplug the RP2040 board from your computer.
-2. Press and hold down the **BOOTSEL** button on the board.
-3. While continuing to hold the button, plug the RP2040 board's USB-C cable into your computer.
-4. Release the **BOOTSEL** button. The board will mount as a USB mass storage drive named **`RPI-RP2`**.
-5. Drag and drop (or copy) `tff_rp2040.uf2` directly onto the `RPI-RP2` drive:
-   ```bash
-   cp tff_rp2040.uf2 /media/$USER/RPI-RP2/
-   ```
-6. The board will automatically flash the firmware, unmount the drive, and reboot immediately running Ten Flying Fingers.
-
-### Method 2: SWD Programming
-
-1. Connect a debug probe (e.g. Raspberry Pi Debug Probe or Picoprobe) to the SWD header pins (SWCLK, SWDIO, GND).
-2. Flash using `picotool` or OpenOCD:
-   ```bash
-   picotool load tff_rp2040.elf
-   picotool reboot
-   ```
+### C++ Firmware Mode
+1. Edit `DEFAULT_YAML_CONFIG` in `src/platform/rp2040/rp2040_platform.cpp`.
+2. Recompile with `./build_rp2040.sh`.
+3. Copy `build-rp2040/tff_rp2040.uf2` to `RPI-RP2`.
 
 ---
 
