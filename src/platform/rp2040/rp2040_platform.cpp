@@ -310,7 +310,11 @@ bool RP2040Platform::initUsbHost() {
 bool RP2040Platform::initUsbDevice() {
 #ifdef PICO_BUILD
     printf("USB device initialization (TinyUSB tud_init)\n");
+#if defined(BOARD_TUD_RHPORT)
     return tud_init(BOARD_TUD_RHPORT);
+#else
+    return tud_init(0);
+#endif
 #else
     printf("USB device initialization (testing mode)\n");
     return true;
