@@ -516,11 +516,11 @@ void RP2040Platform::typeDumpString(const std::string& text) {
         if (usb_code == 0) {
             continue;
         }
-        uint8_t mod = shift ? 0x02 : 0;
-        uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
-        const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
-
         if (tud_mounted()) {
+            uint8_t mod = shift ? 0x02 : 0;
+            const uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
+            const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+
             while (!tud_hid_ready() && tud_mounted()) {
                 tud_task();
             }
