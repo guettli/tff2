@@ -347,10 +347,15 @@ TEST_CASES = [
 ]
 
 def find_keyboard_input_device():
-    """Find the event device for RP2040 keyboard"""
-    by_id = glob.glob('/dev/input/by-id/*RP2040*kbd*')
-    if by_id:
-        return os.path.realpath(by_id[0])
+    """Find the event device for RP2040 keyboard (C++ TinyUSB or CircuitPython)"""
+    candidates = (
+        glob.glob('/dev/input/by-id/*RP2040*kbd*') +
+        glob.glob('/dev/input/by-id/*rp2040*kbd*') +
+        glob.glob('/dev/input/by-id/*TFF*kbd*') +
+        glob.glob('/dev/input/by-id/*tff*kbd*')
+    )
+    if candidates:
+        return os.path.realpath(candidates[0])
     return None
 
 def flush_input(in_fd):
