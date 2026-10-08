@@ -381,7 +381,7 @@ bool RP2040Platform::sendDeviceKeys(const std::vector<uint32_t>& key_codes) {
                     tud_task();
                 }
                 if (tud_mounted()) {
-                    uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+                    const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
                     tud_hid_keyboard_report(0, 0, empty_keys);
                 }
             }
@@ -982,7 +982,7 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
     printf("HID device unmounted: addr=%u, instance=%u\n", dev_addr, instance);
     if (s_active_platform != nullptr) {
         // Clear all active keys on unmount to prevent stuck keys
-        uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+        const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
         s_active_platform->enqueueHostReport(0, empty_keys, 6);
     }
 }
