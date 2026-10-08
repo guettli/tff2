@@ -8,11 +8,14 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <atomic>
 
 #ifdef PICO_BUILD
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 #include "hardware/gpio.h"
 #include "tusb.h"
+#include "pio_usb.h"
 #endif
 
 /**
@@ -25,6 +28,11 @@
  */
 class RP2040Platform {
 public:
+    struct HostKeyboardReport {
+        uint8_t modifiers = 0;
+        uint8_t keys[6] = {0, 0, 0, 0, 0, 0};
+    };
+
     RP2040Platform();
     ~RP2040Platform();
 
@@ -57,6 +65,34 @@ public:
      * @param pressed true if pressed, false if released
      */
     void processHostKeyEvent(uint32_t keycode, bool pressed);
+
+    /**
+     * @brief Process a raw USB HID keyboard report from host port
+     * @param modifiers Bitmask of modifier keys (0xE0..0xE7)
+     * @param keys Array of pressed USB HID usage codes (up to key_count)
+     * @param key_count Number of keys in keys array (typically 6)
+     */
+    void processHostKeyboardReport(uint8_t modifiers, const uint8_t* keys, size_t key_count);
+
+    /**
+     * @brief Enqueue a raw host keyboard report (thread-safe, callable from Core 1)
+     */
+    bool enqueueHostReport(uint8_t modifiers, const uint8_t* keys, size_t key_count);
+
+    /**
+     * @brief Dequeue a pending host report (consumed on Core 0)
+     */
+    bool dequeueHostReport(HostKeyboardReport& report);
+
+    /**
+     * @brief Process queued host events (called on Core 0)
+     */
+    void processUsbHostEvents();
+
+    /**
+     * @brief Process pending device events (called on Core 0)
+     */
+    void processUsbDeviceEvents();
 
     /**
      * @brief Check and service active timers (e.g. tap-hold or combo expiration)
@@ -132,12 +168,21 @@ private:
     bool running_;
     uint32_t test_timestamp_ms_;
 
+    // Host report queue for cross-core lock-free passing (Core 1 -> Core 0)
+    static constexpr size_t REPORT_QUEUE_SIZE = 32;
+    HostKeyboardReport report_queue_[REPORT_QUEUE_SIZE];
+    std::atomic<size_t> queue_head_{0};
+    std::atomic<size_t> queue_tail_{0};
+
+    // State tracking for report transitions
+    uint8_t prev_modifiers_ = 0;
+    uint8_t prev_keys_[6] = {0, 0, 0, 0, 0, 0};
+    size_t prev_key_count_ = 0;
+
     uint32_t getCurrentTimestamp();
 
     bool initUsbHost();
     bool initUsbDevice();
-    void processUsbHostEvents();
-    void processUsbDeviceEvents();
 };
 
 #ifdef PICO_BUILD

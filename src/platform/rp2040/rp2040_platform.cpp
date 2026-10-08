@@ -28,6 +28,8 @@ tap_hold:
     timeout_ms: 200
 )";
 
+RP2040Platform* s_active_platform = nullptr;
+
 }  // anonymous namespace
 
 class RP2040Platform::RP2040EventWriter : public tff::EventWriter {
@@ -79,7 +81,14 @@ public:
                         }
                     }
                 }
-                tud_hid_keyboard_report(0, active_modifiers_, active_keys_);
+                if (tud_mounted()) {
+                    while (!tud_hid_ready() && tud_mounted()) {
+                        tud_task();
+                    }
+                    if (tud_mounted()) {
+                        tud_hid_keyboard_report(0, active_modifiers_, active_keys_);
+                    }
+                }
             }
 #endif
         }
@@ -118,6 +127,7 @@ bool RP2040Platform::initialize() {
 
     engine_ = std::make_unique<tff::TFFEngine>(writer_.get());
     engine_->setConfig(config_);
+    s_active_platform = this;
 
 #ifdef PICO_BUILD
     stdio_init_all();
@@ -177,6 +187,28 @@ tff::TFFEngine& RP2040Platform::getEngine() {
     return *engine_;
 }
 
+#ifdef PICO_BUILD
+static void core1_main() {
+    // 5V boost converter already enabled in initUsbHost, wait 10ms for voltage to settle
+    sleep_ms(10);
+
+    // Configure and initialize PIO-USB Host on Port 1
+    pio_usb_configuration_t pio_cfg = PIO_USB_DEFAULT_CONFIG;
+    pio_cfg.pin_dp = PIO_USB_DP_PIN_DEFAULT;  // GPIO 16
+    tuh_configure(1, TUH_CFGID_RPI_PIO_USB_CONFIGURATION, &pio_cfg);
+
+    if (!tuh_init(1)) {
+        printf("Failed to initialize TinyUSB Host on Core 1\n");
+        return;
+    }
+
+    printf("Core 1 TinyUSB Host task running\n");
+    while (true) {
+        tuh_task();
+    }
+}
+#endif
+
 void RP2040Platform::run() {
     if (!initialized_) {
         printf("RP2040Platform not initialized\n");
@@ -188,12 +220,12 @@ void RP2040Platform::run() {
     printf("Listening for keyboard input...\n");
 
 #ifdef PICO_BUILD
+    multicore_launch_core1(core1_main);
+
     while (running_) {
         processUsbHostEvents();
         processUsbDeviceEvents();
         checkTimers();
-        tud_task();
-        tuh_task();
     }
 #else
     printf("Running in test mode\n");
@@ -224,6 +256,86 @@ void RP2040Platform::processHostKeyEvent(uint32_t keycode, bool pressed) {
 
     engine_->processEvent(ev);
     checkTimers();
+}
+
+void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t* keys,
+                                               size_t key_count) {
+    // 1. Modifier releases: identify modifier bits that transitioned from 1 to 0
+    for (uint8_t i = 0; i < 8; ++i) {
+        uint8_t mask = static_cast<uint8_t>(1u << i);
+        bool was_down = (prev_modifiers_ & mask) != 0;
+        bool is_down = (modifiers & mask) != 0;
+        if (was_down && !is_down) {
+            processHostKeyEvent(0xE0 + i, false);
+        }
+    }
+
+    // 2. Filter incoming keys: ignore codes 0x00..0x03 (None, Rollover, POSTFail, Undefined)
+    uint8_t current_keys[6] = {0, 0, 0, 0, 0, 0};
+    size_t current_count = 0;
+    size_t limit = key_count > 6 ? 6 : key_count;
+    for (size_t i = 0; i < limit; ++i) {
+        uint8_t k = keys[i];
+        if (k > 0x03 && current_count < 6) {
+            bool exists = false;
+            for (size_t j = 0; j < current_count; ++j) {
+                if (current_keys[j] == k) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                current_keys[current_count++] = k;
+            }
+        }
+    }
+
+    // 3. Key releases: keys previously pressed that are no longer in current_keys
+    for (size_t i = 0; i < prev_key_count_; ++i) {
+        uint8_t old_k = prev_keys_[i];
+        bool still_down = false;
+        for (size_t j = 0; j < current_count; ++j) {
+            if (current_keys[j] == old_k) {
+                still_down = true;
+                break;
+            }
+        }
+        if (!still_down) {
+            processHostKeyEvent(old_k, false);
+        }
+    }
+
+    // 4. Modifier presses: identify modifier bits that transitioned from 0 to 1
+    for (uint8_t i = 0; i < 8; ++i) {
+        uint8_t mask = static_cast<uint8_t>(1u << i);
+        bool was_down = (prev_modifiers_ & mask) != 0;
+        bool is_down = (modifiers & mask) != 0;
+        if (!was_down && is_down) {
+            processHostKeyEvent(0xE0 + i, true);
+        }
+    }
+
+    // 5. Key presses: keys currently pressed that were not previously pressed
+    for (size_t i = 0; i < current_count; ++i) {
+        uint8_t cur_k = current_keys[i];
+        bool was_down = false;
+        for (size_t j = 0; j < prev_key_count_; ++j) {
+            if (prev_keys_[j] == cur_k) {
+                was_down = true;
+                break;
+            }
+        }
+        if (!was_down) {
+            processHostKeyEvent(cur_k, true);
+        }
+    }
+
+    // 6. Update previous state
+    prev_modifiers_ = modifiers;
+    for (size_t i = 0; i < 6; ++i) {
+        prev_keys_[i] = current_keys[i];
+    }
+    prev_key_count_ = current_count;
 }
 
 void RP2040Platform::checkTimers() {
@@ -258,15 +370,21 @@ bool RP2040Platform::sendDeviceKeys(const std::vector<uint32_t>& key_codes) {
             } else {
                 report_keys[0] = usb_keycode;
             }
-            while (!tud_hid_ready()) {
-                tud_task();
+            if (tud_mounted()) {
+                while (!tud_hid_ready() && tud_mounted()) {
+                    tud_task();
+                }
+                if (tud_mounted()) {
+                    tud_hid_keyboard_report(0, mod, report_keys);
+                }
+                while (!tud_hid_ready() && tud_mounted()) {
+                    tud_task();
+                }
+                if (tud_mounted()) {
+                    uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+                    tud_hid_keyboard_report(0, 0, empty_keys);
+                }
             }
-            tud_hid_keyboard_report(0, mod, report_keys);
-            while (!tud_hid_ready()) {
-                tud_task();
-            }
-            uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
-            tud_hid_keyboard_report(0, 0, empty_keys);
         }
     }
     return true;
@@ -282,10 +400,15 @@ bool RP2040Platform::sendDeviceKeys(const std::vector<uint32_t>& key_codes) {
 
 bool RP2040Platform::sendRawKeyboardReport(uint8_t modifier, const uint8_t keycodes[6]) {
 #ifdef PICO_BUILD
-    while (!tud_hid_ready()) {
-        tud_task();
+    if (tud_mounted()) {
+        while (!tud_hid_ready() && tud_mounted()) {
+            tud_task();
+        }
+        if (tud_mounted()) {
+            return tud_hid_keyboard_report(0, modifier, keycodes);
+        }
     }
-    return tud_hid_keyboard_report(0, modifier, keycodes);
+    return false;
 #else
     (void)modifier;
     (void)keycodes;
@@ -306,14 +429,25 @@ void RP2040Platform::clearEmittedKeys() {
 
 void RP2040Platform::cleanup() {
     running_ = false;
+#ifdef PICO_BUILD
+    multicore_reset_core1();
+#endif
+    if (s_active_platform == this) {
+        s_active_platform = nullptr;
+    }
     initialized_ = false;
+    prev_modifiers_ = 0;
+    prev_key_count_ = 0;
+    for (size_t i = 0; i < 6; ++i) {
+        prev_keys_[i] = 0;
+    }
     engine_.reset();
     writer_.reset();
 }
 
 bool RP2040Platform::initUsbHost() {
 #ifdef PICO_BUILD
-    printf("USB host initialization (TinyUSB tuh_init)\n");
+    printf("USB host preparation: powering 5V boost converter (GPIO 18)\n");
     // Enable 5V boost converter on Adafruit Feather RP2040 USB Host (GPIO 18)
     gpio_init(18);
     gpio_set_dir(18, GPIO_OUT);
@@ -339,10 +473,39 @@ bool RP2040Platform::initUsbDevice() {
 #endif
 }
 
+bool RP2040Platform::enqueueHostReport(uint8_t modifiers, const uint8_t* keys, size_t key_count) {
+    size_t head = queue_head_.load(std::memory_order_relaxed);
+    size_t next_head = (head + 1) % REPORT_QUEUE_SIZE;
+    if (next_head == queue_tail_.load(std::memory_order_acquire)) {
+        return false;  // Queue full
+    }
+    report_queue_[head].modifiers = modifiers;
+    size_t limit = key_count > 6 ? 6 : key_count;
+    for (size_t i = 0; i < limit; ++i) {
+        report_queue_[head].keys[i] = keys[i];
+    }
+    for (size_t i = limit; i < 6; ++i) {
+        report_queue_[head].keys[i] = 0;
+    }
+    queue_head_.store(next_head, std::memory_order_release);
+    return true;
+}
+
+bool RP2040Platform::dequeueHostReport(HostKeyboardReport& report) {
+    size_t tail = queue_tail_.load(std::memory_order_relaxed);
+    if (tail == queue_head_.load(std::memory_order_acquire)) {
+        return false;  // Queue empty
+    }
+    report = report_queue_[tail];
+    queue_tail_.store((tail + 1) % REPORT_QUEUE_SIZE, std::memory_order_release);
+    return true;
+}
+
 void RP2040Platform::processUsbHostEvents() {
-#ifdef PICO_BUILD
-    // Handled via tuh_hid_report_received_cb
-#endif
+    HostKeyboardReport rep;
+    while (dequeueHostReport(rep)) {
+        processHostKeyboardReport(rep.modifiers, rep.keys, 6);
+    }
 }
 
 void RP2040Platform::processUsbDeviceEvents() {
@@ -807,16 +970,38 @@ uint8_t RP2040Platform::convertKeyCodeToUsb(tff::KeyCode internal_keycode) {
 extern "C" {
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*desc_report*/,
                       uint16_t /*desc_len*/) {
-    printf("HID device mounted: addr=%u, instance=%u\n", dev_addr, instance);
+    uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    printf("HID device mounted: addr=%u, instance=%u, protocol=%u\n", dev_addr, instance,
+           itf_protocol);
+    if (!tuh_hid_receive_report(dev_addr, instance)) {
+        printf("Error: failed to request report from addr=%u, instance=%u\n", dev_addr, instance);
+    }
 }
 
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
     printf("HID device unmounted: addr=%u, instance=%u\n", dev_addr, instance);
+    if (s_active_platform != nullptr) {
+        // Clear all active keys on unmount to prevent stuck keys
+        uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+        s_active_platform->enqueueHostReport(0, empty_keys, 6);
+    }
 }
 
-void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* /*report*/,
+void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report,
                                 uint16_t len) {
-    printf("HID report received: addr=%u, instance=%u, len=%u\n", dev_addr, instance, len);
+    uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+    if (itf_protocol == HID_ITF_PROTOCOL_KEYBOARD ||
+        (itf_protocol == HID_ITF_PROTOCOL_NONE && len >= 8)) {
+        hid_keyboard_report_t const* kbd_report =
+            reinterpret_cast<hid_keyboard_report_t const*>(report);
+        if (s_active_platform != nullptr) {
+            s_active_platform->enqueueHostReport(kbd_report->modifier, kbd_report->keycode, 6);
+        }
+    }
+    // Re-arm report reception
+    if (!tuh_hid_receive_report(dev_addr, instance)) {
+        printf("Error: failed to re-arm report from addr=%u, instance=%u\n", dev_addr, instance);
+    }
 }
 }
 #endif
