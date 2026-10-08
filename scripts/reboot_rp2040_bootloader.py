@@ -4,8 +4,7 @@ Reboot RP2040 microcontroller into BOOTSEL bootloader mode via USB CDC.
 Supports:
 1. Native C++ TFF firmware: 1200-baud touch reset (standard Pico/TinyUSB convention)
 2. Native C++ TFF firmware: "BOOTSEL\\r\\n" serial command
-3. CircuitPython firmware: Ctrl+C + microcontroller.reset() command
-Allows 100% automated reflashing without physically pressing BOOTSEL/RESET buttons.
+Allows automated reflashing without physically pressing BOOTSEL/RESET buttons.
 """
 
 import sys
@@ -41,7 +40,7 @@ def reboot_to_bootloader(port=None):
     if not port or not os.path.exists(port):
         print("Error: RP2040 USB serial device (/dev/ttyACM*) not found.")
         print("")
-        print("If the board is running firmware without USB CDC active (or is unresponsive):")
+        print("If the board is unresponsive or needs manual recovery:")
         print("  1. Press and hold the BOOT button on the RP2040 board.")
         print("  2. Click (press and release) the RESET button.")
         print("  3. Release the BOOT button.")
@@ -78,26 +77,13 @@ def reboot_to_bootloader(port=None):
         print("✓ RP2040 rebooted into BOOTSEL mode via 1200-baud touch.")
         return True
 
-    # Method 2: Serial commands (C++ 'BOOTSEL' command and CircuitPython fallback)
-    # Check if port is still available
+    # Method 2: C++ 'BOOTSEL' serial command
     if os.path.exists(port):
-        print(f"Sending BOOTSEL and reboot commands on {port}...")
+        print(f"Sending BOOTSEL command on {port}...")
         try:
             s = serial.Serial(port, 115200, timeout=1)
-            # Send C++ firmware command
             s.write(b"BOOTSEL\r\n")
             time.sleep(0.1)
-
-            # Also send CircuitPython Ctrl+C + Python reboot command
-            s.write(b"\x03\r\n")
-            time.sleep(0.1)
-            cmd = (
-                b"import microcontroller\r\n"
-                b"microcontroller.on_next_reset(microcontroller.RunMode.BOOTLOADER)\r\n"
-                b"microcontroller.reset()\r\n"
-            )
-            s.write(cmd)
-            time.sleep(0.2)
             s.close()
         except Exception as e:
             print(f"Note: Serial command attempt returned: {e}")
@@ -106,13 +92,8 @@ def reboot_to_bootloader(port=None):
         print("✓ RP2040 rebooted into BOOTSEL mode via serial command.")
         return True
 
-    print("Reboot signal sent. Checking for RPI-RP2 drive...")
-    if is_bootloader_active():
-        print("✓ RP2040 is now in BOOTSEL bootloader mode (RPI-RP2).")
-        return True
-
-    print("Warning: RPI-RP2 drive not detected automatically.")
-    print("If automatic reboot did not succeed, use the hardware buttons:")
+    print("Error: Failed to reboot RP2040 into BOOTSEL mode automatically.")
+    print("Please use the hardware buttons on the board:")
     print("  1. Press and hold the BOOT button on the RP2040 board.")
     print("  2. Click (press and release) the RESET button.")
     print("  3. Release the BOOT button.")
