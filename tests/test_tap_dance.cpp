@@ -579,6 +579,8 @@ tap_dance:
 // 15. RP2040 integration
 static void test_tap_dance_rp2040_integration() {
     RP2040Platform platform;
+    bool init_ok = platform.initialize();
+    assert(init_ok);
     std::string yaml = R"(
 tap_dance:
   capslock:

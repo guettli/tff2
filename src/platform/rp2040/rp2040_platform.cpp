@@ -1,4 +1,5 @@
 #include "rp2040_platform.h"
+#include <cassert>
 #include <cstring>
 #include <cstdio>
 #include <iostream>
@@ -160,9 +161,6 @@ bool RP2040Platform::initialize() {
 }
 
 bool RP2040Platform::loadConfiguration(const std::string& yaml_str) {
-    if (!initialized_) {
-        initialize();
-    }
     tff::Config new_config;
     std::string err_msg;
     if (!tff::loadYamlConfig(yaml_str, new_config, err_msg)) {
@@ -181,9 +179,8 @@ void RP2040Platform::setConfig(const tff::Config& config) {
 }
 
 tff::TFFEngine& RP2040Platform::getEngine() {
-    if (!initialized_ || !engine_) {
-        initialize();
-    }
+    assert(initialized_ && engine_ &&
+           "RP2040Platform must be initialized before calling getEngine()");
     return *engine_;
 }
 

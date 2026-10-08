@@ -326,11 +326,12 @@ static void test_device_keys_and_cleanup() {
     std::cout << "PASSED\n";
 }
 
-static void test_unmapped_keys_and_auto_init() {
-    std::cout << "Test 9: getEngine auto-initialization & unmapped key drop... ";
+static void test_unmapped_keys() {
+    std::cout << "Test 9: Initialized engine & unmapped key drop... ";
     RP2040Platform platform;
+    bool init_ok = platform.initialize();
+    assert(init_ok);
 
-    // platform not initialized yet; calling getEngine() should auto-initialize
     const tff::TFFEngine& engine = platform.getEngine();
     assert(platform.getConfig().combos.size() > 0);
     (void)engine;
@@ -360,6 +361,8 @@ static void test_unmapped_keys_and_auto_init() {
 static void test_one_shot_keys() {
     std::cout << "Test 10: One-shot modifiers and layers on RP2040... ";
     RP2040Platform platform;
+    bool init_ok = platform.initialize();
+    assert(init_ok);
     std::string config_yaml = R"(
 one_shot:
   leftshift: 1500
@@ -560,7 +563,7 @@ int main() {
     test_modal_layers();
     test_text_snippets();
     test_device_keys_and_cleanup();
-    test_unmapped_keys_and_auto_init();
+    test_unmapped_keys();
     test_one_shot_keys();
     test_raw_keyboard_report();
     test_host_keyboard_report_processing();

@@ -4,17 +4,9 @@
 
 set -e
 
-# If not running as root, re-run via ssh root@localhost or sudo
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Elevating to root..."
-    if ssh -o BatchMode=yes -o StrictHostKeyChecking=no root@localhost whoami >/dev/null 2>&1; then
-        exec ssh root@localhost "bash -s" < "$0" "$@"
-    elif command -v sudo >/dev/null 2>&1; then
-        exec sudo "$0" "$@"
-    else
-        echo "Error: Root access required to configure USB gadget."
-        exit 1
-    fi
+    echo "Error: Root access required to configure USB-OTG gadget. Run with: sudo $0" >&2
+    exit 1
 fi
 
 echo "Setting up fake keyboard for TFF testing on USB-OTG..."
