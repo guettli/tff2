@@ -448,21 +448,21 @@ static void test_host_keyboard_report_processing() {
     // 1. Single non-combo key press & release
     platform.clearEmittedKeys();
     platform.setTimestamp(100);
-    uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};  // Key C
+    const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};  // Key C
     platform.processHostKeyboardReport(0, report_c, 6);
     const auto& emitted1 = platform.getEmittedKeys();
     assert(emitted1.size() == 1);
     assert(emitted1[0] == tff::Keys::KEY_C);
 
     platform.setTimestamp(150);
-    uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
     platform.processHostKeyboardReport(0, report_empty, 6);
 
     // 2. Modifiers and key rollover
     platform.clearEmittedKeys();
     platform.setTimestamp(200);
     // Press Left Shift (0x02) + Key B (0x05)
-    uint8_t report_shift_b[6] = {0x05, 0, 0, 0, 0, 0};
+    const uint8_t report_shift_b[6] = {0x05, 0, 0, 0, 0, 0};
     platform.processHostKeyboardReport(0x02, report_shift_b, 6);
     const auto& emitted2 = platform.getEmittedKeys();
     assert(emitted2.size() == 2);
@@ -475,11 +475,11 @@ static void test_host_keyboard_report_processing() {
     // 3. J + F combo via raw reports -> Backspace
     platform.clearEmittedKeys();
     platform.setTimestamp(500);
-    uint8_t report_j[6] = {0x0D, 0, 0, 0, 0, 0};  // J
+    const uint8_t report_j[6] = {0x0D, 0, 0, 0, 0, 0};  // J
     platform.processHostKeyboardReport(0, report_j, 6);
 
     platform.setTimestamp(520);
-    uint8_t report_jf[6] = {0x0D, 0x09, 0, 0, 0, 0};  // J + F (chord)
+    const uint8_t report_jf[6] = {0x0D, 0x09, 0, 0, 0, 0};  // J + F (chord)
     platform.processHostKeyboardReport(0, report_jf, 6);
 
     platform.setTimestamp(580);  // Overlap > 40ms
@@ -492,7 +492,7 @@ static void test_host_keyboard_report_processing() {
     // 4. Rollover error (0x01) safely ignored
     platform.clearEmittedKeys();
     platform.setTimestamp(600);
-    uint8_t report_rollover[6] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01};
+    const uint8_t report_rollover[6] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01};
     platform.processHostKeyboardReport(0, report_rollover, 6);
     assert(platform.getEmittedKeys().empty());
 
@@ -506,10 +506,10 @@ static void test_host_report_queue() {
     assert(ok);
 
     // Test enqueue and dequeue
-    uint8_t keys1[6] = {0x04, 0, 0, 0, 0, 0};
+    const uint8_t keys1[6] = {0x04, 0, 0, 0, 0, 0};
     assert(platform.enqueueHostReport(0x01, keys1, 6));
 
-    uint8_t keys2[6] = {0x05, 0x06, 0, 0, 0, 0};
+    const uint8_t keys2[6] = {0x05, 0x06, 0, 0, 0, 0};
     assert(platform.enqueueHostReport(0x02, keys2, 6));
 
     RP2040Platform::HostKeyboardReport rep1;
@@ -530,7 +530,7 @@ static void test_host_report_queue() {
     // Test processUsbHostEvents draining queue
     platform.clearEmittedKeys();
     platform.setTimestamp(700);
-    uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};
+    const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};
     assert(platform.enqueueHostReport(0, report_c, 6));
 
     platform.processUsbHostEvents();
