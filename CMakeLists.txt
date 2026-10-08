@@ -72,6 +72,7 @@ set(CORE_SOURCES
     src/core/tff_cheatsheet.cpp
     src/core/tff_monitor.cpp
     src/core/tff_wizard.cpp
+    src/core/debug_buffer.cpp
 )
 
 # RP2040 platform source files

@@ -36,17 +36,20 @@ RP2040Platform* s_active_platform = nullptr;
 class RP2040Platform::RP2040EventWriter : public tff::EventWriter {
 public:
     std::vector<uint32_t> emitted_down_keys;
-#ifdef PICO_BUILD
+    RP2040Platform* platform = nullptr;
     uint8_t active_modifiers_ = 0;
     uint8_t active_keys_[6] = {0, 0, 0, 0, 0, 0};
-#endif
 
     void writeOne(const tff::Event& ev) override {
         if (ev.type == tff::EV_KEY) {
             if (ev.value == tff::KEY_VAL_DOWN) {
                 emitted_down_keys.push_back(ev.code);
             }
-#ifdef PICO_BUILD
+            if (platform) {
+                uint32_t ts_ms = static_cast<uint32_t>(ev.time.sec * 1000 + ev.time.usec / 1000);
+                platform->getDebugBuffer().recordOutKeyEvent(ts_ms, ev.code,
+                                                             ev.value == tff::KEY_VAL_DOWN);
+            }
             uint8_t usb_code = convertKeyCodeToUsb(ev.code);
             if (usb_code != 0) {
                 if (usb_code >= 0xE0 && usb_code <= 0xE7) {
@@ -82,6 +85,13 @@ public:
                         }
                     }
                 }
+                if (platform) {
+                    uint32_t ts_ms =
+                        static_cast<uint32_t>(ev.time.sec * 1000 + ev.time.usec / 1000);
+                    platform->getDebugBuffer().recordOutRawReport(ts_ms, active_modifiers_,
+                                                                  active_keys_);
+                }
+#ifdef PICO_BUILD
                 if (tud_mounted()) {
                     while (!tud_hid_ready() && tud_mounted()) {
                         tud_task();
@@ -90,8 +100,8 @@ public:
                         tud_hid_keyboard_report(0, active_modifiers_, active_keys_);
                     }
                 }
-            }
 #endif
+            }
         }
     }
 };
@@ -101,7 +111,10 @@ RP2040Platform::RP2040Platform()
       engine_(nullptr),
       initialized_(false),
       running_(false),
-      test_timestamp_ms_(0) {}
+      test_timestamp_ms_(0) {
+    writer_->platform = this;
+    s_active_platform = this;
+}
 
 RP2040Platform::~RP2040Platform() {
     cleanup();
@@ -115,6 +128,7 @@ bool RP2040Platform::initialize() {
     if (!writer_) {
         writer_ = std::make_unique<RP2040EventWriter>();
     }
+    writer_->platform = this;
 
     // If no config has been set, load default TFF configuration
     if (config_.combos.empty() && config_.tap_hold_keys.empty() && config_.layers.empty() &&
@@ -244,6 +258,8 @@ void RP2040Platform::processHostKeyEvent(uint32_t keycode, bool pressed) {
     }
 
     uint32_t ts_ms = getCurrentTimestamp();
+    debug_buffer_.recordInKeyEvent(ts_ms, code, pressed);
+
     tff::Event ev;
     ev.time.sec = static_cast<int64_t>(ts_ms / 1000);
     ev.time.usec = static_cast<int64_t>(ts_ms % 1000) * 1000;
@@ -257,17 +273,10 @@ void RP2040Platform::processHostKeyEvent(uint32_t keycode, bool pressed) {
 
 void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t* keys,
                                                size_t key_count) {
-    // 1. Modifier releases: identify modifier bits that transitioned from 1 to 0
-    for (uint8_t i = 0; i < 8; ++i) {
-        uint8_t mask = static_cast<uint8_t>(1u << i);
-        bool was_down = (prev_modifiers_ & mask) != 0;
-        bool is_down = (modifiers & mask) != 0;
-        if (was_down && !is_down) {
-            processHostKeyEvent(0xE0 + i, false);
-        }
-    }
+    uint32_t ts_ms = getCurrentTimestamp();
+    debug_buffer_.recordInRawReport(ts_ms, modifiers, keys, key_count);
 
-    // 2. Filter incoming keys: ignore codes 0x00..0x03 (None, Rollover, POSTFail, Undefined)
+    // 1. Filter incoming keys: ignore codes 0x00..0x03 (None, Rollover, POSTFail, Undefined)
     uint8_t current_keys[6] = {0, 0, 0, 0, 0, 0};
     size_t current_count = 0;
     size_t limit = key_count > 6 ? 6 : key_count;
@@ -287,7 +296,77 @@ void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t*
         }
     }
 
-    // 3. Key releases: keys previously pressed that are no longer in current_keys
+    // 2. Check for diagnostic dump chords:
+    // Chord A: d + f + j + k held together (0x07, 0x09, 0x0D, 0x0E)
+    // Chord B: LeftShift + RightShift + D (modifiers & 0x22 == 0x22 and 0x07)
+    bool has_d = false, has_f = false, has_j = false, has_k = false;
+    for (size_t i = 0; i < current_count; ++i) {
+        if (current_keys[i] == 0x07) {
+            has_d = true;
+        }
+        if (current_keys[i] == 0x09) {
+            has_f = true;
+        }
+        if (current_keys[i] == 0x0D) {
+            has_j = true;
+        }
+        if (current_keys[i] == 0x0E) {
+            has_k = true;
+        }
+    }
+    bool chord_dfjk = (has_d && has_f && has_j && has_k);
+    bool chord_shift_d = (((modifiers & 0x22) == 0x22) && has_d);
+
+    if (debug_chord_latched_) {
+        // While latched, swallow reports until all chord keys and shift modifiers are fully
+        // released
+        if (!has_d && !has_f && !has_j && !has_k && ((modifiers & 0x22) == 0)) {
+            debug_chord_latched_ = false;
+            prev_modifiers_ = modifiers;
+            for (size_t i = 0; i < 6; ++i) {
+                prev_keys_[i] = 0;
+            }
+            prev_key_count_ = 0;
+        }
+        return;
+    }
+
+    if (chord_dfjk || chord_shift_d) {
+        debug_chord_latched_ = true;
+        if (chord_shift_d) {
+            if (prev_modifiers_ & 0x02) {
+                processHostKeyEvent(0xE1, false);
+            }
+            if (prev_modifiers_ & 0x20) {
+                processHostKeyEvent(0xE5, false);
+            }
+        }
+        for (size_t i = 0; i < prev_key_count_; ++i) {
+            uint8_t k = prev_keys_[i];
+            if (k == 0x07 || k == 0x09 || k == 0x0D || k == 0x0E) {
+                processHostKeyEvent(k, false);
+            }
+        }
+        prev_modifiers_ = modifiers;
+        for (size_t i = 0; i < 6; ++i) {
+            prev_keys_[i] = current_keys[i];
+        }
+        prev_key_count_ = current_count;
+        triggerDebugDump(true);
+        return;
+    }
+
+    // 3. Modifier releases: identify modifier bits that transitioned from 1 to 0
+    for (uint8_t i = 0; i < 8; ++i) {
+        uint8_t mask = static_cast<uint8_t>(1u << i);
+        bool was_down = (prev_modifiers_ & mask) != 0;
+        bool is_down = (modifiers & mask) != 0;
+        if (was_down && !is_down) {
+            processHostKeyEvent(0xE0 + i, false);
+        }
+    }
+
+    // 4. Key releases: keys previously pressed that are no longer in current_keys
     for (size_t i = 0; i < prev_key_count_; ++i) {
         uint8_t old_k = prev_keys_[i];
         bool still_down = false;
@@ -302,7 +381,7 @@ void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t*
         }
     }
 
-    // 4. Modifier presses: identify modifier bits that transitioned from 0 to 1
+    // 5. Modifier presses: identify modifier bits that transitioned from 0 to 1
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t mask = static_cast<uint8_t>(1u << i);
         bool was_down = (prev_modifiers_ & mask) != 0;
@@ -312,7 +391,7 @@ void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t*
         }
     }
 
-    // 5. Key presses: keys currently pressed that were not previously pressed
+    // 6. Key presses: keys currently pressed that were not previously pressed
     for (size_t i = 0; i < current_count; ++i) {
         uint8_t cur_k = current_keys[i];
         bool was_down = false;
@@ -327,7 +406,7 @@ void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t*
         }
     }
 
-    // 6. Update previous state
+    // 7. Update previous state
     prev_modifiers_ = modifiers;
     for (size_t i = 0; i < 6; ++i) {
         prev_keys_[i] = current_keys[i];
@@ -347,6 +426,7 @@ void RP2040Platform::checkTimers() {
 
     tff::TimeVal timer_time = engine_->getActiveTimerTime();
     if (now >= timer_time) {
+        debug_buffer_.recordTimerExpired(ts_ms);
         engine_->onTimer(now);
     }
 }
@@ -421,6 +501,75 @@ const std::vector<uint32_t>& RP2040Platform::getEmittedKeys() const {
 void RP2040Platform::clearEmittedKeys() {
     if (writer_) {
         writer_->emitted_down_keys.clear();
+    }
+}
+
+void RP2040Platform::typeDumpString(const std::string& text) {
+    for (char c : text) {
+        tff::KeyCode code = 0;
+        bool shift = false;
+        if (!tff::asciiToKeyStroke(c, code, shift)) {
+            continue;
+        }
+#ifdef PICO_BUILD
+        uint8_t usb_code = convertKeyCodeToUsb(code);
+        if (usb_code == 0) {
+            continue;
+        }
+        uint8_t mod = shift ? 0x02 : 0;
+        uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
+        const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+
+        if (tud_mounted()) {
+            while (!tud_hid_ready() && tud_mounted()) {
+                tud_task();
+            }
+            if (tud_mounted()) {
+                tud_hid_keyboard_report(0, mod, report_keys);
+            }
+            while (!tud_hid_ready() && tud_mounted()) {
+                tud_task();
+            }
+            if (tud_mounted()) {
+                tud_hid_keyboard_report(0, 0, empty_keys);
+            }
+        }
+#else
+        if (writer_) {
+            writer_->emitted_down_keys.push_back(static_cast<uint32_t>(code));
+        }
+#endif
+    }
+}
+
+void RP2040Platform::triggerDebugDump(bool type_to_hid) {
+    if (is_dumping_) {
+        return;
+    }
+    is_dumping_ = true;
+    debug_buffer_.setPaused(true);
+
+    uint32_t now = getCurrentTimestamp();
+    last_debug_dump_ = debug_buffer_.formatDump(now);
+
+#ifdef PICO_BUILD
+    if (tud_cdc_connected()) {
+        tud_cdc_write(last_debug_dump_.data(), static_cast<uint32_t>(last_debug_dump_.size()));
+        tud_cdc_write_flush();
+    }
+#endif
+
+    if (type_to_hid) {
+        typeDumpString(last_debug_dump_);
+    }
+
+    debug_buffer_.setPaused(false);
+    is_dumping_ = false;
+}
+
+extern "C" void tff_rp2040_cdc_dump(void) {
+    if (s_active_platform) {
+        s_active_platform->triggerDebugDump(/*type_to_hid=*/false);
     }
 }
 

@@ -142,6 +142,8 @@ void tud_cdc_line_coding_cb(uint8_t itf, cdc_line_coding_t const* p_line_coding)
     }
 }
 
+extern void tff_rp2040_cdc_dump(void);
+
 void tud_cdc_rx_cb(uint8_t itf) {
     (void)itf;
     char buf[64];
@@ -151,6 +153,9 @@ void tud_cdc_rx_cb(uint8_t itf) {
         if (strstr(buf, "bootsel") || strstr(buf, "BOOTSEL") || strstr(buf, "bootloader") ||
             strstr(buf, "BOOTLOADER") || strstr(buf, "reset") || strstr(buf, "reboot")) {
             reset_usb_boot(0, 0);
+        } else if (strstr(buf, "dump") || strstr(buf, "DUMP") || strstr(buf, "debug") ||
+                   strstr(buf, "DEBUG")) {
+            tff_rp2040_cdc_dump();
         }
     }
 }
