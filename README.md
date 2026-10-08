@@ -166,11 +166,12 @@ See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, system
 
 The Raspberry Pi RP2040 is an inexpensive 32-bit dual ARM Cortex-M0+ microcontroller. When flashed with Ten Flying Fingers on a board equipped with a USB Host port (such as the Adafruit Feather RP2040 USB Host), it functions as a standalone hardware keyboard adapter that sits between your physical keyboard and your computer.
 
+- **Pure C++ Bare-Metal**: 100% compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` (zero Python runtime, microsecond latency).
+- **Dual-Core Concurrency**: Dedicated Core 1 runs PIO USB Host (`tuh_task`) on GPIO 16/17; Core 0 runs composite USB Device (`tud_task`), shared `tff::TFFEngine`, and hardware timers.
 - **Zero Host Software**: Runs 100% on the microcontroller. Requires zero drivers, background services, or administrative rights on the host computer.
 - **Universal Compatibility**: Works seamlessly in BIOS/UEFI setup screens, on corporate-restricted laptops, Apple macOS, Microsoft Windows, Linux, and iPad/tablets.
-- **Input**: Reads physical keyboard reports via USB Host (TinyUSB Host).
-- **Output**: Emits remapped keystrokes, combos, and layers as a standard USB HID keyboard (TinyUSB Device).
-- **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode.
+- **Automated Flashing**: 1200-baud touch reset and `BOOTSEL` serial command for 100% button-free reflashing. Double-tap reset button also supported.
+- **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode or `./scripts/deploy_rp2040.sh`.
 - See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware setup, wiring, and flashing steps.
 
 ## Configuration
@@ -236,8 +237,9 @@ PICO_BOARD=pico ./build_rp2040.sh
 
 **Deploying & Flashing**:
 - **Cabling**: Physical keyboard connects to **USB-A (Host)**; computer connects to **USB-C (Device)**.
-- **CircuitPython Deployment**: Copy `src/platform/rp2040/code.py` directly to the mounted `CIRCUITPY` drive, or run `./scripts/deploy_rp2040.sh`.
-- **Automated Reboot**: When running CircuitPython, run `python3 scripts/reboot_rp2040_bootloader.py` to reboot directly into the `RPI-RP2` bootloader without pressing any buttons.
+- **Automated UF2 Flashing**: Run `./scripts/deploy_rp2040.sh` to automatically detect `build-rp2040/tff_rp2040.uf2`, trigger automated reboot into bootloader, and flash.
+- **Automated Software Reboot**: Run `python3 scripts/reboot_rp2040_bootloader.py` to reboot directly into the `RPI-RP2` bootloader via 1200-baud touch CDC without pressing any buttons.
+- **Hardware Double-Tap Reset**: Double-click the physical **RESET** button to enter `RPI-RP2` bootloader mode.
 - **Hardware Button Recovery**: Hold **BOOT**, click **RESET**, then release **BOOT** to enter the `RPI-RP2` bootloader drive.
 
 See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware details and architecture.

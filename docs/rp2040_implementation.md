@@ -21,50 +21,63 @@ The RP2040 implementation provides hardware support for the TFF-like keyboard re
 
 ## Software Architecture
 
-### Key Classes
+### Concurrency & Dual-Core Architecture
 
-#### RP2040Platform
-Main platform handler that manages:
-- USB host initialization and event processing (TinyUSB host)
-- USB device initialization and key output (TinyUSB device)
-- Integration with the shared `tff::TFFEngine` (combos, tap-vs-hold, text snippets, and modal layers)
-- Hardware-specific timing and timer handling via `checkTimers()`
+The RP2040 firmware uses both ARM Cortex-M0+ cores for true parallel execution:
 
-### USB Integration
+```
+┌──────────────────────────────────────┐     ┌──────────────────────────────────────┐
+│ Core 1 (USB Host Stack)              │     │ Core 0 (Device, Remapper & Timers)   │
+│                                      │     │                                      │
+│ - tuh_task()                         │     │ - tud_task() [Device HID + CDC]      │
+│ - Pico-PIO-USB bit-banging           │     │ - tff::TFFEngine event processing    │
+│   (GPIO 16 D+, GPIO 17 D-)           │     │ - Timer callbacks (tap-hold/combos)  │
+│ - tuh_hid_report_received_cb()       │     │ - sendDeviceKeys()                   │
+│                                      │     │ - 1200-baud touch / BOOTSEL monitor  │
+└──────────────────┬───────────────────┘     └──────────────────▲───────────────────┘
+                   │                                            │
+                   └──────► Lock-Free SPSC Circular Queue ──────┘
+                            (HostKeyboardReport, cap: 32)
+```
 
-#### USB Host (Keyboard Input)
-- Uses TinyUSB host stack to read from connected keyboards
-- Processes HID keyboard reports (Usage Page 0x07)
-- Converts USB key codes to internal Linux `KeyCode`s via `convertUsbToKeyCode`
-- Tracks key press/release events with microsecond timestamps
+1. **System Clock (120 MHz)**:
+   - Configured via `set_sys_clock_khz(120000, true)` at boot.
+   - 120 MHz provides exact integer clock dividers for Pico-PIO-USB 48 MHz USB host state machines.
 
-#### USB Device (Keyboard Output)
-- Presents as standard HID keyboard to host computer
-- Sends mapped key combinations, tap-hold outputs, and layer remappings
-- Converts internal `KeyCode`s back to USB HID codes via `convertKeyCodeToUsb`
-- Handles key press/release sequences with proper event release swallowing
+2. **Core 1 (Dedicated USB Host)**:
+   - Launched via `multicore_launch_core1()`.
+   - Dedicated exclusively to running `tuh_task()` and receiving reports from keyboards plugged into the USB-A host port.
+   - When a report arrives, `tuh_hid_report_received_cb` enqueues it into a lock-free Single-Producer Single-Consumer (SPSC) circular queue and immediately re-arms the USB transfer asynchronously.
+   - Clears key state automatically on physical keyboard disconnection (`tuh_hid_umount_cb`).
 
-## Implementation Details
+3. **Core 0 (USB Device, Remapper & Timers)**:
+   - Manages the native USB device controller (`tud_task()`) connected to the host computer via USB-C.
+   - Dequeues keyboard reports from the lock-free SPSC queue.
+   - Evaluates key press and release transitions with zero dynamic heap allocations.
+   - Executes the shared `tff::TFFEngine` remapping logic (chords, tap-hold, modal layers, auto-shift).
+   - Emits remapped 8-byte HID keyboard reports to the host computer.
+   - Enforces release-before-press ordering to prevent ghost chords.
+   - Guards reports with `tud_mounted()` checks to prevent blocking when USB-C is unplugged.
 
-### Shared Core Engine (`tff::TFFEngine`)
-The RP2040 firmware uses the exact same `tff::TFFEngine` as the Linux platform daemon:
-- **Zero Drift**: All combo matching, triple chords, tap-hold dual role logic, modal layers, and macro expansions are evaluated identically.
-- **YAML Configurable**: Full configuration can be supplied via YAML strings or the built-in default configuration.
+4. **Hardware Watchdog & Double-Reset BOOTSEL**:
+   - Monitored by the RP2040 hardware watchdog (`hardware_watchdog`).
+   - Supports `pico_bootsel_via_double_reset`: quickly double-pressing the reset button reboots into BOOTSEL mode.
 
-### Event Processing Flow
+### USB Descriptors & Interfaces
 
-1. **USB Host Event**: Keyboard report received via `tuh_hid_report_received_cb`
-2. **Key Code Conversion**: USB HID codes converted to internal `tff::KeyCode`s via `convertUsbToKeyCode`
-3. **Timestamp Capture**: Current millisecond timestamp captured from `get_absolute_time()`
-4. **Core Processing**: Shared `tff::TFFEngine::processEvent` evaluates chords, layers, and tap-hold state
-5. **Output Writing**: Remapped events translated to USB HID codes and sent via `tud_hid_keyboard_report`
-6. **Timer Servicing**: Hardware loop calls `checkTimers()` to service tap-hold timeouts and combo expiration
+The RP2040 presents a composite Interface Association Descriptor (IAD) device with two logical functions:
+1. **USB HID Keyboard**: Interface 0 (IN endpoint `0x81`, 1ms poll interval) for standard 8-byte boot keyboard reports.
+2. **USB CDC Serial Port**:
+   - Interface 1: CDC Communication / ACM (Notification endpoint `0x82`).
+   - Interface 2: CDC Data (OUT endpoint `0x02`, IN endpoint `0x83`).
+   - Supports 1200-baud touch reset: opening the port at 1200 baud triggers an immediate jump to the `RPI-RP2` bootloader via `reset_usb_boot(0, 0)`.
+   - Supports text command reboot: sending `BOOTSEL\r\n` or `BOOTSEL\n` over serial triggers `reset_usb_boot(0, 0)`.
 
 ## Pre-Built Firmware
 
 Every release of Ten Flying Fingers includes pre-compiled RP2040 `.uf2` binaries attached as release assets:
-- `tff_rp2040_<version>.uf2`: Ready-to-flash binary for the Adafruit Feather RP2040 USB Host (and compatible RP2040 boards).
-- `tff_rp2040_<version>.elf`: ELF binary with debug symbols for GDB / SWD debugging.
+- `tff_rp2040.uf2`: Production bare-metal C++ firmware for the Adafruit Feather RP2040 USB Host.
+- `tff_rp2040.elf`: ELF binary with debug symbols for GDB / SWD debugging.
 - `SHA256SUMS.txt`: Cryptographic SHA-256 checksums to verify binary integrity.
 
 ### Downloading the Binary Directly
@@ -81,26 +94,28 @@ gh release download --pattern "tff_rp2040*.uf2"
 
 Or download it manually from the [GitHub Releases page](https://github.com/guettli/tff2/releases).
 
-## Firmware Options
+## Firmware Implementations
 
-The RP2040 platform supports two firmware options:
+The RP2040 platform provides two firmware options:
 
-### 1. CircuitPython Firmware (`src/platform/rp2040/code.py`) — Recommended & Turnkey
-The primary, battle-tested firmware for the **Adafruit Feather RP2040 with USB Type A Host**:
+### 1. Pure C++ Bare-Metal Firmware (`tff_rp2040.uf2`) — Production Solution
+The primary, high-performance firmware:
+- **Zero Python Runtime**: 100% compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` 0.7.2.
+- **Microsecond Latency**: Direct hardware interrupt and PIO state machine execution.
 - **Hardware Integration**:
-  - Automatically enables the onboard 5V boost converter on **GPIO 18** (`board.USB_HOST_5V_POWER`) so connected keyboards receive 5V power.
-  - Runs USB host using the built-in **Pico-PIO-USB** driver on GPIO 16 (D+) and GPIO 17 (D-) to communicate with keyboards connected to the USB-A port.
-  - Emulates a standard USB HID keyboard over the native USB-C port to the host computer.
-- **No-Button Flashing & Live Updates**:
-  - The board mounts as a USB mass storage drive named **`CIRCUITPY`**.
-  - You can update `code.py` or configuration directly on `CIRCUITPY` without recompiling or rebooting!
-  - You can reboot the board into bootloader mode (`RPI-RP2`) **from software without pressing buttons** using `python3 scripts/reboot_rp2040_bootloader.py`.
-- **Pre-Built UF2**: Runs on the official Adafruit CircuitPython release (`adafruit-circuitpython-adafruit_feather_rp2040_usb_host-*.uf2`).
+  - Automatically enables 5V boost converter on **GPIO 18** (`board.USB_HOST_5V_POWER`).
+  - Bit-bangs full-speed/low-speed USB Host via PIO on GPIO 16 (D+) and GPIO 17 (D-).
+  - Emulates composite HID keyboard + CDC serial on native USB-C.
+- **Automated Flashing**:
+  - 1200-baud touch reboot over CDC.
+  - `BOOTSEL` text command reboot.
+  - Double-click RESET button via `pico_bootsel_via_double_reset`.
 
-### 2. Native C++ Firmware (`src/platform/rp2040/main_rp2040.cpp`)
-Bare-metal C++ implementation using TinyUSB and the shared `tff::TFFEngine`.
-- Compiles via `./build_rp2040.sh` into `build-rp2040/tff_rp2040.uf2`.
-- Direct C++ compilation for embedded integration.
+### 2. CircuitPython Firmware (`src/platform/rp2040/code.py`) — Prototyping Reference
+A reference script for CircuitPython on the Adafruit Feather RP2040 USB Host:
+- Mounts as a mass-storage drive named `CIRCUITPY`.
+- Edit `code.py` directly on the drive for rapid Python prototyping.
+- Reboots into bootloader mode via `reboot_rp2040_bootloader.py` or manual buttons.
 
 ---
 
@@ -113,41 +128,46 @@ Physical Keyboard / Fake OTG Input  -->  Normal USB (USB-A Host Port)
 Host Computer / UpBoard             <--  USB-C (Device Port)
 ```
 
-- **USB-C (Device Port)**: Connects to your PC / laptop / UpBoard. The RP2040 emulates a virtual USB HID keyboard to the host and receives power over this connection.
+- **USB-C (Device Port)**: Connects to your PC / laptop / UpBoard. The RP2040 emulates a virtual USB HID keyboard + CDC serial device and receives power over this connection.
 - **Normal USB / USB-A (Host Port)**: Connects to your physical USB keyboard (or UpBoard USB-OTG port for automated testing).
 
 ---
 
 ## Flashing & Rebooting the RP2040
 
-### Method 1: Automated Software Reboot (No Buttons Needed)
-When CircuitPython (or firmware with active USB CDC) is running on the RP2040, you can reboot directly into the `RPI-RP2` bootloader mode from software:
+### Method 1: Automated Flashing via `scripts/deploy_rp2040.sh`
+The deployment script handles everything automatically: detects the compiled `build-rp2040/tff_rp2040.uf2` firmware, triggers an automated reboot over USB CDC into `RPI-RP2` (no buttons needed), mounts the drive, copies the binary, and reboots the board:
 
 ```bash
-# Automated reboot into bootloader via USB CDC serial:
+# Auto-detects and flashes build-rp2040/tff_rp2040.uf2:
+./scripts/deploy_rp2040.sh
+
+# Or flash a specific UF2 file:
+./scripts/deploy_rp2040.sh path/to/tff_rp2040.uf2
+
+# Or sync CircuitPython code.py (legacy):
+./scripts/deploy_rp2040.sh --python
+```
+
+### Method 2: Automated Software Reboot (`scripts/reboot_rp2040_bootloader.py`)
+To put the running board into `RPI-RP2` bootloader mode from software without flashing:
+
+```bash
 python3 scripts/reboot_rp2040_bootloader.py
 ```
 
-This sends `microcontroller.on_next_reset(microcontroller.RunMode.BOOTLOADER)` over `/dev/ttyACM0` and triggers a software reset. The board immediately mounts as **`RPI-RP2`** without touching any buttons.
+This triggers the 1200-baud touch reset on the C++ CDC interface (or sends the `BOOTSEL` / CircuitPython command). The board immediately remounts as **`RPI-RP2`**.
 
-### Method 2: Deploying via `scripts/deploy_rp2040.sh`
-The repo provides a unified deployment helper:
+### Method 3: Double-Click Reset Button
+Thanks to the linked `pico_bootsel_via_double_reset` library, you can simply **double-click the physical RESET button** on the Feather board within 500ms to reboot into BOOTSEL mode without needing to hold down BOOTSEL!
 
-```bash
-# Update code.py on running CircuitPython (copies to CIRCUITPY):
-./scripts/deploy_rp2040.sh
-
-# Flash a new UF2 firmware binary (triggers automated reboot if running):
-./scripts/deploy_rp2040.sh path/to/firmware.uf2
-```
-
-### Method 3: Hardware Button Recovery (Fallback)
-If the board is unresponsive, frozen, or running firmware without an active USB CDC stack:
+### Method 4: Hardware Button Recovery (Fallback)
+If the board is ever unresponsive or frozen:
 
 1. **Press and hold** the **BOOT** (or **BOOTSEL**) button on the RP2040 board.
 2. While holding BOOT, **click (press and release)** the **RESET** button.
 3. **Release** the BOOT button.
-4. The board will immediately mount as **`RPI-RP2`** for drag-and-drop UF2 flashing.
+4. The board will mount as **`RPI-RP2`** for drag-and-drop UF2 flashing.
 
 ---
 
