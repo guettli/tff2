@@ -13,6 +13,11 @@
 #include <atomic>
 #include <unistd.h>
 #include <filesystem>
+#include <fcntl.h>
+#include <termios.h>
+#include <poll.h>
+#include <glob.h>
+#include <chrono>
 
 namespace {
 std::atomic<bool> g_should_stop{false};
@@ -47,6 +52,129 @@ std::string resolveConfigFile() {
     return "";
 }
 
+int runRp2040Dump(const std::string& explicit_port) {
+    std::string port = explicit_port;
+    if (port.empty()) {
+        std::vector<std::string> candidates;
+        const char* patterns[] = {"/dev/serial/by-id/*RP2040*", "/dev/serial/by-id/*Feather*",
+                                  "/dev/ttyACM*", "/dev/ttyUSB*"};
+        for (const char* pat : patterns) {
+            glob_t g;
+            if (glob(pat, GLOB_NOSORT, nullptr, &g) == 0) {
+                for (size_t idx = 0; idx < g.gl_pathc; ++idx) {
+                    std::string p = g.gl_pathv[idx];
+                    bool exists = false;
+                    for (const auto& c : candidates) {
+                        if (c == p) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        candidates.push_back(p);
+                    }
+                }
+                globfree(&g);
+            }
+        }
+        if (candidates.empty()) {
+            std::cerr << "Error: No RP2040 USB CDC serial port found on /dev/ttyACM* or "
+                         "/dev/serial/by-id/*.\n"
+                      << "Ensure the RP2040 USB-C device cable is connected, or specify --port "
+                         "<device>.\n";
+            return 1;
+        }
+        if (candidates.size() > 1) {
+            std::cerr
+                << "Error: Multiple serial ports detected. Specify explicit port with --port:\n";
+            for (const auto& c : candidates) {
+                std::cerr << "  " << c << "\n";
+            }
+            return 1;
+        }
+        port = candidates[0];
+    }
+
+    std::cout << "Connecting to RP2040 CDC on " << port << "...\n";
+    int fd = open(port.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
+    if (fd < 0) {
+        std::cerr << "Error: Failed to open serial port " << port << ": " << strerror(errno)
+                  << "\n";
+        return 1;
+    }
+
+    struct termios tty;
+    if (tcgetattr(fd, &tty) != 0) {
+        std::cerr << "Error: tcgetattr failed on " << port << ": " << strerror(errno) << "\n";
+        close(fd);
+        return 1;
+    }
+    cfsetospeed(&tty, B115200);
+    cfsetispeed(&tty, B115200);
+    tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
+    tty.c_iflag &= ~IGNBRK;
+    tty.c_lflag = 0;
+    tty.c_oflag = 0;
+    tty.c_cc[VMIN] = 0;
+    tty.c_cc[VTIME] = 5;
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_cflag |= (CLOCAL | CREAD);
+    tty.c_cflag &= ~(PARENB | PARODD);
+    tty.c_cflag &= ~CSTOPB;
+    tty.c_cflag &= ~CRTSCTS;
+    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
+        std::cerr << "Error: tcsetattr failed on " << port << ": " << strerror(errno) << "\n";
+        close(fd);
+        return 1;
+    }
+
+    tcflush(fd, TCIOFLUSH);
+    const char cmd[] = "dump\n";
+    if (write(fd, cmd, sizeof(cmd) - 1) < 0) {
+        std::cerr << "Error: Failed to write dump command to " << port << ": " << strerror(errno)
+                  << "\n";
+        close(fd);
+        return 1;
+    }
+
+    char buf[256];
+    std::string response;
+    auto start_time = std::chrono::steady_clock::now();
+    bool end_found = false;
+
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                 start_time)
+               .count() < 2000) {
+        struct pollfd pfd;
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        int ret = poll(&pfd, 1, 100);
+        if (ret > 0 && (pfd.revents & POLLIN)) {
+            ssize_t n = read(fd, buf, sizeof(buf) - 1);
+            if (n > 0) {
+                buf[n] = '\0';
+                response.append(buf, static_cast<size_t>(n));
+                if (response.find("=== END DUMP ===") != std::string::npos) {
+                    end_found = true;
+                    break;
+                }
+            }
+        }
+    }
+    close(fd);
+
+    if (response.empty()) {
+        std::cerr << "Error: Timed out waiting for RP2040 diagnostic response on " << port << ".\n";
+        return 1;
+    }
+
+    std::cout << response;
+    if (!end_found) {
+        std::cerr << "\n(Warning: Dump response ended before marker)\n";
+    }
+    return 0;
+}
+
 void printHelp(const char* prog) {
     std::cout
         << "Ten Flying Fingers (TFF) - Linux Keyboard Remapper\n"
@@ -59,6 +187,7 @@ void printHelp(const char* prog) {
         << "  " << prog << " cheatsheet [options] [combos.yaml]\n"
         << "  " << prog << " setup-udev [options]\n"
         << "  " << prog << " validate combos.yaml\n"
+        << "  " << prog << " dump [--port <device>]\n"
         << "  " << prog << " list\n\n"
         << "Commands:\n"
         << "  init                    Interactive configuration wizard and preset installer\n"
@@ -68,9 +197,11 @@ void printHelp(const char* prog) {
         << "  setup-udev              Check Linux permissions or install udev rules for non-root "
            "execution\n"
         << "  validate                Validate a combos YAML configuration file\n"
+        << "  dump                    Fetch and print RP2040 diagnostic event log over USB CDC\n"
         << "  list                    List all discovered keyboards with persistent paths\n"
         << "  help                    Show this help message\n\n"
         << "Options:\n"
+        << "  --port <device>         Specify serial port for RP2040 dump (e.g. /dev/ttyACM0)\n"
         << "  -p, --preset <name>     Preset configuration (minimal, vim-nav, home-row-mods, "
            "full)\n"
         << "  --list-presets          List all available configuration presets and exit\n"
@@ -118,6 +249,8 @@ void printHelp(const char* prog) {
         << "  " << prog << " setup-udev\n"
         << "  sudo " << prog << " setup-udev --install\n"
         << "  " << prog << " setup-udev --print\n"
+        << "  " << prog << " dump\n"
+        << "  " << prog << " dump /dev/ttyACM0\n"
         << "  " << prog << " config/tff-combos.yaml\n"
         << "  " << prog << " monitor\n"
         << "  " << prog << " monitor /dev/input/event8\n"
@@ -149,6 +282,8 @@ int main(int argc, char* argv[]) {
     bool setup_udev_mode = false;
     bool init_mode = false;
     bool init_print = false;
+    bool dump_mode = false;
+    std::string dump_port;
     tff::wizard::WizardOptions wizard_opts;
     tff::udev::SetupUdevOptions udev_opts;
     bool monitor_show_deltas = true;
@@ -235,6 +370,18 @@ int main(int argc, char* argv[]) {
             }
         } else if (arg == "cheatsheet" || arg == "--cheatsheet" || arg == "-s") {
             cheatsheet_only = true;
+        } else if (arg == "dump" || arg == "rp2040-dump") {
+            dump_mode = true;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                dump_port = argv[++i];
+            }
+        } else if (arg == "--port") {
+            if (i + 1 < argc) {
+                dump_port = argv[++i];
+            } else {
+                std::cerr << "Error: --port requires a device path argument\n";
+                return 1;
+            }
         } else if (arg == "--markdown" || arg == "--md") {
             cheatsheet_markdown = true;
         } else if (arg == "--plain" || arg == "--no-color") {
@@ -316,6 +463,10 @@ int main(int argc, char* argv[]) {
                 device_paths.push_back(arg);
             }
         }
+    }
+
+    if (dump_mode) {
+        return runRp2040Dump(dump_port);
     }
 
     if (init_mode) {

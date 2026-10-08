@@ -550,6 +550,200 @@ static void test_host_report_queue() {
     std::cout << "PASSED\n";
 }
 
+static void test_debug_buffer() {
+    std::cout << "Test 14: DebugBuffer recording, rollover, formatting, pause... ";
+    tff::DebugBuffer buf;
+    assert(buf.empty());
+    assert(buf.size() == 0);
+
+    // 1. Record each event type
+    const uint8_t in_keys[6] = {0x04, 0x05, 0, 0, 0, 0};
+    buf.recordInRawReport(100, 0x02, in_keys, 2);
+    buf.recordInKeyEvent(110, tff::Keys::KEY_A, true);
+    buf.recordTimerExpired(150);
+    buf.recordOutKeyEvent(160, tff::Keys::KEY_B, true);
+    const uint8_t out_keys[6] = {0x05, 0, 0, 0, 0, 0};
+    buf.recordOutRawReport(170, 0x00, out_keys);
+
+    assert(!buf.empty());
+    assert(buf.size() == 5);
+    auto entries = buf.getEntries();
+    assert(entries.size() == 5);
+    assert(entries[0].type == tff::DebugEventType::IN_RAW_REPORT);
+    assert(entries[0].modifiers == 0x02);
+    assert(entries[0].raw_keys[0] == 0x04);
+    assert(entries[1].type == tff::DebugEventType::IN_KEY_EVENT);
+    assert(entries[1].keycode == static_cast<uint16_t>(tff::Keys::KEY_A));
+    assert(entries[1].val == 1);
+    assert(entries[2].type == tff::DebugEventType::TIMER_EXPIRED);
+    assert(entries[3].type == tff::DebugEventType::OUT_KEY_EVENT);
+    assert(entries[3].keycode == static_cast<uint16_t>(tff::Keys::KEY_B));
+    assert(entries[4].type == tff::DebugEventType::OUT_RAW_REPORT);
+
+    // 2. Formatting verification
+    std::string dump = buf.formatDump(1000);
+    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
+    assert(dump.find("Uptime: 1.000s | Events: 5") != std::string::npos);
+    assert(dump.find("IN_RAW : mod=02") != std::string::npos);
+    assert(dump.find("IN_EV  :") != std::string::npos);
+    assert(dump.find("TIMER  : expired") != std::string::npos);
+    assert(dump.find("OUT_EV :") != std::string::npos);
+    assert(dump.find("OUT_RAW: mod=00") != std::string::npos);
+    assert(dump.find("=== END DUMP ===") != std::string::npos);
+
+    // 3. Circular rollover past capacity (64)
+    buf.clear();
+    assert(buf.empty());
+    assert(buf.size() == 0);
+
+    for (uint32_t i = 0; i < 70; ++i) {
+        buf.recordInKeyEvent(1000 + i * 10, static_cast<tff::KeyCode>(i), true);
+    }
+    assert(buf.size() == tff::DebugBuffer::CAPACITY);
+    auto rolled = buf.getEntries();
+    assert(rolled.size() == tff::DebugBuffer::CAPACITY);
+    // Oldest 6 events (i=0..5) were overwritten; oldest surviving is i=6
+    assert(rolled[0].timestamp_ms == 1000 + 6 * 10);
+    assert(rolled[0].keycode == 6);
+    // Newest is i=69
+    assert(rolled.back().timestamp_ms == 1000 + 69 * 10);
+    assert(rolled.back().keycode == 69);
+
+    // 4. Pause state
+    buf.setPaused(true);
+    assert(buf.isPaused());
+    buf.recordInKeyEvent(9999, tff::Keys::KEY_Z, true);
+    assert(buf.size() == tff::DebugBuffer::CAPACITY);
+    assert(buf.getEntries().back().keycode == 69);  // Not overwritten while paused
+
+    buf.setPaused(false);
+    assert(!buf.isPaused());
+    buf.recordInKeyEvent(9999, tff::Keys::KEY_Z, true);
+    assert(buf.getEntries().back().keycode == static_cast<uint16_t>(tff::Keys::KEY_Z));
+
+    std::cout << "PASSED\n";
+}
+
+static void test_rp2040_debug_dump_chord() {
+    std::cout << "Test 15: RP2040 debug dump chord (d + f + j + k)... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    // 1. Normal keystroke before chord: Key A press and release
+    platform.clearEmittedKeys();
+    platform.setTimestamp(100);
+    const uint8_t report_a[6] = {0x04, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_a, 6);
+    platform.setTimestamp(150);
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    const auto& emitted_before = platform.getEmittedKeys();
+    assert(emitted_before.size() == 1);
+    assert(emitted_before[0] == tff::Keys::KEY_A);
+    assert(platform.getLastDebugDump().empty());
+
+    // 2. Press d + f + j + k simultaneously
+    platform.clearEmittedKeys();
+    platform.setTimestamp(300);
+    const uint8_t report_chord[6] = {0x07, 0x09, 0x0D, 0x0E, 0, 0};
+    platform.processHostKeyboardReport(0, report_chord, 6);
+
+    // Verify dump was triggered
+    const std::string& dump = platform.getLastDebugDump();
+    assert(!dump.empty());
+    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
+    assert(dump.find("=== END DUMP ===") != std::string::npos);
+    // Verify dump captured the earlier 'A' event
+    assert(dump.find("KEY_A") != std::string::npos);
+
+    // 3. Release the chord
+    platform.setTimestamp(400);
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    // 4. Normal keystroke after chord: Key B press and release
+    platform.clearEmittedKeys();
+    platform.setTimestamp(500);
+    const uint8_t report_b[6] = {0x05, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_b, 6);
+    platform.setTimestamp(550);
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    const auto& emitted_after = platform.getEmittedKeys();
+    assert(!emitted_after.empty());
+    assert(emitted_after[0] == tff::Keys::KEY_B);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_rp2040_debug_dump_shift_d() {
+    std::cout << "Test 16: RP2040 debug dump chord (LeftShift + RightShift + D)... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    // 1. Press both Shifts (0x02 | 0x20 = 0x22)
+    platform.setTimestamp(100);
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0x22, report_empty, 6);
+
+    // 2. Press 'D' (0x07) while holding both Shifts
+    platform.clearEmittedKeys();
+    platform.setTimestamp(150);
+    const uint8_t report_d[6] = {0x07, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0x22, report_d, 6);
+
+    // Verify dump was triggered
+    const std::string& dump = platform.getLastDebugDump();
+    assert(!dump.empty());
+    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
+
+    // 3. Release all keys
+    platform.setTimestamp(200);
+    platform.processHostKeyboardReport(0x00, report_empty, 6);
+
+    // 4. Subsequent key C should work cleanly without stuck modifiers
+    platform.clearEmittedKeys();
+    platform.setTimestamp(300);
+    const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0x00, report_c, 6);
+    platform.setTimestamp(350);
+    platform.processHostKeyboardReport(0x00, report_empty, 6);
+
+    const auto& emitted = platform.getEmittedKeys();
+    assert(!emitted.empty());
+    assert(emitted[0] == tff::Keys::KEY_C);
+
+    std::cout << "PASSED\n";
+}
+
+static void test_rp2040_cdc_dump_command() {
+    std::cout << "Test 17: RP2040 CDC serial dump command trigger... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    // Record an event
+    platform.setTimestamp(100);
+    const uint8_t report_z[6] = {0x1D, 0, 0, 0, 0, 0};  // Z
+    platform.processHostKeyboardReport(0, report_z, 6);
+
+    // Trigger dump via CDC callback interface
+    platform.clearEmittedKeys();
+    tff_rp2040_cdc_dump();
+
+    const std::string& dump = platform.getLastDebugDump();
+    assert(!dump.empty());
+    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
+    assert(dump.find("KEY_Z") != std::string::npos);
+
+    // CDC dump does not type to HID, so emitted_down_keys should be empty
+    assert(platform.getEmittedKeys().empty());
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
@@ -568,6 +762,10 @@ int main() {
     test_raw_keyboard_report();
     test_host_keyboard_report_processing();
     test_host_report_queue();
+    test_debug_buffer();
+    test_rp2040_debug_dump_chord();
+    test_rp2040_debug_dump_shift_d();
+    test_rp2040_cdc_dump_command();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;

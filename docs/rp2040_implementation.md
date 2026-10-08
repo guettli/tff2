@@ -228,14 +228,32 @@ Every commit and pull request triggers automated firmware compilation in GitHub 
 - The workflow validates the structural integrity of the generated `.uf2` file by checking the UF2 magic headers (`0x0A324655` / `0x9E5D5157`).
 - GitHub release events (`.github/workflows/release.yml`) automatically package the `.uf2` and `.elf` files, compute SHA-256 checksums, and publish them to GitHub Releases.
 
-## Debugging
+## Debugging & Diagnostic Ring Buffer
 
-### Serial Output
+The RP2040 firmware includes a zero-heap bounded circular ring buffer (`tff::DebugBuffer`, capacity: 64 entries) that continuously records recent keyboard events:
+- Raw incoming USB HID reports (`IN_RAW`)
+- Translated engine key events (`IN_EV`)
+- Engine timer expirations (`TIMER`)
+- Emitted virtual key events (`OUT_EV`)
+- Outgoing USB HID reports (`OUT_RAW`)
 
-The firmware outputs debug information via USB serial:
-```bash
-screen /dev/ttyACM0 115200
-```
+### Triggering a Diagnostic Dump
+
+Users can trigger a diagnostic dump without serial tools or debuggers:
+
+1. **Hardware Keystroke Chords (Direct Typing)**:
+   - **Chord A: `d + f + j + k`** (simultaneously hold all four home-row index and middle finger keys)
+   - **Chord B: `LeftShift + RightShift + D`** (hold both Shift keys and tap `D`)
+   - The RP2040 freezes the ring buffer and types the complete diagnostic report directly into the active window/editor as virtual keystrokes.
+   - Trigger keys are swallowed and not leaked into user text.
+
+2. **USB CDC ACM Command**:
+   - Send `dump\n` or `debug\n` to the CDC ACM serial port (e.g. `/dev/ttyACM0`).
+   - Or use the host CLI command:
+     ```bash
+     tff dump [--port <device>]
+     ```
+   - The dump is emitted over serial without typing into the focused window.
 
 ### Common Issues
 

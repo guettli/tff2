@@ -19,6 +19,9 @@ tff, tff2, tff_linux \- Ten Flying Fingers keyboard remapping daemon and chord e
 .br
 .B tff
 \fBsetup\-udev\fR [\fIOPTIONS\fR]
+.br
+.B tff
+\fBdump\fR [\fI\-\-port\fR \fIDEVICE\fR]
 .SH DESCRIPTION
 \fBTen Flying Fingers (TFF)\fR is a high-performance, low-latency keyboard remapper and chording engine implemented in C++. It allows overlapping key combinations (chords) to trigger complex keystrokes, navigation commands, modal layers, and mouse movements.
 .PP
@@ -51,6 +54,9 @@ Parse and validate a YAML configuration file without capturing input or creating
 .TP
 .BR setup\-udev " [" \fIOPTIONS\fR "]"
 Inspect system permissions for non-root execution (access to \fI/dev/uinput\fR and \fI/dev/input/event*\fR), report diagnostic status, or generate/install standard udev rules.
+.TP
+.BR dump " [" \fI\-\-port\fR " " \fIDEVICE\fR "]"
+Query and retrieve the circular diagnostic event ring buffer from an RP2040 hardware keyboard remapper over USB CDC ACM serial. If no port is specified, automatically searches for connected RP2040 devices on \fI/dev/serial/by-id/*\fR and \fI/dev/ttyACM*\fR.
 .SH OPTIONS
 .TP
 .BR \-p ", " \-\-preset " \fINAME\fR"

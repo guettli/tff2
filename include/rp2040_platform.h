@@ -5,6 +5,7 @@
 #include "tff_parser.h"
 #include "tff_types.h"
 #include "tff_key_codes.h"
+#include "debug_buffer.h"
 #include <vector>
 #include <memory>
 #include <string>
@@ -157,6 +158,28 @@ public:
         return convertKeyCodeToUsb(static_cast<tff::KeyCode>(internal_keycode));
     }
 
+    /**
+     * @brief Trigger a diagnostic dump of recent inputs/outputs
+     * @param type_to_hid If true, also type out the dump as virtual keystrokes
+     */
+    void triggerDebugDump(bool type_to_hid = true);
+
+    /**
+     * @brief Retrieve the most recent formatted diagnostic dump string
+     */
+    const std::string& getLastDebugDump() const { return last_debug_dump_; }
+
+    /**
+     * @brief Access the event ring buffer
+     */
+    const tff::DebugBuffer& getDebugBuffer() const { return debug_buffer_; }
+    tff::DebugBuffer& getDebugBuffer() { return debug_buffer_; }
+
+    /**
+     * @brief Type out arbitrary text as USB HID keystrokes
+     */
+    void typeDumpString(const std::string& text);
+
 private:
     class RP2040EventWriter;
 
@@ -167,6 +190,12 @@ private:
     bool initialized_;
     bool running_;
     uint32_t test_timestamp_ms_;
+
+    // Diagnostic ring buffer and state
+    tff::DebugBuffer debug_buffer_;
+    std::string last_debug_dump_;
+    bool is_dumping_ = false;
+    bool debug_chord_latched_ = false;
 
     // Host report queue for cross-core lock-free passing (Core 1 -> Core 0)
     static constexpr size_t REPORT_QUEUE_SIZE = 32;
@@ -193,6 +222,14 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance);
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report,
                                 uint16_t len);
+}
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+void tff_rp2040_cdc_dump(void);
+#ifdef __cplusplus
 }
 #endif
 
