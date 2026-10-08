@@ -1208,8 +1208,13 @@ void TFFEngine::evictOldestBufferedEvent() {
 
 bool TFFEngine::handleDownChar(const Event& ev) {
     if (fake_active_timer_) {
-        fake_active_timer_next_time_ =
-            TimeVal::fromMicros(ev.time.toMicros() + timeout_after_down_us_);
+        int64_t max_timeout = timeout_after_down_us_;
+        for (const auto& combo : all_combos_) {
+            if (!combo.keys.empty() && combo.keys[0] == ev.code && combo.timeout_us > max_timeout) {
+                max_timeout = combo.timeout_us;
+            }
+        }
+        fake_active_timer_next_time_ = TimeVal::fromMicros(ev.time.toMicros() + max_timeout);
     }
     while (buf_.size() >= MAX_BUFFER_SIZE) {
         evictOldestBufferedEvent();
@@ -1340,7 +1345,6 @@ void TFFEngine::onTimer(TimeVal time) {
 bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
     // 1. Check for swallowed key releases (held keys from finished combos)
     if (!swallow_keys_.empty()) {
-        bool swallowed_any = false;
         for (auto it = swallow_keys_.begin(); it != swallow_keys_.end();) {
             KeyCode sw_key = *it;
             bool has_down = false;
@@ -1359,24 +1363,20 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
                                           [sw_key](const Event& e) { return e.code == sw_key; }),
                            buf_.end());
                 it = swallow_keys_.erase(it);
-                swallowed_any = true;
             } else {
                 ++it;
             }
         }
-        if (swallowed_any) {
-            bool all_swallow = !buf_.empty();
-            for (const auto& ev : buf_) {
-                if (ev.value != KEY_VAL_DOWN ||
-                    std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) ==
-                        swallow_keys_.end()) {
-                    all_swallow = false;
-                    break;
-                }
+        bool all_swallow = !buf_.empty();
+        for (const auto& ev : buf_) {
+            if (ev.value != KEY_VAL_DOWN || std::find(swallow_keys_.begin(), swallow_keys_.end(),
+                                                      ev.code) == swallow_keys_.end()) {
+                all_swallow = false;
+                break;
             }
-            if (all_swallow || buf_.empty()) {
-                return true;
-            }
+        }
+        if (all_swallow || buf_.empty()) {
+            return true;
         }
     }
 
@@ -1615,6 +1615,13 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
         if (i >= seen_down.size()) {
             if (!seen_up.empty()) {
                 msg = "Key released before all combo keys were pressed";
+                return EvalResult::NoMatch;
+            }
+            int64_t combo_timeout =
+                (combo.timeout_us > 0) ? combo.timeout_us : timeout_after_down_us_;
+            if (last_down_event &&
+                timeSubMicros(last_down_event->time, curr_time) >= combo_timeout) {
+                msg = "Timeout waiting for next combo key";
                 return EvalResult::NoMatch;
             }
             msg = "Not all down-keys seen";

@@ -104,7 +104,7 @@ static const std::vector<Combo> orderedCombos = {
 };
 
 static const std::vector<Combo> capslockCombos = {
-    {{Keys::KEY_CAPSLOCK, Keys::KEY_J}, {Keys::KEY_BACKSPACE}},
+    Combo({Keys::KEY_CAPSLOCK, Keys::KEY_J}, {Keys::KEY_BACKSPACE}, "", "", {}, "", 500000),
 };
 
 static const std::string asdfTestEvents =
@@ -523,7 +523,7 @@ void test_FJX_emits_f_but_should_not() {
 
     SliceWriter writer;
     TFFEngine engine(&writer, combos);
-    engine.setFakeActiveTimer(true);
+    engine.setFakeActiveTimer(false);
 
     for (const auto& ev : events) {
         engine.processEvent(ev);
