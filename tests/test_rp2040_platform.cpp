@@ -439,6 +439,114 @@ static void test_raw_keyboard_report() {
     std::cout << "PASSED\n";
 }
 
+static void test_host_keyboard_report_processing() {
+    std::cout << "Test 12: processHostKeyboardReport diffing & combos... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    // 1. Single non-combo key press & release
+    platform.clearEmittedKeys();
+    platform.setTimestamp(100);
+    const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};  // Key C
+    platform.processHostKeyboardReport(0, report_c, 6);
+    const auto& emitted1 = platform.getEmittedKeys();
+    assert(emitted1.size() == 1);
+    assert(emitted1[0] == tff::Keys::KEY_C);
+
+    platform.setTimestamp(150);
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    // 2. Modifiers and key rollover
+    platform.clearEmittedKeys();
+    platform.setTimestamp(200);
+    // Press Left Shift (0x02) + Key B (0x05)
+    const uint8_t report_shift_b[6] = {0x05, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0x02, report_shift_b, 6);
+    const auto& emitted2 = platform.getEmittedKeys();
+    assert(emitted2.size() == 2);
+    assert(emitted2[0] == tff::Keys::KEY_LEFTSHIFT);
+    assert(emitted2[1] == tff::Keys::KEY_B);
+
+    platform.setTimestamp(250);
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    // 3. J + F combo via raw reports -> Backspace
+    platform.clearEmittedKeys();
+    platform.setTimestamp(500);
+    const uint8_t report_j[6] = {0x0D, 0, 0, 0, 0, 0};  // J
+    platform.processHostKeyboardReport(0, report_j, 6);
+
+    platform.setTimestamp(520);
+    const uint8_t report_jf[6] = {0x0D, 0x09, 0, 0, 0, 0};  // J + F (chord)
+    platform.processHostKeyboardReport(0, report_jf, 6);
+
+    platform.setTimestamp(580);  // Overlap > 40ms
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    const auto& emitted3 = platform.getEmittedKeys();
+    assert(!emitted3.empty());
+    assert(emitted3.back() == tff::Keys::KEY_BACKSPACE);
+
+    // 4. Rollover error (0x01) safely ignored
+    platform.clearEmittedKeys();
+    platform.setTimestamp(600);
+    const uint8_t report_rollover[6] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01};
+    platform.processHostKeyboardReport(0, report_rollover, 6);
+    assert(platform.getEmittedKeys().empty());
+
+    std::cout << "PASSED\n";
+}
+
+static void test_host_report_queue() {
+    std::cout << "Test 13: Lock-free host report queue (Core 1 -> Core 0)... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    // Test enqueue and dequeue
+    const uint8_t keys1[6] = {0x04, 0, 0, 0, 0, 0};
+    bool enq1 = platform.enqueueHostReport(0x01, keys1, 6);
+    assert(enq1);
+
+    const uint8_t keys2[6] = {0x05, 0x06, 0, 0, 0, 0};
+    bool enq2 = platform.enqueueHostReport(0x02, keys2, 6);
+    assert(enq2);
+
+    RP2040Platform::HostKeyboardReport rep1;
+    bool deq1 = platform.dequeueHostReport(rep1);
+    assert(deq1);
+    assert(rep1.modifiers == 0x01);
+    assert(rep1.keys[0] == 0x04);
+
+    RP2040Platform::HostKeyboardReport rep2;
+    bool deq2 = platform.dequeueHostReport(rep2);
+    assert(deq2);
+    assert(rep2.modifiers == 0x02);
+    assert(rep2.keys[0] == 0x05);
+    assert(rep2.keys[1] == 0x06);
+
+    // Dequeue on empty queue returns false
+    RP2040Platform::HostKeyboardReport empty_rep;
+    bool deq_empty = platform.dequeueHostReport(empty_rep);
+    assert(!deq_empty);
+
+    // Test processUsbHostEvents draining queue
+    platform.clearEmittedKeys();
+    platform.setTimestamp(700);
+    const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};
+    bool enq3 = platform.enqueueHostReport(0, report_c, 6);
+    assert(enq3);
+
+    platform.processUsbHostEvents();
+    const auto& emitted = platform.getEmittedKeys();
+    assert(emitted.size() == 1);
+    assert(emitted[0] == tff::Keys::KEY_C);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
@@ -455,6 +563,8 @@ int main() {
     test_unmapped_keys_and_auto_init();
     test_one_shot_keys();
     test_raw_keyboard_report();
+    test_host_keyboard_report_processing();
+    test_host_report_queue();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;
