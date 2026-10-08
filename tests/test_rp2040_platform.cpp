@@ -507,31 +507,37 @@ static void test_host_report_queue() {
 
     // Test enqueue and dequeue
     const uint8_t keys1[6] = {0x04, 0, 0, 0, 0, 0};
-    assert(platform.enqueueHostReport(0x01, keys1, 6));
+    bool enq1 = platform.enqueueHostReport(0x01, keys1, 6);
+    assert(enq1);
 
     const uint8_t keys2[6] = {0x05, 0x06, 0, 0, 0, 0};
-    assert(platform.enqueueHostReport(0x02, keys2, 6));
+    bool enq2 = platform.enqueueHostReport(0x02, keys2, 6);
+    assert(enq2);
 
     RP2040Platform::HostKeyboardReport rep1;
-    assert(platform.dequeueHostReport(rep1));
+    bool deq1 = platform.dequeueHostReport(rep1);
+    assert(deq1);
     assert(rep1.modifiers == 0x01);
     assert(rep1.keys[0] == 0x04);
 
     RP2040Platform::HostKeyboardReport rep2;
-    assert(platform.dequeueHostReport(rep2));
+    bool deq2 = platform.dequeueHostReport(rep2);
+    assert(deq2);
     assert(rep2.modifiers == 0x02);
     assert(rep2.keys[0] == 0x05);
     assert(rep2.keys[1] == 0x06);
 
     // Dequeue on empty queue returns false
     RP2040Platform::HostKeyboardReport empty_rep;
-    assert(!platform.dequeueHostReport(empty_rep));
+    bool deq_empty = platform.dequeueHostReport(empty_rep);
+    assert(!deq_empty);
 
     // Test processUsbHostEvents draining queue
     platform.clearEmittedKeys();
     platform.setTimestamp(700);
     const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};
-    assert(platform.enqueueHostReport(0, report_c, 6));
+    bool enq3 = platform.enqueueHostReport(0, report_c, 6);
+    assert(enq3);
 
     platform.processUsbHostEvents();
     const auto& emitted = platform.getEmittedKeys();
