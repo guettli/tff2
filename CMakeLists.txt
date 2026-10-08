@@ -16,6 +16,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(PICO_BUILD)
     pico_sdk_init()
     add_compile_definitions(PICO_BUILD)
+
+    # Fetch Pico-PIO-USB for USB Host support via RP2040 PIO
+    include(FetchContent)
+    FetchContent_Declare(
+        pico_pio_usb
+        GIT_REPOSITORY https://github.com/sekigon-gonnoc/Pico-PIO-USB.git
+        GIT_TAG 0.7.2
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(pico_pio_usb)
 endif()
 
 # Sanitizer options
@@ -94,7 +104,26 @@ add_library(tff_core ${CORE_SOURCES})
 # Create RP2040 platform library
 add_library(rp2040_platform ${RP2040_PLATFORM_SOURCES})
 if(PICO_BUILD)
-    target_link_libraries(rp2040_platform tff_core pico_stdlib hardware_gpio tinyusb_device tinyusb_host)
+    target_compile_definitions(rp2040_platform PUBLIC
+        CFG_TUH_RPI_PIO_USB=1
+        PIO_USB_USE_TINYUSB=1
+    )
+    if(NOT DEFINED PICO_TINYUSB_PATH)
+        set(PICO_TINYUSB_PATH "${PICO_SDK_PATH}/lib/tinyusb")
+    endif()
+    set(HCD_PIO_USB_SRC "${PICO_TINYUSB_PATH}/src/portable/raspberrypi/pio_usb/hcd_pio_usb.c")
+    target_sources(rp2040_platform PRIVATE ${HCD_PIO_USB_SRC})
+    set_source_files_properties(${HCD_PIO_USB_SRC} PROPERTIES COMPILE_OPTIONS "-Wno-error")
+    target_link_libraries(rp2040_platform
+        tff_core
+        pico_stdlib
+        pico_multicore
+        pico_pio_usb
+        hardware_gpio
+        hardware_watchdog
+        tinyusb_device
+        tinyusb_host
+    )
 else()
     target_link_libraries(rp2040_platform tff_core)
 endif()
@@ -105,11 +134,19 @@ add_executable(tff_rp2040
 )
 
 if(PICO_BUILD)
+    target_compile_definitions(tff_rp2040 PUBLIC
+        CFG_TUH_RPI_PIO_USB=1
+        PIO_USB_USE_TINYUSB=1
+    )
     target_link_libraries(tff_rp2040
         tff_core
         rp2040_platform
         pico_stdlib
+        pico_multicore
+        pico_bootsel_via_double_reset
+        pico_pio_usb
         hardware_gpio
+        hardware_watchdog
         tinyusb_device
         tinyusb_host
     )
