@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
             printHelp(argv[0]);
             return 0;
         } else if (arg == "-V" || arg == "--version" || arg == "version") {
-            std::cout << "tff version 2.0.1\n";
+            std::cout << "tff version 2.0.2\n";
             return 0;
         } else if (arg == "-l" || arg == "--list" || arg == "list") {
             list_only = true;
