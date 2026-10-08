@@ -90,15 +90,17 @@ std::string DebugBuffer::formatDump(uint32_t current_ts_ms) const {
     std::ostringstream oss;
     oss << "=== TFF RP2040 DEBUG DUMP ===\n";
     char header_buf[64];
-    std::snprintf(header_buf, sizeof(header_buf), "Uptime: %u.%03us | Events: %zu\n",
-                  current_ts_ms / 1000, current_ts_ms % 1000, count_);
+    std::snprintf(header_buf, sizeof(header_buf), "Uptime: %lu.%03lus | Events: %zu\n",
+                  static_cast<unsigned long>(current_ts_ms / 1000),
+                  static_cast<unsigned long>(current_ts_ms % 1000), count_);
     oss << header_buf;
 
     auto entries = getEntries();
     for (const auto& ev : entries) {
         char line_prefix[32];
-        std::snprintf(line_prefix, sizeof(line_prefix), "[%4u.%03us] ", ev.timestamp_ms / 1000,
-                      ev.timestamp_ms % 1000);
+        std::snprintf(line_prefix, sizeof(line_prefix), "[%4lu.%03lus] ",
+                      static_cast<unsigned long>(ev.timestamp_ms / 1000),
+                      static_cast<unsigned long>(ev.timestamp_ms % 1000));
         oss << line_prefix;
 
         switch (ev.type) {

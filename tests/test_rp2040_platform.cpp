@@ -557,12 +557,12 @@ static void test_debug_buffer() {
     assert(buf.size() == 0);
 
     // 1. Record each event type
-    uint8_t in_keys[6] = {0x04, 0x05, 0, 0, 0, 0};
+    const uint8_t in_keys[6] = {0x04, 0x05, 0, 0, 0, 0};
     buf.recordInRawReport(100, 0x02, in_keys, 2);
     buf.recordInKeyEvent(110, tff::Keys::KEY_A, true);
     buf.recordTimerExpired(150);
     buf.recordOutKeyEvent(160, tff::Keys::KEY_B, true);
-    uint8_t out_keys[6] = {0x05, 0, 0, 0, 0, 0};
+    const uint8_t out_keys[6] = {0x05, 0, 0, 0, 0, 0};
     buf.recordOutRawReport(170, 0x00, out_keys);
 
     assert(!buf.empty());
