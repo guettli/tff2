@@ -7,7 +7,7 @@ if(PICO_BUILD)
     include(pico_sdk_import.cmake)
 endif()
 
-project(tff2 VERSION 2.0.0 LANGUAGES C CXX)
+project(tff2 VERSION 2.0.1 LANGUAGES C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
