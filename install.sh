@@ -31,7 +31,7 @@ mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j"$(nproc)"
-./test_linux_platform
+ctest --output-on-failure
 cd "${SCRIPT_DIR}"
 
 # 2. Setup install paths
@@ -125,7 +125,7 @@ Type=simple
 Restart=always
 RestartSec=3
 Nice=-20
-ExecStart=${BIN_DIR}/tff --config ${CONFIG_DIR}/tff-combos.yaml
+ExecStart=${BIN_DIR}/tff --hotplug --config ${CONFIG_DIR}/tff-combos.yaml
 ExecReload=/bin/kill -HUP \$MAINPID
 
 [Install]

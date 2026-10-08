@@ -48,7 +48,7 @@ flowchart TD
     subgraph Hardware ["RP2040 Hardware Platform (Microcontroller USB Adapter)"]
         direction TB
         K2["Physical USB Keyboard"]
-        -->|USB-A Host Cable| HOST["TinyUSB Host (Native / MAX3421E)"]
+        -->|USB-A Host Cable| HOST["TinyUSB Host (Pico-PIO-USB on GPIO 16/17)"]
         -->|Raw Keycodes| CONV["RP2040Platform Key Translator"]
         --> ENGINE_HW["TFFEngine Core State Machine"]
         -->|USB HID Reports| DEV["TinyUSB Device"]
@@ -225,7 +225,7 @@ make
 
 ### RP2040 Build
 
-Ten Flying Fingers provides an automated cross-compilation script (`./build_rp2040.sh`) that checks the ARM toolchain, automatically fetches Pico SDK v2.1.1 and TinyUSB (if not already installed), and compiles `tff_rp2040.uf2`:
+Ten Flying Fingers provides an automated cross-compilation script (`./build_rp2040.sh`) that checks the ARM toolchain and compiles `tff_rp2040.uf2` using the Pico SDK:
 
 ```bash
 # Automated cross-compilation:
@@ -248,7 +248,7 @@ See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full ha
 
 ### Unit Tests (Hardware-Independent C++)
 
-Run all native unit tests (running all 19 test suites in ~0.02s without requiring special privileges or hardware):
+Run all native unit tests (running all 20 test suites without requiring special privileges or hardware):
 
 ```bash
 ./build.sh
@@ -256,7 +256,7 @@ Run all native unit tests (running all 19 test suites in ~0.02s without requirin
 
 ### Pre-Push Verification & Invariant Testing
 
-Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 19 CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing), Cppcheck static analysis, and CLI smoke tests:
+Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 20 CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing), Cppcheck static analysis, and CLI smoke tests:
 
 ```bash
 ./scripts/check.sh             # Full quality verification pipeline
