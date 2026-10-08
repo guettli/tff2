@@ -16,7 +16,7 @@ The Ten Flying Fingers (TFF) hardware loop can be fully verified and automated u
                     │ Micro-USB OTG Cable
                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Adafruit Feather RP2040 with USB Host (CircuitPython / C++)             │
+│ Adafruit Feather RP2040 with USB Host (C++ Firmware)                   │
 │                                                                        │
 │ 2. USB-A Host Port (Pico-PIO-USB / TinyUSB Host)                       │
 │    Reads raw HID keyboard reports and parses descriptors               │
@@ -51,13 +51,13 @@ The script configures `libcomposite` with:
 - Vendor ID `0x1d6b`, Product ID `0x0104`
 - Read/write permissions (`0666`) on `/dev/hidg0`
 
-### 2. RP2040 Firmware (`tff_rp2040.uf2` / `src/platform/rp2040/code.py`)
-The automated hardware test loop works with either the production C++ firmware (`tff_rp2040.uf2`) or CircuitPython (`code.py`):
+### 2. RP2040 Firmware (`tff_rp2040.uf2`)
+The automated hardware test loop tests the production bare-metal C++ firmware (`tff_rp2040.uf2`):
 - Built for the **Adafruit Feather RP2040 with USB Type A Host**.
 - Enables 5V host port power on GPIO 18 so keyboards/gadgets receive power.
 - Uses **Pico-PIO-USB** on GPIO 16/17 to receive raw HID keyboard reports from the UpBoard OTG port.
 - Emulates a USB HID keyboard over USB-C back to the UpBoard.
-- Can be flashed automatically via `scripts/deploy_rp2040.sh` or rebooted into bootloader via `scripts/reboot_rp2040_bootloader.py` without touching buttons.
+- Can be flashed via `scripts/deploy_rp2040.sh` or rebooted into bootloader via `scripts/reboot_rp2040_bootloader.py` without touching buttons.
 - See [docs/rp2040_implementation.md](rp2040_implementation.md) for full details.
 
 ## Running the Automated Test Suite

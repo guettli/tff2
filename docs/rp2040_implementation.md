@@ -94,13 +94,10 @@ gh release download --pattern "tff_rp2040*.uf2"
 
 Or download it manually from the [GitHub Releases page](https://github.com/guettli/tff2/releases).
 
-## Firmware Implementations
+## Production Firmware (`tff_rp2040.uf2`)
 
-The RP2040 platform provides two firmware options:
-
-### 1. Pure C++ Bare-Metal Firmware (`tff_rp2040.uf2`) — Production Solution
-The primary, high-performance firmware:
-- **Zero Python Runtime**: 100% compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` 0.7.2.
+Ten Flying Fingers on RP2040 is a 100% pure bare-metal C++ firmware:
+- **Zero Python Runtime**: Compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` 0.7.2.
 - **Microsecond Latency**: Direct hardware interrupt and PIO state machine execution.
 - **Hardware Integration**:
   - Automatically enables 5V boost converter on **GPIO 18** (`board.USB_HOST_5V_POWER`).
@@ -110,12 +107,6 @@ The primary, high-performance firmware:
   - 1200-baud touch reboot over CDC.
   - `BOOTSEL` text command reboot.
   - Double-click RESET button via `pico_bootsel_via_double_reset`.
-
-### 2. CircuitPython Firmware (`src/platform/rp2040/code.py`) — Prototyping Reference
-A reference script for CircuitPython on the Adafruit Feather RP2040 USB Host:
-- Mounts as a mass-storage drive named `CIRCUITPY`.
-- Edit `code.py` directly on the drive for rapid Python prototyping.
-- Reboots into bootloader mode via `reboot_rp2040_bootloader.py` or manual buttons.
 
 ---
 
@@ -144,9 +135,6 @@ The deployment script handles everything automatically: detects the compiled `bu
 
 # Or flash a specific UF2 file:
 ./scripts/deploy_rp2040.sh path/to/tff_rp2040.uf2
-
-# Or sync CircuitPython code.py (legacy):
-./scripts/deploy_rp2040.sh --python
 ```
 
 ### Method 2: Automated Software Reboot (`scripts/reboot_rp2040_bootloader.py`)
@@ -156,7 +144,7 @@ To put the running board into `RPI-RP2` bootloader mode from software without fl
 python3 scripts/reboot_rp2040_bootloader.py
 ```
 
-This triggers the 1200-baud touch reset on the C++ CDC interface (or sends the `BOOTSEL` / CircuitPython command). The board immediately remounts as **`RPI-RP2`**.
+This triggers the 1200-baud touch reset on the C++ CDC interface (or sends the `BOOTSEL` command). The board immediately remounts as **`RPI-RP2`**.
 
 ### Method 3: Double-Click Reset Button
 Thanks to the linked `pico_bootsel_via_double_reset` library, you can simply **double-click the physical RESET button** on the Feather board within 500ms to reboot into BOOTSEL mode without needing to hold down BOOTSEL!
@@ -173,15 +161,9 @@ If the board is ever unresponsive or frozen:
 
 ## Configuration on RP2040
 
-### CircuitPython Mode
-Simply edit or copy `src/platform/rp2040/code.py` directly onto the `CIRCUITPY` drive (or use `./scripts/deploy_rp2040.sh`). CircuitPython automatically reloads the new configuration within seconds without dropping the USB connection.
-
-### C++ Firmware Mode
 1. Edit `DEFAULT_YAML_CONFIG` in `src/platform/rp2040/rp2040_platform.cpp`.
 2. Recompile with `./build_rp2040.sh`.
-3. Copy `build-rp2040/tff_rp2040.uf2` to `RPI-RP2`.
-
----
+3. Copy `build-rp2040/tff_rp2040.uf2` to `RPI-RP2` (or use `./scripts/deploy_rp2040.sh`).
 
 ## Building from Source
 
