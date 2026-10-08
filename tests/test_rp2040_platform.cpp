@@ -426,6 +426,19 @@ layers:
     std::cout << "PASSED\n";
 }
 
+static void test_raw_keyboard_report() {
+    std::cout << "Test 11: sendRawKeyboardReport API verification... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    uint8_t keys[6] = {0x04, 0x05, 0, 0, 0, 0};              // A, B
+    bool sent = platform.sendRawKeyboardReport(0x02, keys);  // Shift + A + B
+    assert(sent);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
@@ -441,6 +454,7 @@ int main() {
     test_device_keys_and_cleanup();
     test_unmapped_keys_and_auto_init();
     test_one_shot_keys();
+    test_raw_keyboard_report();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;

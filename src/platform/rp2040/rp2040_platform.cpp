@@ -258,8 +258,13 @@ bool RP2040Platform::sendDeviceKeys(const std::vector<uint32_t>& key_codes) {
             } else {
                 report_keys[0] = usb_keycode;
             }
+            while (!tud_hid_ready()) {
+                tud_task();
+            }
             tud_hid_keyboard_report(0, mod, report_keys);
-            sleep_ms(10);
+            while (!tud_hid_ready()) {
+                tud_task();
+            }
             uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
             tud_hid_keyboard_report(0, 0, empty_keys);
         }
@@ -271,6 +276,19 @@ bool RP2040Platform::sendDeviceKeys(const std::vector<uint32_t>& key_codes) {
             writer_->emitted_down_keys.push_back(key);
         }
     }
+    return true;
+#endif
+}
+
+bool RP2040Platform::sendRawKeyboardReport(uint8_t modifier, const uint8_t keycodes[6]) {
+#ifdef PICO_BUILD
+    while (!tud_hid_ready()) {
+        tud_task();
+    }
+    return tud_hid_keyboard_report(0, modifier, keycodes);
+#else
+    (void)modifier;
+    (void)keycodes;
     return true;
 #endif
 }
@@ -329,7 +347,7 @@ void RP2040Platform::processUsbHostEvents() {
 
 void RP2040Platform::processUsbDeviceEvents() {
 #ifdef PICO_BUILD
-    // TinyUSB device task handling
+    tud_task();
 #endif
 }
 

@@ -69,6 +69,11 @@ public:
     bool sendDeviceKeys(const std::vector<uint32_t>& key_codes);
 
     /**
+     * @brief Send raw 8-byte standard USB HID keyboard report
+     */
+    bool sendRawKeyboardReport(uint8_t modifier, const uint8_t keycodes[6]);
+
+    /**
      * @brief Retrieve received output keycodes (for test verification)
      */
     const std::vector<uint32_t>& getEmittedKeys() const;
