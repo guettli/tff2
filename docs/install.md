@@ -173,11 +173,11 @@ Hint: In systemd service files, use the persistent Alias path to survive reboots
 
 TFF supports two modes of keyboard detection:
 
-1. **Auto-Discovery (Default)**:
-   If no keyboard devices are specified, TFF automatically scans `/dev/input/event*`, filters out non-keyboards (mice, power buttons, video bus), and grabs all detected keyboards.
+1. **Auto-Discovery via `--hotplug`**:
+   To automatically scan `/dev/input/event*`, monitor for USB keyboard connects/disconnects, and grab all detected keyboards, specify `--hotplug` (or set `settings.hotplug: true` in your configuration):
 
    ```ini
-   ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml
+   ExecStart=/usr/local/bin/tff --hotplug --config /etc/tff/tff-combos.yaml
    ```
 
 2. **Explicit Persistent Symlinks (Recommended for multi-keyboard setups)**:
@@ -186,6 +186,8 @@ TFF supports two modes of keyboard detection:
    ```ini
    ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml /dev/input/by-id/usb-Adafruit_Feather_RP2040_USB_Host_DF6544F3CF741134-if03-event-kbd
    ```
+
+   *(Note: TFF enforces strict XOR device configuration: passing both explicit device paths and `--hotplug`, or omitting both, causes TFF to exit with an error).*
 
 ---
 
@@ -210,8 +212,8 @@ RestartSec=3
 # Highest CPU scheduling priority to minimize keyboard input latency
 Nice=-20
 
-# Run with auto-discovery or explicit device list
-ExecStart=/usr/local/bin/tff --config /etc/tff/tff-combos.yaml
+# Run with auto-discovery (--hotplug) or explicit device list
+ExecStart=/usr/local/bin/tff --hotplug --config /etc/tff/tff-combos.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
@@ -232,7 +234,7 @@ Type=simple
 Restart=always
 RestartSec=3
 Nice=-20
-ExecStart=%h/.local/bin/tff --config %h/.config/tff/tff-combos.yaml
+ExecStart=%h/.local/bin/tff --hotplug --config %h/.config/tff/tff-combos.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
@@ -251,10 +253,10 @@ Type=simple
 Restart=always
 RestartSec=3
 Nice=-20
-# Option A: using mise shim path
-ExecStart=%h/.local/share/mise/shims/tff --config %h/.config/tff/tff-combos.yaml
+# Option A: using mise shim path with --hotplug (or explicit device paths)
+ExecStart=%h/.local/share/mise/shims/tff --hotplug --config %h/.config/tff/tff-combos.yaml
 # Option B (alternative): using mise exec
-# ExecStart=%h/.local/bin/mise exec -- tff --config %h/.config/tff/tff-combos.yaml
+# ExecStart=%h/.local/bin/mise exec -- tff --hotplug --config %h/.config/tff/tff-combos.yaml
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]

@@ -173,17 +173,19 @@ Configuration reloaded successfully.
 ## 7. RP2040 Hardware Troubleshooting
 
 ### Symptom: RP2040 does not appear as a USB drive for flashing
-1. Unplug the USB cable from the RP2040.
-2. Press and hold down the white **BOOTSEL** button on the Raspberry Pi Pico board.
-3. Plug the USB cable back into the computer while continuing to hold BOOTSEL.
-4. Release the button after 2 seconds.
-5. The board will mount as a mass-storage drive named `RPI-RP2`.
-6. Copy `build-rp2040/tff_rp2040.uf2` to the drive. The Pico will flash and immediately reboot.
+1. **Automated Touch Reboot (Recommended)**: Run `python3 scripts/reboot_rp2040_bootloader.py` to reboot via 1200-baud touch CDC without touching buttons.
+2. **Double-Tap Reset**: Double-click the physical **RESET** button on the Adafruit Feather board to enter `RPI-RP2` bootloader mode.
+3. **Hardware Button Recovery**:
+   - Hold down the **BOOT** button on the Feather RP2040 board.
+   - Click the **RESET** button once.
+   - Release the **BOOT** button.
+4. The board will mount as a mass-storage drive named `RPI-RP2`.
+5. Copy `build-rp2040/tff_rp2040.uf2` to the drive. The board will flash and immediately reboot.
 
 ### Symptom: Keyboard plugged into RP2040 host port does not respond
 1. **USB Host Port vs USB Device Port:**
-   - The **USB-A Host connector** (or MAX3421E host breakout) is where your physical keyboard must be plugged in.
-   - The **RP2040 micro-USB/USB-C connector** connects to the target PC/laptop.
+   - The **USB-A Host connector** (PIO-USB host on GPIO 16/17) is where your physical keyboard must be plugged in.
+   - The **RP2040 USB-C connector** connects to the target PC/laptop.
 2. **USB Power Budget:**
    - High-power RGB gaming keyboards may draw more current than the RP2040 5V VBUS pin can supply without external power.
    - *Fix*: Connect the keyboard through a powered USB hub, or disable high-brightness RGB backlighting.
