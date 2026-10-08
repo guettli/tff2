@@ -356,6 +356,52 @@ combos:
     std::cout << "PASS\n";
 }
 
+void test_held_combo_key_times_out_and_emits_down() {
+    std::cout << "[TEST] Held combo key times out and emits down for autorepeat... ";
+
+    std::string yaml = "combos:\n  d + f + j: esc\n";
+    std::vector<Combo> combos;
+    std::string err;
+    assert(loadYamlCombos(yaml, combos, err));
+
+    VectorWriter writer;
+    TFFEngine engine(&writer, combos);
+    engine.setFakeActiveTimer(true);
+
+    // 1. Press 'd' down at t = 1,000,000 us (1.0s)
+    engine.processEvent(Event{TimeVal::fromMicros(1000000), EV_KEY, Keys::KEY_D, KEY_VAL_DOWN});
+    // Immediately after down, key is buffered waiting for possible combo candidates
+    assert(writer.events.empty());
+    assert(engine.getBufferSize() == 1);
+
+    // 2. Advance time past the 150ms chord collection timeout (t = 1,150,000 us)
+    // and fire onTimer. The engine must recognize the timeout, flush 'd' DOWN to the OS,
+    // and clear the buffer so the host OS can start autorepeating 'd'.
+    engine.onTimer(TimeVal::fromMicros(1150000));
+    assert(engine.getBufferSize() == 0);
+    assert(!writer.events.empty());
+    bool found_d_down = false;
+    for (const auto& ev : writer.events) {
+        if (ev.code == Keys::KEY_D && ev.value == KEY_VAL_DOWN) {
+            found_d_down = true;
+        }
+    }
+    assert(found_d_down);
+
+    // 3. User continues holding 'd' for 850ms, then releases 'd' at t = 2,000,000 us (2.0s)
+    engine.processEvent(Event{TimeVal::fromMicros(2000000), EV_KEY, Keys::KEY_D, KEY_VAL_UP});
+    assert(engine.getBufferSize() == 0);
+    bool found_d_up = false;
+    for (const auto& ev : writer.events) {
+        if (ev.code == Keys::KEY_D && ev.value == KEY_VAL_UP) {
+            found_d_up = true;
+        }
+    }
+    assert(found_d_up);
+
+    std::cout << "PASS\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "  Testing Triple Combos & N-Key Chording        \n";
@@ -368,6 +414,7 @@ int main() {
     test_incomplete_chord_released_early();
     test_repo_config_triple_combo();
     test_per_combo_custom_timeout();
+    test_held_combo_key_times_out_and_emits_down();
 
     std::cout << "================================================\n";
     std::cout << "ALL TRIPLE COMBO & N-KEY CHORDING TESTS PASSED! ✓\n";
