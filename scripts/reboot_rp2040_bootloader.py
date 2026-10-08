@@ -51,7 +51,16 @@ def reboot_to_bootloader(port=None):
     try:
         import serial
     except ImportError:
-        print("Error: pyserial is required. Install via: pip install pyserial")
+        print("Note: pyserial not installed. Attempting 1200-baud touch via 'stty'...")
+        try:
+            import subprocess
+            subprocess.run(["stty", "-F", port, "1200"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if wait_for_bootloader(2.0):
+                print("✓ RP2040 rebooted into BOOTSEL mode via stty 1200-baud touch.")
+                return True
+        except Exception:
+            pass
+        print("Error: pyserial is required for full serial communication. Install via: pip install pyserial")
         return False
 
     print(f"Connecting to RP2040 on {port}...")

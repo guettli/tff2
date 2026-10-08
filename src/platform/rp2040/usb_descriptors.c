@@ -148,8 +148,8 @@ void tud_cdc_rx_cb(uint8_t itf) {
     uint32_t count = tud_cdc_read(buf, sizeof(buf) - 1);
     if (count > 0) {
         buf[count] = '\0';
-        if (strstr(buf, "bootloader") || strstr(buf, "BOOTLOADER") || strstr(buf, "reset") ||
-            strstr(buf, "reboot")) {
+        if (strstr(buf, "bootsel") || strstr(buf, "BOOTSEL") || strstr(buf, "bootloader") ||
+            strstr(buf, "BOOTLOADER") || strstr(buf, "reset") || strstr(buf, "reboot")) {
             reset_usb_boot(0, 0);
         }
     }
