@@ -83,14 +83,12 @@ if [ -z "${PICO_SDK_PATH:-}" ]; then
     elif [ -d "${HOME}/pico-sdk" ]; then
         PICO_SDK_PATH="${HOME}/pico-sdk"
     else
-        echo "PICO_SDK_PATH is not set. Fetching shallow clone of Pico SDK v${PICO_SDK_VERSION}..."
-        git clone --depth 1 --branch "${PICO_SDK_VERSION}" https://github.com/raspberrypi/pico-sdk.git "${ROOT_DIR}/pico-sdk"
-        PICO_SDK_PATH="${ROOT_DIR}/pico-sdk"
+        echo -e "${COLOR_RED}Error: Pico SDK not found.${COLOR_RESET}" >&2
+        echo "Please set PICO_SDK_PATH or clone the SDK:" >&2
+        echo "  git clone --depth 1 --branch ${PICO_SDK_VERSION} https://github.com/raspberrypi/pico-sdk.git ${ROOT_DIR}/pico-sdk" >&2
+        echo "  (cd ${ROOT_DIR}/pico-sdk && git submodule update --init --depth 1 lib/tinyusb)" >&2
+        fail "PICO_SDK_PATH is unset and no local pico-sdk directory found."
     fi
-fi
-
-if [ ! -d "${PICO_SDK_PATH}" ]; then
-    fail "Pico SDK directory does not exist: ${PICO_SDK_PATH}"
 fi
 
 # Ensure TinyUSB submodule is initialized in Pico SDK
