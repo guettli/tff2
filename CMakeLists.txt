@@ -108,6 +108,12 @@ if(PICO_BUILD)
         CFG_TUH_RPI_PIO_USB=1
         PIO_USB_USE_TINYUSB=1
     )
+    if(NOT DEFINED PICO_TINYUSB_PATH)
+        set(PICO_TINYUSB_PATH "${PICO_SDK_PATH}/lib/tinyusb")
+    endif()
+    set(HCD_PIO_USB_SRC "${PICO_TINYUSB_PATH}/src/portable/raspberrypi/pio_usb/hcd_pio_usb.c")
+    target_sources(rp2040_platform PRIVATE ${HCD_PIO_USB_SRC})
+    set_source_files_properties(${HCD_PIO_USB_SRC} PROPERTIES COMPILE_OPTIONS "-Wno-error")
     target_link_libraries(rp2040_platform
         tff_core
         pico_stdlib
