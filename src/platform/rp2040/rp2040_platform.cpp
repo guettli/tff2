@@ -85,12 +85,6 @@ public:
                         }
                     }
                 }
-                if (platform) {
-                    uint32_t ts_ms =
-                        static_cast<uint32_t>(ev.time.sec * 1000 + ev.time.usec / 1000);
-                    platform->getDebugBuffer().recordOutRawReport(ts_ms, active_modifiers_,
-                                                                  active_keys_);
-                }
 #ifdef PICO_BUILD
                 if (tud_mounted()) {
                     while (!tud_hid_ready() && tud_mounted()) {
@@ -273,9 +267,6 @@ void RP2040Platform::processHostKeyEvent(uint32_t keycode, bool pressed) {
 
 void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t* keys,
                                                size_t key_count) {
-    uint32_t ts_ms = getCurrentTimestamp();
-    debug_buffer_.recordInRawReport(ts_ms, modifiers, keys, key_count);
-
     // 1. Filter incoming keys: ignore codes 0x00..0x03 (None, Rollover, POSTFail, Undefined)
     uint8_t current_keys[6] = {0, 0, 0, 0, 0, 0};
     size_t current_count = 0;
@@ -296,64 +287,27 @@ void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t*
         }
     }
 
-    // 2. Check for diagnostic dump chords:
-    // Chord A: d + f + j + k held together (0x07, 0x09, 0x0D, 0x0E)
-    // Chord B: LeftShift + RightShift + D (modifiers & 0x22 == 0x22 and 0x07)
-    bool has_d = false, has_f = false, has_j = false, has_k = false;
+    // 2. Check for diagnostic dump hotkey (F12 = 0x45, Pause/Break = 0x48)
+    bool dump_hotkey_down = false;
     for (size_t i = 0; i < current_count; ++i) {
-        if (current_keys[i] == 0x07) {
-            has_d = true;
-        }
-        if (current_keys[i] == 0x09) {
-            has_f = true;
-        }
-        if (current_keys[i] == 0x0D) {
-            has_j = true;
-        }
-        if (current_keys[i] == 0x0E) {
-            has_k = true;
+        if (current_keys[i] == 0x45 || current_keys[i] == 0x48) {
+            dump_hotkey_down = true;
+            // Remove the hotkey from current_keys so it is swallowed (never passed to engine/OS)
+            for (size_t j = i; j + 1 < current_count; ++j) {
+                current_keys[j] = current_keys[j + 1];
+            }
+            current_keys[--current_count] = 0;
+            --i;
         }
     }
-    bool chord_dfjk = (has_d && has_f && has_j && has_k);
-    bool chord_shift_d = (((modifiers & 0x22) == 0x22) && has_d);
 
-    if (debug_chord_latched_) {
-        // While latched, swallow reports until all chord keys and shift modifiers are fully
-        // released
-        if (!has_d && !has_f && !has_j && !has_k && ((modifiers & 0x22) == 0)) {
-            debug_chord_latched_ = false;
-            prev_modifiers_ = modifiers;
-            for (size_t i = 0; i < 6; ++i) {
-                prev_keys_[i] = 0;
-            }
-            prev_key_count_ = 0;
+    if (dump_hotkey_down) {
+        if (!dump_hotkey_latched_) {
+            dump_hotkey_latched_ = true;
+            triggerDebugDump(true);
         }
-        return;
-    }
-
-    if (chord_dfjk || chord_shift_d) {
-        debug_chord_latched_ = true;
-        if (chord_shift_d) {
-            if (prev_modifiers_ & 0x02) {
-                processHostKeyEvent(0xE1, false);
-            }
-            if (prev_modifiers_ & 0x20) {
-                processHostKeyEvent(0xE5, false);
-            }
-        }
-        for (size_t i = 0; i < prev_key_count_; ++i) {
-            uint8_t k = prev_keys_[i];
-            if (k == 0x07 || k == 0x09 || k == 0x0D || k == 0x0E) {
-                processHostKeyEvent(k, false);
-            }
-        }
-        prev_modifiers_ = modifiers;
-        for (size_t i = 0; i < 6; ++i) {
-            prev_keys_[i] = current_keys[i];
-        }
-        prev_key_count_ = current_count;
-        triggerDebugDump(true);
-        return;
+    } else {
+        dump_hotkey_latched_ = false;
     }
 
     // 3. Modifier releases: identify modifier bits that transitioned from 1 to 0
@@ -426,7 +380,6 @@ void RP2040Platform::checkTimers() {
 
     tff::TimeVal timer_time = engine_->getActiveTimerTime();
     if (now >= timer_time) {
-        debug_buffer_.recordTimerExpired(ts_ms);
         engine_->onTimer(now);
     }
 }
@@ -587,6 +540,10 @@ void RP2040Platform::cleanup() {
     for (size_t i = 0; i < 6; ++i) {
         prev_keys_[i] = 0;
     }
+    dump_hotkey_latched_ = false;
+    is_dumping_ = false;
+    last_debug_dump_.clear();
+    debug_buffer_.clear();
     engine_.reset();
     writer_.reset();
 }
