@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/guettli/tff2/main/schema/tff-schema.json
 # Ten Flying Fingers (TFF) is a keyboard layout.
 # It is optimized for keeping your fingers on the home row.
-# https://github.com/guettli/tff
+# https://github.com/guettli/tff2
 
 combos:
   # When I select parts with the trackpoint, the right index moves from J
