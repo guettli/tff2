@@ -28,12 +28,14 @@ namespace {
 class UInputWriter : public tff::EventWriter {
 public:
     UInputWriter(int uinput_fd, std::vector<uint32_t>* received_keys, bool verbose = false,
-                 bool emit_uinput = true)
+                 bool emit_uinput = true, LinuxPlatform* platform = nullptr)
         : uinput_fd_(uinput_fd),
           received_keys_(received_keys),
           verbose_(verbose),
-          emit_uinput_(emit_uinput) {}
+          emit_uinput_(emit_uinput),
+          platform_(platform) {}
 
+    void setPlatform(LinuxPlatform* platform) { platform_ = platform; }
     void setUinputFd(int fd) { uinput_fd_ = fd; }
     void setVerbose(bool verbose) { verbose_ = verbose; }
     void setEmitToUinput(bool emit) { emit_uinput_ = emit; }
@@ -46,6 +48,18 @@ public:
         }
         if (ev.type == EV_KEY && ev.value == tff::KEY_VAL_DOWN && received_keys_) {
             received_keys_->push_back(ev.code);
+        }
+        if (platform_ && ev.type == EV_KEY) {
+            uint32_t ts_ms = 0;
+            if (ev.time.sec > 0 || ev.time.usec > 0) {
+                ts_ms = static_cast<uint32_t>(ev.time.sec * 1000 + ev.time.usec / 1000);
+            } else {
+                struct timeval tv;
+                gettimeofday(&tv, nullptr);
+                ts_ms = static_cast<uint32_t>(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+            }
+            platform_->getDebugBuffer().recordOutKeyEvent(ts_ms, ev.code,
+                                                          ev.value == tff::KEY_VAL_DOWN);
         }
         if (emit_uinput_ && uinput_fd_ >= 0) {
             struct input_event ie;
@@ -65,6 +79,7 @@ private:
     std::vector<uint32_t>* received_keys_;
     bool verbose_;
     bool emit_uinput_;
+    LinuxPlatform* platform_;
 };
 
 }  // anonymous namespace
@@ -98,7 +113,8 @@ bool LinuxPlatform::initialize() {
         // fall back gracefully to simulation mode
     }
 
-    writer_ = std::make_unique<UInputWriter>(uinput_fd_, &received_keys_, verbose_, emit_uinput_);
+    writer_ =
+        std::make_unique<UInputWriter>(uinput_fd_, &received_keys_, verbose_, emit_uinput_, this);
     engine_ = std::make_unique<tff::TFFEngine>(writer_.get());
     engine_->setLayerToggleCallback([this](const std::string& layer_name, bool active) {
         if (notifications_enabled_) {
@@ -967,7 +983,7 @@ void LinuxPlatform::run(std::atomic<bool>& should_stop, std::atomic<bool>* shoul
                                   << "\n";
                     }
 
-                    engine_->processEvent(ev);
+                    handleIncomingKeyEvent(ev);
                 }
             }
         }
@@ -1169,18 +1185,108 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
     out << "Clean shutdown complete.\n";
 }
 
-bool LinuxPlatform::processEvent(const tff::Event& ev) {
+bool LinuxPlatform::handleIncomingKeyEvent(const tff::Event& ev) {
     if (!initialized_) {
         initialize();
     }
+    if (!engine_) {
+        return false;
+    }
+
+    if (ev.type != EV_KEY) {
+        return engine_->processEvent(ev);
+    }
+
+    // Check for diagnostic dump hotkey (F12 or Pause/Break)
+    if (tff::isDiagnosticDumpHotkey(ev.code)) {
+        if (ev.value == tff::KEY_VAL_DOWN) {
+            if (!dump_hotkey_latched_) {
+                dump_hotkey_latched_ = true;
+                triggerDebugDump();
+            }
+        } else if (ev.value == tff::KEY_VAL_UP) {
+            dump_hotkey_latched_ = false;
+        }
+        // Swallowed completely: never passes to engine or OS!
+        return true;
+    }
+
+    // Record incoming key event in ring buffer
+    uint32_t ts_ms = 0;
+    if (ev.time.sec > 0 || ev.time.usec > 0) {
+        ts_ms = static_cast<uint32_t>(ev.time.sec * 1000 + ev.time.usec / 1000);
+    } else {
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        ts_ms = static_cast<uint32_t>(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+    }
+    debug_buffer_.recordInKeyEvent(ts_ms, ev.code, ev.value == tff::KEY_VAL_DOWN);
+
     return engine_->processEvent(ev);
 }
 
-bool LinuxPlatform::sendKeyEvent(uint32_t key_code, bool is_pressed) {
-    if (!initialized_) {
-        initialize();
+void LinuxPlatform::emitUinputRaw(uint16_t type, uint16_t code, int32_t value) {
+    if (uinput_fd_ >= 0) {
+        struct input_event ie;
+        std::memset(&ie, 0, sizeof(ie));
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        ie.time = tv;
+        ie.type = type;
+        ie.code = code;
+        ie.value = value;
+        ssize_t bytes = write(uinput_fd_, &ie, sizeof(ie));
+        (void)bytes;
     }
+}
 
+void LinuxPlatform::typeDumpString(const std::string& text) {
+    tff::emitKeyStrokesForText(text, [this](tff::KeyCode code, bool shift) {
+        if (uinput_fd_ >= 0) {
+            if (shift) {
+                emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 1);
+                emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+            }
+            emitUinputRaw(EV_KEY, code, 1);
+            emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+            emitUinputRaw(EV_KEY, code, 0);
+            emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+            if (shift) {
+                emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 0);
+                emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+            }
+        } else {
+            received_keys_.push_back(code);
+        }
+    });
+}
+
+void LinuxPlatform::triggerDebugDump() {
+    if (is_dumping_) {
+        return;
+    }
+    is_dumping_ = true;
+    debug_buffer_.setPaused(true);
+
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint32_t now_ms = static_cast<uint32_t>(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+
+    last_debug_dump_ = debug_buffer_.formatDump(now_ms);
+
+    std::cerr << "[TFF Dump]\n" << last_debug_dump_ << std::flush;
+
+    typeDumpString(last_debug_dump_);
+
+    debug_buffer_.setPaused(false);
+    is_dumping_ = false;
+}
+
+bool LinuxPlatform::processEvent(const tff::Event& ev) {
+    return handleIncomingKeyEvent(ev);
+}
+
+bool LinuxPlatform::sendKeyEvent(uint32_t key_code, bool is_pressed) {
     struct timeval tv;
     gettimeofday(&tv, nullptr);
 
@@ -1190,11 +1296,7 @@ bool LinuxPlatform::sendKeyEvent(uint32_t key_code, bool is_pressed) {
     ev.code = static_cast<uint16_t>(key_code);
     ev.value = is_pressed ? tff::KEY_VAL_DOWN : tff::KEY_VAL_UP;
 
-    if (engine_) {
-        engine_->processEvent(ev);
-    }
-
-    return true;
+    return handleIncomingKeyEvent(ev);
 }
 
 bool LinuxPlatform::receiveMappedKeys(std::vector<uint32_t>& key_codes) {
@@ -1231,6 +1333,11 @@ void LinuxPlatform::cleanup() {
             static_cast<UInputWriter*>(writer_.get())->setUinputFd(-1);
         }
     }
+
+    dump_hotkey_latched_ = false;
+    is_dumping_ = false;
+    last_debug_dump_.clear();
+    debug_buffer_.clear();
 
     initialized_ = false;
 }

@@ -555,6 +555,60 @@ void testHotplugDefaultAndXorBehavior() {
     std::cout << "PASSED\n";
 }
 
+void testDiagnosticDumpLinux() {
+    std::cout << "Test 15: LinuxPlatform diagnostic dump with F12 and Pause hotkeys... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    // 1. Send normal key A press and release
+    platform.sendKeyEvent(tff::Keys::KEY_A, true);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    platform.sendKeyEvent(tff::Keys::KEY_A, false);
+
+    assert(platform.getLastDebugDump().empty());
+
+    // 2. Press F12 hotkey
+    platform.sendKeyEvent(tff::Keys::KEY_F12, true);
+
+    const std::string& dump = platform.getLastDebugDump();
+    assert(!dump.empty());
+    assert(dump.find("IN: a_") != std::string::npos);
+    assert(dump.find("OUT: a_") != std::string::npos);
+
+    // Verify F12 was swallowed and NOT emitted as regular output
+    std::vector<uint32_t> keys;
+    platform.receiveMappedKeys(keys);
+    for (auto k : keys) {
+        assert(k != tff::Keys::KEY_F12);
+    }
+
+    // 3. Release F12
+    platform.sendKeyEvent(tff::Keys::KEY_F12, false);
+
+    // 4. Press Pause hotkey
+    platform.sendKeyEvent(tff::Keys::KEY_PAUSE, true);
+
+    const std::string& dump2 = platform.getLastDebugDump();
+    assert(!dump2.empty());
+    assert(dump2.find("IN:") != std::string::npos);
+    assert(dump2.find("OUT:") != std::string::npos);
+
+    // Release Pause
+    platform.sendKeyEvent(tff::Keys::KEY_PAUSE, false);
+
+    // 5. Verify roundtrip parsing of dump
+    std::vector<tff::Event> in_events, out_events;
+    std::string err;
+    bool ok = tff::parseDebugDump(dump, in_events, out_events, err);
+    assert(ok);
+    assert(in_events.size() == 2);
+    assert(in_events[0].code == tff::Keys::KEY_A && in_events[0].value == tff::KEY_VAL_DOWN);
+    assert(in_events[1].code == tff::Keys::KEY_A && in_events[1].value == tff::KEY_VAL_UP);
+
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -571,6 +625,7 @@ int main() {
     testGitHookLayoutAndIntegrity();
     testLayerToggleNotifications();
     testHotplugDefaultAndXorBehavior();
+    testDiagnosticDumpLinux();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

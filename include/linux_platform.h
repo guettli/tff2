@@ -4,6 +4,7 @@
 #include "tff_engine.h"
 #include "tff_parser.h"
 #include "tff_monitor.h"
+#include "debug_buffer.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -260,6 +261,27 @@ public:
     size_t getComboCount() const { return engine_ ? engine_->getCombos().size() : 0; }
 
     /**
+     * @brief Trigger a diagnostic dump of recent input/output events (types to uinput and logs)
+     */
+    void triggerDebugDump();
+
+    /**
+     * @brief Get formatted text of the last diagnostic dump
+     */
+    const std::string& getLastDebugDump() const { return last_debug_dump_; }
+
+    /**
+     * @brief Access the event ring buffer
+     */
+    const tff::DebugBuffer& getDebugBuffer() const { return debug_buffer_; }
+    tff::DebugBuffer& getDebugBuffer() { return debug_buffer_; }
+
+    /**
+     * @brief Type out arbitrary text as uinput virtual keystrokes
+     */
+    void typeDumpString(const std::string& text);
+
+    /**
      * @brief Cleanup platform resources (closes uinput, inotify, and evdev, releases grab)
      */
     void cleanup();
@@ -294,12 +316,20 @@ private:
     std::string config_dir_;
     std::string config_basename_;
 
+    // Diagnostic ring buffer and state
+    tff::DebugBuffer debug_buffer_;
+    std::string last_debug_dump_;
+    bool is_dumping_ = false;
+    bool dump_hotkey_latched_ = false;
+
     std::unique_ptr<tff::EventWriter> writer_;
     std::unique_ptr<tff::TFFEngine> engine_;
     tff::Settings settings_;
 
     std::vector<uint32_t> received_keys_;
 
+    bool handleIncomingKeyEvent(const tff::Event& ev);
+    void emitUinputRaw(uint16_t type, uint16_t code, int32_t value);
     int createVirtualKeyboard(const std::string& device_name = "TFF Virtual Keyboard");
     void setupInotify();
     void teardownInotify();
