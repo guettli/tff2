@@ -559,6 +559,34 @@ void test_FJX_emits_f_but_should_not() {
     std::cout << "PASS\n";
 }
 
+void test_StateString_RoundTrip_And_DebugDump() {
+    std::cout << "[TEST] StateString RoundTrip and DebugDump... ";
+    std::string original = "capslock_ (250ms) j_ (100ms) j/ (200ms) capslock/";
+    std::vector<Event> events;
+    std::string err;
+    bool ok = stateStringToEvents(original, events, err);
+    assert(ok);
+    assert(events.size() == 4);
+
+    std::string serialized = eventsToStateString(events);
+    assert(serialized == original);
+
+    // Verify "IN:" and "OUT:" prefixes
+    std::vector<Event> in_events, out_events;
+    ok = stateStringToEvents("IN: " + original, in_events, err);
+    assert(ok);
+    assert(in_events.size() == 4);
+
+    std::string dump = "IN: f_ (50ms) j_ (50ms) j/ (50ms) f/\nOUT: x_ (100ms) x/\n";
+    ok = parseDebugDump(dump, in_events, out_events, err);
+    assert(ok);
+    assert(in_events.size() == 4);
+    assert(out_events.size() == 2);
+    assert(out_events[0].code == Keys::KEY_X && out_events[0].value == KEY_VAL_DOWN);
+    assert(out_events[1].code == Keys::KEY_X && out_events[1].value == KEY_VAL_UP);
+    std::cout << "PASS\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "  TFF Go Test Suite Ported to Native C++        \n";
@@ -582,9 +610,10 @@ int main() {
     test_Capslock_Navigation();
     test_ShouldNotPanic();
     test_FJX_emits_f_but_should_not();
+    test_StateString_RoundTrip_And_DebugDump();
 
     std::cout << "================================================\n";
-    std::cout << "ALL 18 GO UNIT TESTS PASSED SUCCESSFULLY IN C++! ✓\n";
+    std::cout << "ALL 19 GO UNIT TESTS PASSED SUCCESSFULLY IN C++! ✓\n";
     std::cout << "================================================\n";
     return 0;
 }

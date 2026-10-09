@@ -230,22 +230,24 @@ Every commit and pull request triggers automated firmware compilation in GitHub 
 
 ## Debugging & Diagnostic Ring Buffer
 
-The RP2040 firmware includes a zero-heap bounded circular ring buffer (`tff::DebugBuffer`, capacity: 64 entries) that continuously records recent keyboard events:
-- Raw incoming USB HID reports (`IN_RAW`)
-- Translated engine key events (`IN_EV`)
-- Engine timer expirations (`TIMER`)
-- Emitted virtual key events (`OUT_EV`)
-- Outgoing USB HID reports (`OUT_RAW`)
+The RP2040 firmware includes a zero-heap bounded circular ring buffer (`tff::DebugBuffer`, capacity: 64 entries) that continuously records recent keyboard transitions:
+- Incoming keyboard transitions (timestamp, keycode, down/up)
+- Outgoing virtual key transitions (timestamp, keycode, down/up)
+
+The dump is formatted in the human-readable, pure text state-string format directly compatible with `tff::stateStringToEvents()` and unit tests:
+```text
+IN: d_ (250ms) d/
+OUT: d_ (250ms) d/
+```
 
 ### Triggering a Diagnostic Dump
 
 Users can trigger a diagnostic dump without serial tools or debuggers:
 
-1. **Hardware Keystroke Chords (Direct Typing)**:
-   - **Chord A: `d + f + j + k`** (simultaneously hold all four home-row index and middle finger keys)
-   - **Chord B: `LeftShift + RightShift + D`** (hold both Shift keys and tap `D`)
-   - The RP2040 freezes the ring buffer and types the complete diagnostic report directly into the active window/editor as virtual keystrokes.
-   - Trigger keys are swallowed and not leaked into user text.
+1. **Hardware Hotkey (Direct Typing)**:
+   - **`F12`** or **`Pause/Break`**
+   - The RP2040 pauses the ring buffer and types the complete pure text diagnostic report directly into the active window/editor as virtual keystrokes.
+   - The hotkey is filtered out and swallowed, avoiding chord collisions and leaking keys into user text.
 
 2. **USB CDC ACM Command**:
    - Send `dump\n` or `debug\n` to the CDC ACM serial port (e.g. `/dev/ttyACM0`).

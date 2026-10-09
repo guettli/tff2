@@ -14,9 +14,17 @@ bool csvLineToEvent(const std::string& line, Event& ev, std::string& err_msg);
 // Parses multi-line CSV string into vector of Events
 bool csvToEvents(const std::string& csv_str, std::vector<Event>& events, std::string& err_msg);
 
-// Parses state string (e.g. "capslock_ (259.006ms) j_ (105.844ms) j/ (721.7ms) capslock/")
+// Parses state string (e.g. "capslock_ (259.006ms) j_ (105.844ms) j/ (721.7ms) capslock/",
+// optionally prefixed with "IN:" or "OUT:")
 bool stateStringToEvents(const std::string& state_str, std::vector<Event>& events,
                          std::string& err_msg);
+
+// Converts a vector of Events to a state string (e.g. "d_ (250ms) d/")
+std::string eventsToStateString(const std::vector<Event>& events);
+
+// Parses a diagnostic dump ("IN: ...\nOUT: ...\n") into separate in and out events
+bool parseDebugDump(const std::string& dump_text, std::vector<Event>& in_events,
+                    std::vector<Event>& out_events, std::string& err_msg);
 
 // Parses combo log with |>> prefix lines into vector of Events
 bool parseComboLog(std::istream& in, std::vector<Event>& events, std::string& err_msg);

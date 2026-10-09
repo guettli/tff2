@@ -675,8 +675,15 @@ bool csvToEvents(const std::string& csv_str, std::vector<Event>& events, std::st
 
 bool stateStringToEvents(const std::string& state_str, std::vector<Event>& events,
                          std::string& err_msg) {
+    events.clear();
     TimeVal current_time{1716752333, 0};
     auto parts = fields(state_str);
+    if (!parts.empty() && (parts[0] == "IN:" || parts[0] == "OUT:")) {
+        parts.erase(parts.begin());
+    }
+    if (parts.empty()) {
+        return true;
+    }
     if (parts.size() % 2 != 1) {
         err_msg = "stateString has an even number of parts";
         return false;
@@ -721,6 +728,56 @@ bool stateStringToEvents(const std::string& state_str, std::vector<Event>& event
             }
             int64_t new_us = current_time.toMicros() + dur_us;
             current_time = TimeVal::fromMicros(new_us);
+        }
+    }
+    return true;
+}
+
+std::string eventsToStateString(const std::vector<Event>& events) {
+    std::string res;
+    int64_t prev_us = -1;
+    for (const auto& ev : events) {
+        if (ev.type != EV_KEY) {
+            continue;
+        }
+        std::string w = keyCodeToWord(ev.code);
+        if (w == "unknown") {
+            continue;
+        }
+        char act = (ev.value == KEY_VAL_DOWN) ? '_' : '/';
+        int64_t cur_us = ev.time.toMicros();
+        if (prev_us >= 0) {
+            int64_t delta_us = cur_us - prev_us;
+            if (delta_us < 0) {
+                delta_us = 0;
+            }
+            int64_t delta_ms = delta_us / 1000;
+            res += "(" + std::to_string(delta_ms) + "ms) ";
+        }
+        res += w + act + " ";
+        prev_us = cur_us;
+    }
+    return trim(res);
+}
+
+bool parseDebugDump(const std::string& dump_text, std::vector<Event>& in_events,
+                    std::vector<Event>& out_events, std::string& err_msg) {
+    in_events.clear();
+    out_events.clear();
+    std::istringstream iss(dump_text);
+    std::string line;
+    while (std::getline(iss, line)) {
+        line = trim(line);
+        if (line.compare(0, 3, "IN:") == 0) {
+            std::string content = trim(line.substr(3));
+            if (!content.empty() && !stateStringToEvents(content, in_events, err_msg)) {
+                return false;
+            }
+        } else if (line.compare(0, 4, "OUT:") == 0) {
+            std::string content = trim(line.substr(4));
+            if (!content.empty() && !stateStringToEvents(content, out_events, err_msg)) {
+                return false;
+            }
         }
     }
     return true;

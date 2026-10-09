@@ -195,7 +195,7 @@ private:
     tff::DebugBuffer debug_buffer_;
     std::string last_debug_dump_;
     bool is_dumping_ = false;
-    bool debug_chord_latched_ = false;
+    bool dump_hotkey_latched_ = false;
 
     // Host report queue for cross-core lock-free passing (Core 1 -> Core 0)
     static constexpr size_t REPORT_QUEUE_SIZE = 32;

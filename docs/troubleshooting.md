@@ -193,14 +193,19 @@ Configuration reloaded successfully.
    - TFF RP2040 firmware uses standard HID Boot Keyboard protocol descriptors, ensuring full compatibility inside BIOS setup screens and bootloader menus (GRUB, systemd-boot).
 
 ### Reporting RP2040 Issues: Generating a Diagnostic Event Dump
-If you notice behavioral differences or unexpected remapping results on the RP2040 hardware compared to Linux, capture a diagnostic dump of the last 64 raw input and output events:
+If you notice behavioral differences or unexpected remapping results on the RP2040 hardware compared to Linux, capture a diagnostic dump of the last 64 input and output key events:
 
 #### Option A: Hardware Keystroke Dump (No Tools Required)
-Press either diagnostic chord on the keyboard connected to the RP2040:
-- **Chord A: `d + f + j + k`** (simultaneously press all four index and middle finger home-row keys)
-- **Chord B: `LeftShift + RightShift + D`** (hold both Shift keys and tap `D`)
+Press either diagnostic hotkey on the keyboard connected to the RP2040:
+- **`F12`**
+- **`Pause/Break`**
 
-The RP2040 will freeze its event recording and type the complete formatted diagnostic log directly into your active text editor or GitHub issue as virtual keystrokes.
+The RP2040 pauses event recording and types the pure text diagnostic log directly into your active text editor or GitHub issue as virtual keystrokes:
+```text
+IN: d_ (250ms) d/
+OUT: d_ (250ms) d/
+```
+The output format is human-readable, character-by-character pure text, and directly parsable by `tff::stateStringToEvents()` and unit test harnesses (`assertComboStateStringInputOutput`).
 
 #### Option B: Query via CLI (`tff dump`)
 From a terminal on the connected PC:

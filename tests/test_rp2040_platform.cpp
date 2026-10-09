@@ -1,4 +1,5 @@
 #include "rp2040_platform.h"
+#include "tff_parser.h"
 #include <iostream>
 #include <cassert>
 #include <algorithm>
@@ -556,42 +557,47 @@ static void test_debug_buffer() {
     assert(buf.empty());
     assert(buf.size() == 0);
 
-    // 1. Record each event type
-    const uint8_t in_keys[6] = {0x04, 0x05, 0, 0, 0, 0};
-    buf.recordInRawReport(100, 0x02, in_keys, 2);
-    buf.recordInKeyEvent(110, tff::Keys::KEY_A, true);
-    buf.recordTimerExpired(150);
-    buf.recordOutKeyEvent(160, tff::Keys::KEY_B, true);
-    const uint8_t out_keys[6] = {0x05, 0, 0, 0, 0, 0};
-    buf.recordOutRawReport(170, 0x00, out_keys);
+    // 1. Record input and output key events
+    buf.recordInKeyEvent(100, tff::Keys::KEY_A, true);
+    buf.recordInKeyEvent(350, tff::Keys::KEY_A, false);
+    buf.recordOutKeyEvent(350, tff::Keys::KEY_A, true);
+    buf.recordOutKeyEvent(360, tff::Keys::KEY_A, false);
 
     assert(!buf.empty());
-    assert(buf.size() == 5);
+    assert(buf.size() == 4);
     auto entries = buf.getEntries();
-    assert(entries.size() == 5);
-    assert(entries[0].type == tff::DebugEventType::IN_RAW_REPORT);
-    assert(entries[0].modifiers == 0x02);
-    assert(entries[0].raw_keys[0] == 0x04);
-    assert(entries[1].type == tff::DebugEventType::IN_KEY_EVENT);
-    assert(entries[1].keycode == static_cast<uint16_t>(tff::Keys::KEY_A));
-    assert(entries[1].val == 1);
-    assert(entries[2].type == tff::DebugEventType::TIMER_EXPIRED);
-    assert(entries[3].type == tff::DebugEventType::OUT_KEY_EVENT);
-    assert(entries[3].keycode == static_cast<uint16_t>(tff::Keys::KEY_B));
-    assert(entries[4].type == tff::DebugEventType::OUT_RAW_REPORT);
+    assert(entries.size() == 4);
+    assert(entries[0].dir == tff::DebugDirection::IN);
+    assert(entries[0].keycode == static_cast<uint16_t>(tff::Keys::KEY_A));
+    assert(entries[0].val == 1);
+    assert(entries[1].dir == tff::DebugDirection::IN);
+    assert(entries[1].val == 0);
+    assert(entries[2].dir == tff::DebugDirection::OUT);
+    assert(entries[2].val == 1);
+    assert(entries[3].dir == tff::DebugDirection::OUT);
+    assert(entries[3].val == 0);
 
-    // 2. Formatting verification
-    std::string dump = buf.formatDump(1000);
-    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
-    assert(dump.find("Uptime: 1.000s | Events: 5") != std::string::npos);
-    assert(dump.find("IN_RAW : mod=02") != std::string::npos);
-    assert(dump.find("IN_EV  :") != std::string::npos);
-    assert(dump.find("TIMER  : expired") != std::string::npos);
-    assert(dump.find("OUT_EV :") != std::string::npos);
-    assert(dump.find("OUT_RAW: mod=00") != std::string::npos);
-    assert(dump.find("=== END DUMP ===") != std::string::npos);
+    // 2. Formatting verification (test state string format)
+    std::string dump = buf.formatDump();
+    assert(dump == "IN: a_ (250ms) a/\nOUT: a_ (10ms) a/\n");
 
-    // 3. Circular rollover past capacity (64)
+    // 3. Test parsability directly by stateStringToEvents and parseDebugDump
+    std::vector<tff::Event> in_events, out_events;
+    std::string err;
+    bool ok = tff::stateStringToEvents("a_ (250ms) a/", in_events, err);
+    assert(ok);
+    assert(in_events.size() == 2);
+    assert(in_events[0].code == tff::Keys::KEY_A && in_events[0].value == tff::KEY_VAL_DOWN);
+    assert(in_events[1].code == tff::Keys::KEY_A && in_events[1].value == tff::KEY_VAL_UP);
+
+    ok = tff::parseDebugDump(dump, in_events, out_events, err);
+    assert(ok);
+    assert(in_events.size() == 2);
+    assert(out_events.size() == 2);
+    assert(out_events[0].code == tff::Keys::KEY_A && out_events[0].value == tff::KEY_VAL_DOWN);
+    assert(out_events[1].code == tff::Keys::KEY_A && out_events[1].value == tff::KEY_VAL_UP);
+
+    // 4. Circular rollover past capacity (64)
     buf.clear();
     assert(buf.empty());
     assert(buf.size() == 0);
@@ -609,7 +615,7 @@ static void test_debug_buffer() {
     assert(rolled.back().timestamp_ms == 1000 + 69 * 10);
     assert(rolled.back().keycode == 69);
 
-    // 4. Pause state
+    // 5. Pause state
     buf.setPaused(true);
     assert(buf.isPaused());
     buf.recordInKeyEvent(9999, tff::Keys::KEY_Z, true);
@@ -624,13 +630,13 @@ static void test_debug_buffer() {
     std::cout << "PASSED\n";
 }
 
-static void test_rp2040_debug_dump_chord() {
-    std::cout << "Test 15: RP2040 debug dump chord (d + f + j + k)... ";
+static void test_rp2040_debug_dump_f12() {
+    std::cout << "Test 15: RP2040 debug dump hotkey (F12)... ";
     RP2040Platform platform;
     bool ok = platform.initialize();
     assert(ok);
 
-    // 1. Normal keystroke before chord: Key A press and release
+    // 1. Normal keystroke before hotkey: Key A press and release
     platform.clearEmittedKeys();
     platform.setTimestamp(100);
     const uint8_t report_a[6] = {0x04, 0, 0, 0, 0, 0};
@@ -644,25 +650,28 @@ static void test_rp2040_debug_dump_chord() {
     assert(emitted_before[0] == tff::Keys::KEY_A);
     assert(platform.getLastDebugDump().empty());
 
-    // 2. Press d + f + j + k simultaneously
+    // 2. Press F12 (USB 0x45)
     platform.clearEmittedKeys();
     platform.setTimestamp(300);
-    const uint8_t report_chord[6] = {0x07, 0x09, 0x0D, 0x0E, 0, 0};
-    platform.processHostKeyboardReport(0, report_chord, 6);
+    const uint8_t report_f12[6] = {0x45, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_f12, 6);
 
     // Verify dump was triggered
     const std::string& dump = platform.getLastDebugDump();
     assert(!dump.empty());
-    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
-    assert(dump.find("=== END DUMP ===") != std::string::npos);
-    // Verify dump captured the earlier 'A' event
-    assert(dump.find("KEY_A") != std::string::npos);
+    assert(dump.find("IN: a_ (50ms) a/") != std::string::npos);
+    assert(dump.find("OUT: a_ (50ms) a/") != std::string::npos);
 
-    // 3. Release the chord
+    // Verify F12 itself was NOT emitted to host PC!
+    for (auto k : platform.getEmittedKeys()) {
+        assert(k != tff::Keys::KEY_F12);
+    }
+
+    // 3. Release F12
     platform.setTimestamp(400);
     platform.processHostKeyboardReport(0, report_empty, 6);
 
-    // 4. Normal keystroke after chord: Key B press and release
+    // 4. Normal keystroke after hotkey: Key B press and release
     platform.clearEmittedKeys();
     platform.setTimestamp(500);
     const uint8_t report_b[6] = {0x05, 0, 0, 0, 0, 0};
@@ -677,33 +686,35 @@ static void test_rp2040_debug_dump_chord() {
     std::cout << "PASSED\n";
 }
 
-static void test_rp2040_debug_dump_shift_d() {
-    std::cout << "Test 16: RP2040 debug dump chord (LeftShift + RightShift + D)... ";
+static void test_rp2040_debug_dump_pause() {
+    std::cout << "Test 16: RP2040 debug dump hotkey (Pause/Break)... ";
     RP2040Platform platform;
     bool ok = platform.initialize();
     assert(ok);
 
-    // 1. Press both Shifts (0x02 | 0x20 = 0x22)
-    platform.setTimestamp(100);
-    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
-    platform.processHostKeyboardReport(0x22, report_empty, 6);
-
-    // 2. Press 'D' (0x07) while holding both Shifts
+    // 1. Press Pause (USB 0x48)
     platform.clearEmittedKeys();
-    platform.setTimestamp(150);
-    const uint8_t report_d[6] = {0x07, 0, 0, 0, 0, 0};
-    platform.processHostKeyboardReport(0x22, report_d, 6);
+    platform.setTimestamp(100);
+    const uint8_t report_pause[6] = {0x48, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_pause, 6);
 
     // Verify dump was triggered
     const std::string& dump = platform.getLastDebugDump();
     assert(!dump.empty());
-    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
+    assert(dump.find("IN:") != std::string::npos);
+    assert(dump.find("OUT:") != std::string::npos);
 
-    // 3. Release all keys
+    // Verify Pause was NOT emitted to host PC
+    for (auto k : platform.getEmittedKeys()) {
+        assert(k != tff::Keys::KEY_PAUSE);
+    }
+
+    // 2. Release Pause
     platform.setTimestamp(200);
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
     platform.processHostKeyboardReport(0x00, report_empty, 6);
 
-    // 4. Subsequent key C should work cleanly without stuck modifiers
+    // 3. Subsequent key C should work cleanly
     platform.clearEmittedKeys();
     platform.setTimestamp(300);
     const uint8_t report_c[6] = {0x06, 0, 0, 0, 0, 0};
@@ -724,10 +735,13 @@ static void test_rp2040_cdc_dump_command() {
     bool ok = platform.initialize();
     assert(ok);
 
-    // Record an event
+    // Record an event: Key Z press and release
     platform.setTimestamp(100);
     const uint8_t report_z[6] = {0x1D, 0, 0, 0, 0, 0};  // Z
     platform.processHostKeyboardReport(0, report_z, 6);
+    platform.setTimestamp(150);
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_empty, 6);
 
     // Trigger dump via CDC callback interface
     platform.clearEmittedKeys();
@@ -735,8 +749,7 @@ static void test_rp2040_cdc_dump_command() {
 
     const std::string& dump = platform.getLastDebugDump();
     assert(!dump.empty());
-    assert(dump.find("=== TFF RP2040 DEBUG DUMP ===") != std::string::npos);
-    assert(dump.find("KEY_Z") != std::string::npos);
+    assert(dump == "IN: z_ (50ms) z/\nOUT: z_ (50ms) z/\n");
 
     // CDC dump does not type to HID, so emitted_down_keys should be empty
     assert(platform.getEmittedKeys().empty());
@@ -763,8 +776,8 @@ int main() {
     test_host_keyboard_report_processing();
     test_host_report_queue();
     test_debug_buffer();
-    test_rp2040_debug_dump_chord();
-    test_rp2040_debug_dump_shift_d();
+    test_rp2040_debug_dump_f12();
+    test_rp2040_debug_dump_pause();
     test_rp2040_cdc_dump_command();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";

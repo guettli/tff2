@@ -172,7 +172,7 @@ The Raspberry Pi RP2040 is an inexpensive 32-bit dual ARM Cortex-M0+ microcontro
 - **Universal Compatibility**: Works seamlessly in BIOS/UEFI setup screens, on corporate-restricted laptops, Apple macOS, Microsoft Windows, Linux, and iPad/tablets.
 - **Automated Flashing**: 1200-baud touch reset and `BOOTSEL` serial command for 100% button-free reflashing. Double-tap reset button also supported.
 - **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode or `./scripts/deploy_rp2040.sh`.
-- **Diagnostic Ring Buffer & Keystroke Dump**: Zero-heap 64-event circular log of raw HID inputs and outputs. Trigger a human-readable dump anytime with chord `d+f+j+k` or `LeftShift+RightShift+D` (types directly into active window) or via `tff dump` over USB serial CDC.
+- **Diagnostic Ring Buffer & Keystroke Dump**: Zero-heap 64-event circular log of keyboard transitions formatted as test state strings (`IN: d_ (250ms) d/ | OUT: ...`). Trigger a pure text dump anytime with dedicated hotkey `F12` or `Pause/Break` (types directly into active window) or via `tff dump` over USB serial CDC.
 - See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware setup, wiring, and flashing steps.
 
 ## Configuration
