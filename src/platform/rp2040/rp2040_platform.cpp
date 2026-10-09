@@ -287,10 +287,10 @@ void RP2040Platform::processHostKeyboardReport(uint8_t modifiers, const uint8_t*
         }
     }
 
-    // 2. Check for diagnostic dump hotkey (F12 = 0x45, Pause/Break = 0x48)
+    // 2. Check for diagnostic dump hotkey (F12 or Pause/Break)
     bool dump_hotkey_down = false;
     for (size_t i = 0; i < current_count; ++i) {
-        if (current_keys[i] == 0x45 || current_keys[i] == 0x48) {
+        if (tff::isDiagnosticDumpHotkey(convertUsbToKeyCode(current_keys[i]))) {
             dump_hotkey_down = true;
             // Remove the hotkey from current_keys so it is swallowed (never passed to engine/OS)
             for (size_t j = i; j + 1 < current_count; ++j) {
@@ -458,16 +458,11 @@ void RP2040Platform::clearEmittedKeys() {
 }
 
 void RP2040Platform::typeDumpString(const std::string& text) {
-    for (char c : text) {
-        tff::KeyCode code = 0;
-        bool shift = false;
-        if (!tff::asciiToKeyStroke(c, code, shift)) {
-            continue;
-        }
+    tff::emitKeyStrokesForText(text, [this](tff::KeyCode code, bool shift) {
 #ifdef PICO_BUILD
         uint8_t usb_code = convertKeyCodeToUsb(code);
         if (usb_code == 0) {
-            continue;
+            return;
         }
         if (tud_mounted()) {
             uint8_t mod = shift ? 0x02 : 0;
@@ -488,11 +483,12 @@ void RP2040Platform::typeDumpString(const std::string& text) {
             }
         }
 #else
+        (void)shift;
         if (writer_) {
             writer_->emitted_down_keys.push_back(static_cast<uint32_t>(code));
         }
 #endif
-    }
+    });
 }
 
 void RP2040Platform::triggerDebugDump(bool type_to_hid) {

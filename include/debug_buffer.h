@@ -20,7 +20,29 @@ struct DebugEntry {
 };
 
 /**
- * @brief Bounded, zero-heap event ring buffer for RP2040 diagnostics.
+ * @brief Checks if a given key is the dedicated diagnostic dump hotkey (F12 or Pause/Break).
+ */
+inline bool isDiagnosticDumpHotkey(KeyCode code) {
+    return code == Keys::KEY_F12 || code == Keys::KEY_PAUSE;
+}
+
+/**
+ * @brief Emits KeyCode and Shift states for each character in text using asciiToKeyStroke.
+ */
+template <typename EmitFn>
+inline void emitKeyStrokesForText(const std::string& text, EmitFn&& emit) {
+    for (char c : text) {
+        KeyCode code = 0;
+        bool shift = false;
+        if (!asciiToKeyStroke(c, code, shift)) {
+            continue;
+        }
+        emit(code, shift);
+    }
+}
+
+/**
+ * @brief Bounded, zero-heap event ring buffer for Linux & RP2040 diagnostics.
  *
  * Keeps the last CAPACITY events in static memory so users can trigger
  * a diagnostic dump of recent input/output transitions after observing
