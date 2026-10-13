@@ -1791,7 +1791,7 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
     for (char c : text) {
         KeyCode code = 0;
         bool shift = false;
-        if (!asciiToKeyStroke(c, code, shift)) {
+        if (!asciiToKeyStroke(c, code, shift, settings_.layout)) {
             continue;
         }
 

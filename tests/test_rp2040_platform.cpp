@@ -62,6 +62,8 @@ static void test_keycode_conversion() {
     assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_DELETE) == 0x4C);
     assert(RP2040Platform::convertUsbToKeyCode(0x39) == tff::Keys::KEY_CAPSLOCK);
     assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_CAPSLOCK) == 0x39);
+    assert(RP2040Platform::convertUsbToKeyCode(0x64) == tff::Keys::KEY_102ND);
+    assert(RP2040Platform::convertKeyCodeToUsb(tff::Keys::KEY_102ND) == 0x64);
 
     // Modifiers (all 8)
     assert(RP2040Platform::convertUsbToKeyCode(0xE0) == tff::Keys::KEY_LEFTCTRL);
@@ -757,6 +759,53 @@ static void test_rp2040_cdc_dump_command() {
     std::cout << "PASSED\n";
 }
 
+static void test_rp2040_debug_dump_german_layout() {
+    std::cout << "Test 18: RP2040 debug dump with German layout... ";
+    RP2040Platform platform;
+    bool ok = platform.initialize();
+    assert(ok);
+
+    tff::Settings s;
+    s.layout = "de";
+    platform.getEngine().setSettings(s);
+
+    // Send key Y (USB 0x1C) down and up
+    platform.setTimestamp(100);
+    const uint8_t report_y[6] = {0x1C, 0, 0, 0, 0, 0};
+    const uint8_t report_empty[6] = {0, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_y, 6);
+    platform.setTimestamp(150);
+    platform.processHostKeyboardReport(0, report_empty, 6);
+
+    platform.clearEmittedKeys();
+
+    // Trigger F12
+    platform.setTimestamp(200);
+    const uint8_t report_f12[6] = {0x45, 0, 0, 0, 0, 0};
+    platform.processHostKeyboardReport(0, report_f12, 6);
+
+    const auto& emitted = platform.getEmittedKeys();
+    assert(!emitted.empty());
+
+    // In German layout, ':' is KEY_DOT, and '_' is KEY_SLASH
+    bool has_dot = false;
+    bool has_semicolon = false;
+    bool has_slash = false;
+    for (auto k : emitted) {
+        if (k == tff::Keys::KEY_DOT)
+            has_dot = true;
+        if (k == tff::Keys::KEY_SEMICOLON)
+            has_semicolon = true;
+        if (k == tff::Keys::KEY_SLASH)
+            has_slash = true;
+    }
+    assert(has_dot);
+    assert(!has_semicolon);
+    assert(has_slash);
+
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "Testing RP2040 Platform with Unified TFFEngine\n";
@@ -779,6 +828,7 @@ int main() {
     test_rp2040_debug_dump_f12();
     test_rp2040_debug_dump_pause();
     test_rp2040_cdc_dump_command();
+    test_rp2040_debug_dump_german_layout();
 
     std::cout << "\nAll RP2040 platform unified engine tests passed!\n";
     return 0;

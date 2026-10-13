@@ -458,37 +458,41 @@ void RP2040Platform::clearEmittedKeys() {
 }
 
 void RP2040Platform::typeDumpString(const std::string& text) {
-    tff::emitKeyStrokesForText(text, [this](tff::KeyCode code, bool shift) {
+    std::string layout = engine_ ? engine_->getSettings().layout : "us";
+    tff::emitKeyStrokesForText(
+        text,
+        [this](tff::KeyCode code, bool shift) {
 #ifdef PICO_BUILD
-        uint8_t usb_code = convertKeyCodeToUsb(code);
-        if (usb_code == 0) {
-            return;
-        }
-        if (tud_mounted()) {
-            uint8_t mod = shift ? 0x02 : 0;
-            const uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
-            const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
+            uint8_t usb_code = convertKeyCodeToUsb(code);
+            if (usb_code == 0) {
+                return;
+            }
+            if (tud_mounted()) {
+                uint8_t mod = shift ? 0x02 : 0;
+                const uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
+                const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
 
-            while (!tud_hid_ready() && tud_mounted()) {
-                tud_task();
+                while (!tud_hid_ready() && tud_mounted()) {
+                    tud_task();
+                }
+                if (tud_mounted()) {
+                    tud_hid_keyboard_report(0, mod, report_keys);
+                }
+                while (!tud_hid_ready() && tud_mounted()) {
+                    tud_task();
+                }
+                if (tud_mounted()) {
+                    tud_hid_keyboard_report(0, 0, empty_keys);
+                }
             }
-            if (tud_mounted()) {
-                tud_hid_keyboard_report(0, mod, report_keys);
-            }
-            while (!tud_hid_ready() && tud_mounted()) {
-                tud_task();
-            }
-            if (tud_mounted()) {
-                tud_hid_keyboard_report(0, 0, empty_keys);
-            }
-        }
 #else
-        (void)shift;
-        if (writer_) {
-            writer_->emitted_down_keys.push_back(static_cast<uint32_t>(code));
-        }
+            (void)shift;
+            if (writer_) {
+                writer_->emitted_down_keys.push_back(static_cast<uint32_t>(code));
+            }
 #endif
-    });
+        },
+        layout);
 }
 
 void RP2040Platform::triggerDebugDump(bool type_to_hid) {
@@ -822,6 +826,8 @@ tff::KeyCode RP2040Platform::convertUsbToKeyCode(uint8_t usb_keycode) {
             return tff::Keys::KEY_KP0;
         case 0x63:
             return tff::Keys::KEY_KPDOT;
+        case 0x64:
+            return tff::Keys::KEY_102ND;
 
         case 0xE0:
             return tff::Keys::KEY_LEFTCTRL;
@@ -976,6 +982,8 @@ uint8_t RP2040Platform::convertKeyCodeToUsb(tff::KeyCode internal_keycode) {
             return 0x42;
         case tff::Keys::KEY_F10:
             return 0x43;
+        case tff::Keys::KEY_102ND:
+            return 0x64;
         case tff::Keys::KEY_F11:
             return 0x44;
         case tff::Keys::KEY_F12:

@@ -1404,6 +1404,15 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     return false;
                 }
                 config.settings.notifications = b;
+            } else if (k == "layout") {
+                std::string l = toLower(unquoteAndUnescape(trim(v)));
+                if (!isValidLayout(l)) {
+                    err_msg = "unsupported layout '" + v +
+                              "' in settings (supported: 'us', 'de', 'fr', 'gb', 'uk', 'es', 'it', "
+                              "'neo', 'dvorak', 'colemak')";
+                    return false;
+                }
+                config.settings.layout = normalizeLayout(l);
             } else if (k == "devices" || k == "device") {
                 if (!v.empty()) {
                     std::stringstream ss(v);
@@ -1601,7 +1610,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     for (char ch : snippet) {
                         KeyCode kc = 0;
                         bool shift = false;
-                        if (!asciiToKeyStroke(ch, kc, shift)) {
+                        if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
+                            !asciiToKeyStroke(ch, kc, shift, "us")) {
                             err_msg = "unsupported character in text snippet: '" +
                                       std::string(1, ch) + "'";
                             return false;
@@ -1700,7 +1710,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 for (char ch : snippet) {
                     KeyCode kc = 0;
                     bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
+                        !asciiToKeyStroke(ch, kc, shift, "us")) {
                         err_msg =
                             "unsupported character in text snippet: '" + std::string(1, ch) + "'";
                         return false;
@@ -2705,7 +2716,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 for (char ch : current_text) {
                     KeyCode kc = 0;
                     bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
+                        !asciiToKeyStroke(ch, kc, shift, "us")) {
                         err_msg =
                             "unsupported character in text snippet: '" + std::string(1, ch) + "'";
                         return false;
@@ -2934,7 +2946,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 for (char ch : snippet) {
                     KeyCode kc = 0;
                     bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
+                        !asciiToKeyStroke(ch, kc, shift, "us")) {
                         err_msg =
                             "unsupported character in text snippet: '" + std::string(1, ch) + "'";
                         return false;
@@ -3229,7 +3242,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 for (char ch : seq.text) {
                     KeyCode kc = 0;
                     bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
+                        !asciiToKeyStroke(ch, kc, shift, "us")) {
                         err_msg = "unsupported character in leader text snippet: '" +
                                   std::string(1, ch) + "'";
                         return false;
@@ -3374,7 +3388,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 for (char ch : act.text) {
                     KeyCode kc = 0;
                     bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift)) {
+                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
+                        !asciiToKeyStroke(ch, kc, shift, "us")) {
                         err_msg = "unsupported character in tap_dance text snippet: '" +
                                   std::string(1, ch) + "'";
                         return false;
