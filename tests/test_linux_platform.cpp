@@ -622,6 +622,10 @@ void testDiagnosticDumpGermanLayoutLinux() {
     platform.sendKeyEvent(tff::Keys::KEY_Y, true);
     platform.sendKeyEvent(tff::Keys::KEY_Y, false);
 
+    // Clear keys recorded from normal keystrokes before F12
+    std::vector<uint32_t> init_keys;
+    platform.receiveMappedKeys(init_keys);
+
     // Trigger F12
     platform.sendKeyEvent(tff::Keys::KEY_F12, true);
 

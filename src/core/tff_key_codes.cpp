@@ -1649,26 +1649,42 @@ bool asciiToKeyStrokeNeo(char c, KeyCode& code, bool& shift) {
     unsigned char uc = static_cast<unsigned char>(c);
 
     // Neo 2 letter mapping
-    static const struct {
-        char ch;
-        KeyCode kc;
-    } NEO_LETTERS[26] = {{'a', Keys::KEY_D},          {'b', Keys::KEY_N}, {'c', Keys::KEY_R},
-                         {'d', Keys::KEY_SEMICOLON},  {'e', Keys::KEY_F}, {'f', Keys::KEY_O},
-                         {'g', Keys::KEY_I},          {'h', Keys::KEY_U}, {'i', Keys::KEY_S},
-                         {'j', Keys::KEY_SLASH},      {'k', Keys::KEY_Y}, {'l', Keys::KEY_E},
-                         {'m', Keys::KEY_M},          {'n', Keys::KEY_J}, {'o', Keys::KEY_G},
-                         {'p', Keys::KEY_V},          {'q', Keys::KEY_P}, {'r', Keys::KEY_K},
-                         {'s', Keys::KEY_H},          {'t', Keys::KEY_L}, {'u', Keys::KEY_A},
-                         {'v', Keys::KEY_W},          {'w', Keys::KEY_T}, {'x', Keys::KEY_Q},
-                         {'y', Keys::KEY_APOSTROPHE}, {'z', Keys::KEY_B}};
+    static const KeyCode NEO_LETTERS[26] = {
+        Keys::KEY_D,           // a
+        Keys::KEY_N,           // b
+        Keys::KEY_R,           // c
+        Keys::KEY_SEMICOLON,   // d
+        Keys::KEY_F,           // e
+        Keys::KEY_O,           // f
+        Keys::KEY_I,           // g
+        Keys::KEY_U,           // h
+        Keys::KEY_S,           // i
+        Keys::KEY_SLASH,       // j
+        Keys::KEY_Y,           // k
+        Keys::KEY_E,           // l
+        Keys::KEY_M,           // m
+        Keys::KEY_J,           // n
+        Keys::KEY_G,           // o
+        Keys::KEY_V,           // p
+        Keys::KEY_P,           // q
+        Keys::KEY_K,           // r
+        Keys::KEY_H,           // s
+        Keys::KEY_L,           // t
+        Keys::KEY_A,           // u
+        Keys::KEY_W,           // v
+        Keys::KEY_T,           // w
+        Keys::KEY_Q,           // x
+        Keys::KEY_APOSTROPHE,  // y
+        Keys::KEY_B            // z
+    };
 
     if (uc >= 'a' && uc <= 'z') {
-        code = NEO_LETTERS[uc - 'a'].kc;
+        code = NEO_LETTERS[uc - 'a'];
         shift = false;
         return true;
     }
     if (uc >= 'A' && uc <= 'Z') {
-        code = NEO_LETTERS[uc - 'A'].kc;
+        code = NEO_LETTERS[uc - 'A'];
         shift = true;
         return true;
     }
@@ -1728,25 +1744,42 @@ bool asciiToKeyStrokeDvorak(char c, KeyCode& code, bool& shift) {
     shift = false;
     unsigned char uc = static_cast<unsigned char>(c);
 
-    static const struct {
-        char ch;
-        KeyCode kc;
-    } DVORAK_LETTERS[26] = {
-        {'a', Keys::KEY_A}, {'b', Keys::KEY_N},    {'c', Keys::KEY_I},         {'d', Keys::KEY_H},
-        {'e', Keys::KEY_D}, {'f', Keys::KEY_Y},    {'g', Keys::KEY_U},         {'h', Keys::KEY_J},
-        {'i', Keys::KEY_G}, {'j', Keys::KEY_C},    {'k', Keys::KEY_V},         {'l', Keys::KEY_P},
-        {'m', Keys::KEY_M}, {'n', Keys::KEY_L},    {'o', Keys::KEY_S},         {'p', Keys::KEY_R},
-        {'q', Keys::KEY_X}, {'r', Keys::KEY_O},    {'s', Keys::KEY_SEMICOLON}, {'t', Keys::KEY_K},
-        {'u', Keys::KEY_F}, {'v', Keys::KEY_DOT},  {'w', Keys::KEY_COMMA},     {'x', Keys::KEY_B},
-        {'y', Keys::KEY_T}, {'z', Keys::KEY_SLASH}};
+    static const KeyCode DVORAK_LETTERS[26] = {
+        Keys::KEY_A,          // a
+        Keys::KEY_N,          // b
+        Keys::KEY_I,          // c
+        Keys::KEY_H,          // d
+        Keys::KEY_D,          // e
+        Keys::KEY_Y,          // f
+        Keys::KEY_U,          // g
+        Keys::KEY_J,          // h
+        Keys::KEY_G,          // i
+        Keys::KEY_C,          // j
+        Keys::KEY_V,          // k
+        Keys::KEY_P,          // l
+        Keys::KEY_M,          // m
+        Keys::KEY_L,          // n
+        Keys::KEY_S,          // o
+        Keys::KEY_R,          // p
+        Keys::KEY_X,          // q
+        Keys::KEY_O,          // r
+        Keys::KEY_SEMICOLON,  // s
+        Keys::KEY_K,          // t
+        Keys::KEY_F,          // u
+        Keys::KEY_DOT,        // v
+        Keys::KEY_COMMA,      // w
+        Keys::KEY_B,          // x
+        Keys::KEY_T,          // y
+        Keys::KEY_SLASH       // z
+    };
 
     if (uc >= 'a' && uc <= 'z') {
-        code = DVORAK_LETTERS[uc - 'a'].kc;
+        code = DVORAK_LETTERS[uc - 'a'];
         shift = false;
         return true;
     }
     if (uc >= 'A' && uc <= 'Z') {
-        code = DVORAK_LETTERS[uc - 'A'].kc;
+        code = DVORAK_LETTERS[uc - 'A'];
         shift = true;
         return true;
     }
@@ -1908,25 +1941,42 @@ bool asciiToKeyStrokeColemak(char c, KeyCode& code, bool& shift) {
     shift = false;
     unsigned char uc = static_cast<unsigned char>(c);
 
-    static const struct {
-        char ch;
-        KeyCode kc;
-    } COLEMAK_LETTERS[26] = {
-        {'a', Keys::KEY_A}, {'b', Keys::KEY_B}, {'c', Keys::KEY_C},         {'d', Keys::KEY_G},
-        {'e', Keys::KEY_K}, {'f', Keys::KEY_E}, {'g', Keys::KEY_T},         {'h', Keys::KEY_H},
-        {'i', Keys::KEY_L}, {'j', Keys::KEY_Y}, {'k', Keys::KEY_N},         {'l', Keys::KEY_U},
-        {'m', Keys::KEY_M}, {'n', Keys::KEY_J}, {'o', Keys::KEY_SEMICOLON}, {'p', Keys::KEY_R},
-        {'q', Keys::KEY_Q}, {'r', Keys::KEY_S}, {'s', Keys::KEY_D},         {'t', Keys::KEY_F},
-        {'u', Keys::KEY_I}, {'v', Keys::KEY_V}, {'w', Keys::KEY_W},         {'x', Keys::KEY_X},
-        {'y', Keys::KEY_O}, {'z', Keys::KEY_Z}};
+    static const KeyCode COLEMAK_LETTERS[26] = {
+        Keys::KEY_A,          // a
+        Keys::KEY_B,          // b
+        Keys::KEY_C,          // c
+        Keys::KEY_G,          // d
+        Keys::KEY_K,          // e
+        Keys::KEY_E,          // f
+        Keys::KEY_T,          // g
+        Keys::KEY_H,          // h
+        Keys::KEY_L,          // i
+        Keys::KEY_Y,          // j
+        Keys::KEY_N,          // k
+        Keys::KEY_U,          // l
+        Keys::KEY_M,          // m
+        Keys::KEY_J,          // n
+        Keys::KEY_SEMICOLON,  // o
+        Keys::KEY_R,          // p
+        Keys::KEY_Q,          // q
+        Keys::KEY_S,          // r
+        Keys::KEY_D,          // s
+        Keys::KEY_F,          // t
+        Keys::KEY_I,          // u
+        Keys::KEY_V,          // v
+        Keys::KEY_W,          // w
+        Keys::KEY_X,          // x
+        Keys::KEY_O,          // y
+        Keys::KEY_Z           // z
+    };
 
     if (uc >= 'a' && uc <= 'z') {
-        code = COLEMAK_LETTERS[uc - 'a'].kc;
+        code = COLEMAK_LETTERS[uc - 'a'];
         shift = false;
         return true;
     }
     if (uc >= 'A' && uc <= 'Z') {
-        code = COLEMAK_LETTERS[uc - 'A'].kc;
+        code = COLEMAK_LETTERS[uc - 'A'];
         shift = true;
         return true;
     }

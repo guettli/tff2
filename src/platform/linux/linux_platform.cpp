@@ -1245,6 +1245,7 @@ void LinuxPlatform::typeDumpString(const std::string& text) {
     tff::emitKeyStrokesForText(
         text,
         [this](tff::KeyCode code, bool shift) {
+            received_keys_.push_back(code);
             if (uinput_fd_ >= 0) {
                 if (shift) {
                     emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 1);
@@ -1258,8 +1259,6 @@ void LinuxPlatform::typeDumpString(const std::string& text) {
                     emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 0);
                     emitUinputRaw(EV_SYN, SYN_REPORT, 0);
                 }
-            } else {
-                received_keys_.push_back(code);
             }
         },
         layout);
