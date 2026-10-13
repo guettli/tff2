@@ -430,6 +430,7 @@ combos:
         assert(cfg_default.settings.exclusive_grab == true);
         assert(cfg_default.settings.hotplug == false);
         assert(cfg_default.settings.notifications == false);
+        assert(cfg_default.settings.layout == "us");
         assert(cfg_default.settings.devices.empty());
 
         // 2. Custom settings and propagation to tap_hold default timeout
@@ -440,6 +441,7 @@ settings:
   exclusive_grab: false
   hotplug: false
   notifications: true
+  layout: de
 
 combos:
   j f: backspace
@@ -460,6 +462,7 @@ tap_hold:
         assert(cfg_custom.settings.exclusive_grab == false);
         assert(cfg_custom.settings.hotplug == false);
         assert(cfg_custom.settings.notifications == true);
+        assert(cfg_custom.settings.layout == "de");
         assert(cfg_custom.tap_hold_keys.size() == 2);
         // capslock inherited custom default (350ms)
         assert(cfg_custom.tap_hold_keys[0].timeout_us == 350000LL);
@@ -527,6 +530,31 @@ settings:
         tff::Config cfg_bad_notify;
         assert(!tff::loadYamlConfig(bad_notify_yaml, cfg_bad_notify, err_msg));
         assert(err_msg.find("invalid boolean for notifications") != std::string::npos);
+
+        // Validation: invalid layout
+        std::string bad_layout_yaml = R"(
+settings:
+  layout: klingon
+)";
+        tff::Config cfg_bad_layout;
+        assert(!tff::loadYamlConfig(bad_layout_yaml, cfg_bad_layout, err_msg));
+        assert(err_msg.find("unsupported layout 'klingon'") != std::string::npos);
+
+        // Layout normalization ("uk" -> "gb", "FR" -> "fr", "Dvorak" -> "dvorak")
+        std::string uk_layout_yaml = R"(
+settings:
+  layout: UK
+)";
+        tff::Config cfg_uk;
+        assert(tff::loadYamlConfig(uk_layout_yaml, cfg_uk, err_msg));
+        assert(cfg_uk.settings.layout == "gb");
+
+        for (const char* l_name : {"fr", "es", "it", "dvorak", "colemak", "neo"}) {
+            std::string lay_yaml = "settings:\n  layout: " + std::string(l_name) + "\n";
+            tff::Config cfg_l;
+            assert(tff::loadYamlConfig(lay_yaml, cfg_l, err_msg));
+            assert(cfg_l.settings.layout == l_name);
+        }
 
         // 8. Validation: mapping value error without colon
         std::string no_colon_yaml = R"(

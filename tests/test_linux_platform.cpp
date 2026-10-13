@@ -609,6 +609,55 @@ void testDiagnosticDumpLinux() {
     std::cout << "PASSED\n";
 }
 
+void testDiagnosticDumpGermanLayoutLinux() {
+    std::cout << "Test 16: LinuxPlatform diagnostic dump with German layout... ";
+    LinuxPlatform platform;
+    platform.initialize();
+
+    tff::Settings s;
+    s.layout = "de";
+    platform.getEngine().setSettings(s);
+
+    // Send key Y down and up
+    platform.sendKeyEvent(tff::Keys::KEY_Y, true);
+    platform.sendKeyEvent(tff::Keys::KEY_Y, false);
+
+    // Clear keys recorded from normal keystrokes before F12
+    std::vector<uint32_t> init_keys;
+    platform.receiveMappedKeys(init_keys);
+
+    // Trigger F12
+    platform.sendKeyEvent(tff::Keys::KEY_F12, true);
+
+    const std::string& dump = platform.getLastDebugDump();
+    assert(!dump.empty());
+    assert(dump.find("IN: y_") != std::string::npos);
+
+    // Check received_keys_ (the synthesized keystrokes typed out by typeDumpString)
+    std::vector<uint32_t> typed_keys;
+    platform.receiveMappedKeys(typed_keys);
+    assert(!typed_keys.empty());
+
+    // In German layout, ':' is KEY_DOT (not KEY_SEMICOLON), and '_' is KEY_SLASH (not KEY_MINUS)
+    bool has_dot = false;
+    bool has_semicolon = false;
+    bool has_slash = false;
+    for (auto k : typed_keys) {
+        if (k == tff::Keys::KEY_DOT)
+            has_dot = true;
+        if (k == tff::Keys::KEY_SEMICOLON)
+            has_semicolon = true;
+        if (k == tff::Keys::KEY_SLASH)
+            has_slash = true;
+    }
+    assert(has_dot);         // ':' synthesized as KEY_DOT
+    assert(!has_semicolon);  // ':' is NOT KEY_SEMICOLON on German layout
+    assert(has_slash);       // '_' synthesized as KEY_SLASH
+
+    platform.cleanup();
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "=== Linux Platform Tests ===\n";
     testInitialization();
@@ -626,6 +675,7 @@ int main() {
     testLayerToggleNotifications();
     testHotplugDefaultAndXorBehavior();
     testDiagnosticDumpLinux();
+    testDiagnosticDumpGermanLayoutLinux();
     std::cout << "All Linux platform tests PASSED!\n";
     return 0;
 }

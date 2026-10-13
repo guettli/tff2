@@ -93,6 +93,7 @@ constexpr KeyCode KEY_KP2 = 80;
 constexpr KeyCode KEY_KP3 = 81;
 constexpr KeyCode KEY_KP0 = 82;
 constexpr KeyCode KEY_KPDOT = 83;
+constexpr KeyCode KEY_102ND = 86;
 constexpr KeyCode KEY_F11 = 87;
 constexpr KeyCode KEY_F12 = 88;
 constexpr KeyCode KEY_KPENTER = 96;
@@ -180,13 +181,28 @@ bool parseTypeName(const std::string& name, uint16_t& out_type);
 bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code);
 
 /**
- * @brief Translates a printable ASCII character (or \t, \n) into an evdev KeyCode and Shift flag.
+ * @brief Translates a printable ASCII character (or \t, \n) into an evdev KeyCode and Shift flag
+ * for a given host keyboard layout.
  * @param c The input ASCII character.
  * @param code Output evdev keycode.
  * @param shift Output boolean set to true if LeftShift modifier is required.
+ * @param layout Host keyboard layout ("us", "de", "fr", "gb", "uk", "es", "it", "neo", "dvorak",
+ * "colemak"). Defaults to "us".
  * @return True if character was successfully mapped, false if unsupported.
  */
-bool asciiToKeyStroke(char c, KeyCode& code, bool& shift);
+bool asciiToKeyStroke(char c, KeyCode& code, bool& shift, const std::string& layout = "us");
+
+/**
+ * @brief Checks if a layout identifier is supported ("us", "de", "fr", "gb", "uk", "es", "it",
+ * "neo", "dvorak", "colemak").
+ */
+bool isValidLayout(const std::string& layout);
+
+/**
+ * @brief Normalizes a layout identifier to lowercase canonical form (e.g. "uk" -> "gb", "DE" ->
+ * "de").
+ */
+std::string normalizeLayout(const std::string& layout);
 
 /**
  * @brief Checks if a KeyCode is a standard keyboard modifier (Ctrl, Shift, Alt, Super/Meta).

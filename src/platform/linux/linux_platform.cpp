@@ -1241,24 +1241,27 @@ void LinuxPlatform::emitUinputRaw(uint16_t type, uint16_t code, int32_t value) {
 }
 
 void LinuxPlatform::typeDumpString(const std::string& text) {
-    tff::emitKeyStrokesForText(text, [this](tff::KeyCode code, bool shift) {
-        if (uinput_fd_ >= 0) {
-            if (shift) {
-                emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 1);
-                emitUinputRaw(EV_SYN, SYN_REPORT, 0);
-            }
-            emitUinputRaw(EV_KEY, code, 1);
-            emitUinputRaw(EV_SYN, SYN_REPORT, 0);
-            emitUinputRaw(EV_KEY, code, 0);
-            emitUinputRaw(EV_SYN, SYN_REPORT, 0);
-            if (shift) {
-                emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 0);
-                emitUinputRaw(EV_SYN, SYN_REPORT, 0);
-            }
-        } else {
+    std::string layout = engine_ ? engine_->getSettings().layout : "us";
+    tff::emitKeyStrokesForText(
+        text,
+        [this](tff::KeyCode code, bool shift) {
             received_keys_.push_back(code);
-        }
-    });
+            if (uinput_fd_ >= 0) {
+                if (shift) {
+                    emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 1);
+                    emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                }
+                emitUinputRaw(EV_KEY, code, 1);
+                emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                emitUinputRaw(EV_KEY, code, 0);
+                emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                if (shift) {
+                    emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 0);
+                    emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                }
+            }
+        },
+        layout);
 }
 
 void LinuxPlatform::triggerDebugDump() {

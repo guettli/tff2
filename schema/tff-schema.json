@@ -81,6 +81,12 @@
           "type": "boolean",
           "default": false,
           "description": "Alias for notifications"
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["us", "de", "fr", "gb", "uk", "es", "it", "neo", "dvorak", "colemak"],
+          "default": "us",
+          "description": "Host keyboard layout for text and diagnostic dump emission (e.g. us, de, fr, gb, uk, es, it, neo, dvorak, colemak)"
         }
       },
       "additionalProperties": false

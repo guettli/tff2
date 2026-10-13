@@ -44,6 +44,36 @@ static void runAndCheck(const std::vector<Event>& input_events, const std::vecto
     }
 }
 
+static void runAndCheckWithLayout(const std::vector<Event>& input_events,
+                                  const std::vector<Combo>& combos, const std::string& layout,
+                                  const std::string& expected_output,
+                                  const std::string& test_name) {
+    VectorWriter writer;
+    TFFEngine engine(&writer, combos);
+    Settings s;
+    s.layout = layout;
+    engine.setSettings(s);
+    engine.setFakeActiveTimer(true);
+
+    for (const auto& ev : input_events) {
+        if (!engine.processEvent(ev)) {
+            break;
+        }
+    }
+    engine.finish();
+
+    std::string actual = eventsToShortCsv(writer.events);
+    std::string norm_actual = normalizeShortCsv(actual);
+    std::string norm_expected = normalizeShortCsv(expected_output);
+
+    if (norm_actual != norm_expected) {
+        std::cerr << "FAIL in " << test_name << "\n";
+        std::cerr << "Expected:\n[" << norm_expected << "]\n";
+        std::cerr << "Actual:\n[" << norm_actual << "]\n";
+        assert(false);
+    }
+}
+
 // 1. Test asciiToKeyStroke mapping for alphanumeric, whitespace, and symbols
 void test_ascii_to_keystroke_mapping() {
     std::cout << "[TEST] ASCII to keystroke mapping... ";
@@ -126,6 +156,167 @@ void test_ascii_to_keystroke_mapping() {
     assert(!asciiToKeyStroke('\x01', code, shift));
     assert(!asciiToKeyStroke('\x7f', code, shift));
 
+    std::cout << "OK\n";
+}
+
+void test_ascii_to_keystroke_mapping_de() {
+    std::cout << "[TEST] German (de) layout keystroke mapping... ";
+    KeyCode code = 0;
+    bool shift = false;
+
+    // y <-> z swap
+    assert(asciiToKeyStroke('y', code, shift, "de") && !shift && code == Keys::KEY_Z);
+    assert(asciiToKeyStroke('Y', code, shift, "de") && shift && code == Keys::KEY_Z);
+    assert(asciiToKeyStroke('z', code, shift, "de") && !shift && code == Keys::KEY_Y);
+    assert(asciiToKeyStroke('Z', code, shift, "de") && shift && code == Keys::KEY_Y);
+
+    // Diagnostic dump punctuation
+    assert(asciiToKeyStroke(':', code, shift, "de") && shift && code == Keys::KEY_DOT);
+    assert(asciiToKeyStroke('_', code, shift, "de") && shift && code == Keys::KEY_SLASH);
+    assert(asciiToKeyStroke('/', code, shift, "de") && shift && code == Keys::KEY_7);
+    assert(asciiToKeyStroke('(', code, shift, "de") && shift && code == Keys::KEY_8);
+    assert(asciiToKeyStroke(')', code, shift, "de") && shift && code == Keys::KEY_9);
+    assert(asciiToKeyStroke('-', code, shift, "de") && !shift && code == Keys::KEY_SLASH);
+    assert(asciiToKeyStroke('=', code, shift, "de") && shift && code == Keys::KEY_0);
+    assert(asciiToKeyStroke('?', code, shift, "de") && shift && code == Keys::KEY_MINUS);
+    assert(asciiToKeyStroke('+', code, shift, "de") && !shift && code == Keys::KEY_RIGHTBRACE);
+    assert(asciiToKeyStroke('*', code, shift, "de") && shift && code == Keys::KEY_RIGHTBRACE);
+    assert(asciiToKeyStroke(';', code, shift, "de") && shift && code == Keys::KEY_COMMA);
+    assert(asciiToKeyStroke('<', code, shift, "de") && !shift && code == Keys::KEY_102ND);
+    assert(asciiToKeyStroke('>', code, shift, "de") && shift && code == Keys::KEY_102ND);
+
+    // Full diagnostic dump string translation check
+    std::string dump = "IN: semicolon_ a_ (250ms) a/ semicolon/\nOUT: home_ home/\n";
+    for (char c : dump) {
+        assert(asciiToKeyStroke(c, code, shift, "de"));
+    }
+
+    std::cout << "OK\n";
+}
+
+void test_ascii_to_keystroke_mapping_fr() {
+    std::cout << "[TEST] French (fr) AZERTY layout keystroke mapping... ";
+    KeyCode code = 0;
+    bool shift = false;
+
+    // AZERTY letters
+    assert(asciiToKeyStroke('a', code, shift, "fr") && !shift && code == Keys::KEY_Q);
+    assert(asciiToKeyStroke('q', code, shift, "fr") && !shift && code == Keys::KEY_A);
+    assert(asciiToKeyStroke('z', code, shift, "fr") && !shift && code == Keys::KEY_W);
+    assert(asciiToKeyStroke('w', code, shift, "fr") && !shift && code == Keys::KEY_Z);
+    assert(asciiToKeyStroke('m', code, shift, "fr") && !shift && code == Keys::KEY_SEMICOLON);
+
+    // Digits require Shift in AZERTY
+    for (char c = '1'; c <= '9'; ++c) {
+        assert(asciiToKeyStroke(c, code, shift, "fr") && shift &&
+               code == static_cast<KeyCode>(Keys::KEY_1 + (c - '1')));
+    }
+    assert(asciiToKeyStroke('0', code, shift, "fr") && shift && code == Keys::KEY_0);
+
+    // Punctuation
+    assert(asciiToKeyStroke(':', code, shift, "fr") && !shift && code == Keys::KEY_DOT);
+    assert(asciiToKeyStroke(';', code, shift, "fr") && !shift && code == Keys::KEY_COMMA);
+    assert(asciiToKeyStroke(',', code, shift, "fr") && !shift && code == Keys::KEY_M);
+    assert(asciiToKeyStroke('/', code, shift, "fr") && shift && code == Keys::KEY_DOT);
+    assert(asciiToKeyStroke('(', code, shift, "fr") && !shift && code == Keys::KEY_5);
+    assert(asciiToKeyStroke(')', code, shift, "fr") && !shift && code == Keys::KEY_MINUS);
+    assert(asciiToKeyStroke('_', code, shift, "fr") && !shift && code == Keys::KEY_8);
+
+    // Full diagnostic dump string translation check
+    std::string dump = "IN: semicolon_ a_ (250ms) a/ semicolon/\nOUT: home_ home/\n";
+    for (char c : dump) {
+        assert(asciiToKeyStroke(c, code, shift, "fr"));
+    }
+
+    std::cout << "OK\n";
+}
+
+void test_ascii_to_keystroke_mapping_gb() {
+    std::cout << "[TEST] UK English (gb/uk) layout keystroke mapping... ";
+    KeyCode code = 0;
+    bool shift = false;
+
+    assert(asciiToKeyStroke('"', code, shift, "gb") && shift && code == Keys::KEY_2);
+    assert(asciiToKeyStroke('@', code, shift, "gb") && shift && code == Keys::KEY_APOSTROPHE);
+    assert(asciiToKeyStroke('#', code, shift, "gb") && !shift && code == Keys::KEY_BACKSLASH);
+    assert(asciiToKeyStroke('~', code, shift, "gb") && shift && code == Keys::KEY_BACKSLASH);
+    assert(asciiToKeyStroke('\\', code, shift, "gb") && !shift && code == Keys::KEY_102ND);
+    assert(asciiToKeyStroke('|', code, shift, "gb") && shift && code == Keys::KEY_102ND);
+
+    // Normalization check ("uk" alias for "gb")
+    assert(asciiToKeyStroke('"', code, shift, "uk") && shift && code == Keys::KEY_2);
+
+    std::string dump = "IN: semicolon_ a_ (250ms) a/ semicolon/\nOUT: home_ home/\n";
+    for (char c : dump) {
+        assert(asciiToKeyStroke(c, code, shift, "gb"));
+    }
+
+    std::cout << "OK\n";
+}
+
+void test_ascii_to_keystroke_mapping_other_layouts() {
+    std::cout << "[TEST] Spanish, Italian, Dvorak, Colemak, Neo layouts... ";
+    KeyCode code = 0;
+    bool shift = false;
+
+    // Spanish / Italian
+    assert(asciiToKeyStroke(':', code, shift, "es") && shift && code == Keys::KEY_DOT);
+    assert(asciiToKeyStroke(':', code, shift, "it") && shift && code == Keys::KEY_DOT);
+    assert(asciiToKeyStroke('_', code, shift, "es") && shift && code == Keys::KEY_SLASH);
+    assert(asciiToKeyStroke('/', code, shift, "it") && shift && code == Keys::KEY_7);
+
+    // Dvorak
+    assert(asciiToKeyStroke('c', code, shift, "dvorak") && !shift && code == Keys::KEY_I);
+    assert(asciiToKeyStroke(':', code, shift, "dvorak") && shift && code == Keys::KEY_Z);
+    assert(asciiToKeyStroke('_', code, shift, "dvorak") && shift && code == Keys::KEY_APOSTROPHE);
+
+    // Colemak
+    assert(asciiToKeyStroke('f', code, shift, "colemak") && !shift && code == Keys::KEY_E);
+    assert(asciiToKeyStroke(';', code, shift, "colemak") && !shift && code == Keys::KEY_P);
+    assert(asciiToKeyStroke(':', code, shift, "colemak") && shift && code == Keys::KEY_P);
+
+    // Neo
+    assert(asciiToKeyStroke('a', code, shift, "neo") && !shift && code == Keys::KEY_D);
+    assert(asciiToKeyStroke('e', code, shift, "neo") && !shift && code == Keys::KEY_F);
+
+    std::string dump = "IN: semicolon_ a_ (250ms) a/ semicolon/\nOUT: home_ home/\n";
+    for (const char* lay : {"es", "it", "dvorak", "colemak", "neo"}) {
+        for (char c : dump) {
+            assert(asciiToKeyStroke(c, code, shift, lay));
+        }
+    }
+
+    std::cout << "OK\n";
+}
+
+void test_engine_emission_german_layout() {
+    std::cout << "[TEST] Engine text emission with German (de) layout... ";
+
+    std::string yaml = "combos:\n  f n: \"y:\"\n";
+    std::vector<Combo> combos;
+    std::string err;
+    assert(loadYamlCombos(yaml, combos, err));
+
+    int64_t t = 1000000;
+    std::vector<Event> inputs = {
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
+    };
+
+    // In German layout:
+    // 'y' -> KEY_Z
+    // ':' -> LEFTSHIFT + KEY_DOT
+    std::string expected =
+        "Z-down\n"
+        "Z-up\n"
+        "LEFTSHIFT-down\n"
+        "DOT-down\n"
+        "DOT-up\n"
+        "LEFTSHIFT-up\n";
+
+    runAndCheckWithLayout(inputs, combos, "de", expected, "test_engine_emission_german_layout");
     std::cout << "OK\n";
 }
 
@@ -412,6 +603,11 @@ int main() {
     std::cout << "Running text snippet tests...\n";
 
     test_ascii_to_keystroke_mapping();
+    test_ascii_to_keystroke_mapping_de();
+    test_ascii_to_keystroke_mapping_fr();
+    test_ascii_to_keystroke_mapping_gb();
+    test_ascii_to_keystroke_mapping_other_layouts();
+    test_engine_emission_german_layout();
     test_yaml_parser_compact_syntax();
     test_yaml_parser_symmetric_and_leader();
     test_yaml_parser_classic_syntax();
