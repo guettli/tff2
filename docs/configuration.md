@@ -790,6 +790,7 @@ settings:
   exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
   hotplug: false             # Monitor /dev/input for hotplugged keyboards (default: false, XOR with devices)
   notifications: true        # Desktop notifications when modal layers are toggled (default: false)
+  layout: us                 # Host keyboard layout (default: us; e.g. de, fr, gb, es, it, neo, dvorak, colemak)
   devices:                   # Explicit keyboard device paths (mutually exclusive / XOR with hotplug)
     - /dev/input/by-id/usb-Lenovo_ThinkPad_Compact_USB_Keyboard_with_TrackPoint-event-kbd
 ```
@@ -804,6 +805,7 @@ settings:
 | `hotplug` | boolean | `false` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. Mutually exclusive (XOR) with explicit device configurations. |
 | `devices` / `device` | array or string | (empty) | List of explicit keyboard device paths (e.g. `/dev/input/by-id/...`). Mutually exclusive (XOR) with `hotplug`. |
 | `notifications` / `notify` | boolean | `false` | When true, sends desktop notifications on Linux (via `notify-send` or DBus) whenever a persistent modal layer is toggled ON or OFF. Can also be enabled via `--notify` on the CLI. |
+| `layout` | string | `"us"` | Target host OS keyboard layout for clean diagnostic dump typing (F12/Pause) and text snippet/macro emission. Supported values: `"us"`, `"de"` (German QWERTZ), `"fr"` (French AZERTY), `"gb"` / `"uk"` (UK QWERTY), `"es"` (Spanish QWERTY), `"it"` (Italian QWERTY), `"neo"` (German Neo 2), `"dvorak"` (US Dvorak), `"colemak"` (Colemak). Prevents mangled text output (e.g. `INÖ semicolon?` on German hosts). |
 
 ## Configuration Wizard and Presets (`tff init`)
 

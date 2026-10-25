@@ -250,12 +250,15 @@ struct Settings {
     bool exclusive_grab = true;         // Exclusive device grab (default true)
     bool hotplug = false;               // Inotify device hotplugging (default false)
     bool notifications = false;         // Desktop notifications on layer toggle (default false)
-    std::vector<std::string> devices;   // Explicit keyboard input device paths
+    std::string layout = "us";  // Host keyboard layout (e.g. "us", "de", "fr", "gb", "es", "it",
+                                // "neo", "dvorak", "colemak")
+    std::vector<std::string> devices;  // Explicit keyboard input device paths
 
     bool operator==(const Settings& o) const {
         return combo_timeout_ms == o.combo_timeout_ms &&
                tap_hold_timeout_ms == o.tap_hold_timeout_ms && exclusive_grab == o.exclusive_grab &&
-               hotplug == o.hotplug && notifications == o.notifications && devices == o.devices;
+               hotplug == o.hotplug && notifications == o.notifications && layout == o.layout &&
+               devices == o.devices;
     }
 
     bool operator!=(const Settings& o) const { return !(*this == o); }

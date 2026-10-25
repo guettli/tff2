@@ -210,3 +210,4 @@ tap_hold:
 #   tap_hold_timeout_ms: 200   # Default timeout for dual-role keys in ms (default: 200)
 #   exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
 #   hotplug: true              # Inotify device hotplugging (default: true)
+#   layout: us                 # Host keyboard layout for diagnostic dumps & macros ("us", "de", "fr", "gb", "uk", "es", "it", "neo", "dvorak", "colemak")

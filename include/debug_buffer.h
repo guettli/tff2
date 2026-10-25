@@ -27,14 +27,16 @@ inline bool isDiagnosticDumpHotkey(KeyCode code) {
 }
 
 /**
- * @brief Emits KeyCode and Shift states for each character in text using asciiToKeyStroke.
+ * @brief Emits KeyCode and Shift states for each character in text using layout-aware
+ * asciiToKeyStroke.
  */
 template <typename EmitFn>
-inline void emitKeyStrokesForText(const std::string& text, EmitFn&& emit) {
+inline void emitKeyStrokesForText(const std::string& text, EmitFn&& emit,
+                                  const std::string& layout = "us") {
     for (char c : text) {
         KeyCode code = 0;
         bool shift = false;
-        if (!asciiToKeyStroke(c, code, shift)) {
+        if (!asciiToKeyStroke(c, code, shift, layout)) {
             continue;
         }
         emit(code, shift);

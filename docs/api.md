@@ -320,9 +320,12 @@ bool parseDurationMicros(const std::string& str, int64_t& out_us);
 
 ### 5.1 Keycode Helper API (`tff_key_codes.h`)
 
-```cpp
-// Convert an ASCII character into an evdev KeyCode and Shift flag
-bool asciiToKeyStroke(char c, KeyCode& code, bool& shift);
+// Convert an ASCII character into an evdev KeyCode and Shift flag for a given host keyboard layout
+bool asciiToKeyStroke(char c, KeyCode& code, bool& shift, const std::string& layout = "us");
+
+// Validate and normalize layout identifiers ("us", "de", "fr", "gb", "uk", "es", "it", "neo", "dvorak", "colemak")
+bool isValidLayout(const std::string& layout);
+std::string normalizeLayout(const std::string& layout);
 
 // Convert a KeyCode to its canonical name or word representation (e.g. "f", "capslock")
 std::string keyCodeToWord(KeyCode code);
