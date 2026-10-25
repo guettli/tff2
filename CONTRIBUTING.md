@@ -150,6 +150,28 @@ Every push and Pull Request triggers the GitHub Actions CI pipeline:
 
 ---
 
+## Releases (automated)
+
+Releases are cut automatically. When CI succeeds for a push to `main` (doc-only
+pushes are skipped by CI's `paths-ignore`, so they never release), the
+[`Auto Release`](.github/workflows/auto-release.yml) workflow bumps the **patch**
+version, commits it as `chore: bump version to X.Y.Z [skip ci]`, tags `vX.Y.Z`,
+and dispatches the [`Release`](.github/workflows/release.yml) workflow to build
+and publish the GitHub release (Linux binaries, `.deb`, and the RP2040 `.uf2`).
+
+- **Single source of truth**: the `project(... VERSION ...)` line in
+  [`CMakeLists.txt`](CMakeLists.txt). It is injected into every target as
+  `TFF_VERSION_{MAJOR,MINOR,PATCH}` (see [`include/tff_version.h`](include/tff_version.h)),
+  so the CLI `--version`, the firmware's USB `bcdDevice`, and its CDC `version`
+  command all report it. Do not hard-code the version anywhere else.
+- **Minor / major bumps**: edit the `project()` VERSION in a normal PR. The
+  auto-bump only ever increments the patch component.
+- **Prerequisite**: the workflow pushes the bump commit and tag to `main` using
+  the built-in `GITHUB_TOKEN`; if `main` is a protected branch, allow the
+  GitHub Actions bot to push to it (or the auto-release step will fail).
+
+---
+
 ## Documentation Standards
 
 - Consult and maintain [`docs/architecture.md`](docs/architecture.md) for dataflow, state machine invariants, and sequence diagrams.

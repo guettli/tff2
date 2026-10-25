@@ -1,30 +1,12 @@
 #ifdef PICO_BUILD
 
 #include "tusb.h"
+#include "tff_version.h"
 #include <string.h>
 
 #define USB_PID 0x4004
 #define USB_VID 0xCafe
 #define USB_BCD 0x0200
-
-// Firmware version. The numeric components are injected by CMake from the
-// project() VERSION (see CMakeLists.txt). Defaults keep standalone builds
-// compiling. TFF_VERSION_STRING is assembled here so CMake only needs to pass
-// plain integers (no awkward quote escaping for a string define).
-#ifndef TFF_VERSION_MAJOR
-#define TFF_VERSION_MAJOR 0
-#endif
-#ifndef TFF_VERSION_MINOR
-#define TFF_VERSION_MINOR 0
-#endif
-#ifndef TFF_VERSION_PATCH
-#define TFF_VERSION_PATCH 0
-#endif
-
-#define TFF_STR_HELPER(x) #x
-#define TFF_STR(x) TFF_STR_HELPER(x)
-#define TFF_VERSION_STRING                                                                         \
-    TFF_STR(TFF_VERSION_MAJOR) "." TFF_STR(TFF_VERSION_MINOR) "." TFF_STR(TFF_VERSION_PATCH)
 
 // Expose the version through the USB device descriptor's bcdDevice field so a
 // host can read it from sysfs (/sys/bus/usb/.../bcdDevice) without opening the
