@@ -4,6 +4,10 @@ name: Auto Release
 # off the existing Release workflow. Doc-only pushes don't run CI (see ci.yml
 # paths-ignore), so they never trigger a release. The bump commit is made with
 # "[skip ci]" and is also guarded against below, so this never loops.
+#
+# Note: because CI honours "[skip ci]" anywhere in a push's head commit message,
+# a squash-merge whose message happens to contain that token will not run CI and
+# therefore will not auto-release. Keep "[skip ci]" out of merge commit messages.
 
 on:
   workflow_run:
