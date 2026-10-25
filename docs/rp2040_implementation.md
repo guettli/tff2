@@ -127,15 +127,23 @@ Host Computer / UpBoard             <--  USB-C (Device Port)
 ## Flashing & Rebooting the RP2040
 
 ### Method 1: Automated Flashing via `scripts/deploy_rp2040.sh`
-The deployment script handles everything automatically: detects the compiled `build-rp2040/tff_rp2040.uf2` firmware, triggers an automated reboot over USB CDC into `RPI-RP2` (no buttons needed), mounts the drive, copies the binary, and reboots the board:
+With no arguments the deployment script **auto-updates to the latest release**: it looks up the newest GitHub release, compares it with the version the connected board is currently running (read from the USB `bcdDevice` descriptor, with a CDC `version` command as fallback), and flashes only if they differ. If the board is already on the latest version, it prints that and does nothing. When it does flash, it triggers an automated reboot over USB CDC into `RPI-RP2` (no buttons needed), mounts the drive, copies the binary, and reboots the board. It then **waits for the board to re-enumerate, confirms the newly-reported version via both the USB `bcdDevice` descriptor and the CDC `version` command, and finishes with a clear message that it is safe to unplug the device**:
 
 ```bash
-# Auto-detects and flashes build-rp2040/tff_rp2040.uf2:
+# Auto-update: download the latest release and flash only if the board is outdated:
 ./scripts/deploy_rp2040.sh
 
-# Or flash a specific UF2 file:
+# Re-flash the latest release even if the board is already current:
+./scripts/deploy_rp2040.sh --force
+
+# Flash the locally built firmware (build-rp2040/tff_rp2040.uf2):
+./scripts/deploy_rp2040.sh --local
+
+# Flash a specific UF2 file:
 ./scripts/deploy_rp2040.sh path/to/tff_rp2040.uf2
 ```
+
+> **Note:** Version comparison relies on the board advertising its version, which was added in the firmware alongside this feature. A board running older firmware reports a version that never matches the current release tag (older builds hard-coded `bcdDevice = 0x0100`), so the first auto-update always flashes; afterwards "already latest → nothing to do" works correctly.
 
 ### Method 2: Automated Software Reboot (`scripts/reboot_rp2040_bootloader.py`)
 To put the running board into `RPI-RP2` bootloader mode from software without flashing:

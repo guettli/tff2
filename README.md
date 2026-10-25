@@ -196,9 +196,10 @@ physical keyboard and your computer.
   laptops, Apple macOS, Microsoft Windows, Linux, and iPad/tablets.
 - **Automated Flashing**: 1200-baud touch reset and `BOOTSEL` serial command for 100% button-free
   reflashing. Double-tap reset button also supported.
-- **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub
-  Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode or
-  `./scripts/deploy_rp2040.sh`.
+- **Pre-Built UF2 & Auto-Update**: `./scripts/deploy_rp2040.sh` (no args) downloads the latest
+  release and flashes it only if the connected board is outdated, or you can flash
+  `tff_rp2040.uf2` from [GitHub Releases](https://github.com/guettli/tff2/releases) via
+  drag-and-drop BOOTSEL mode.
 - **Diagnostic Ring Buffer & Keystroke Dump**: Zero-heap 64-event circular log of keyboard
   transitions formatted as test state strings (`IN: d_ (250ms) d/ | OUT: ...`). Trigger a pure text
   dump anytime with dedicated hotkey `F12` or `Pause/Break` (types directly into active window) or
@@ -272,8 +273,10 @@ PICO_BOARD=pico ./build_rp2040.sh
 **Deploying & Flashing**:
 - **Cabling**: Physical keyboard connects to **USB-A (Host)**; computer connects to **USB-C
   (Device)**.
-- **Automated UF2 Flashing**: Run `./scripts/deploy_rp2040.sh` to automatically detect
-  `build-rp2040/tff_rp2040.uf2`, trigger automated reboot into bootloader, and flash.
+- **Automated UF2 Flashing**: Run `./scripts/deploy_rp2040.sh` to auto-update to the latest
+  release — it compares the board's running version with the newest GitHub release and flashes only
+  if outdated (or prints "already latest" and does nothing). Use `--local` to flash
+  `build-rp2040/tff_rp2040.uf2`, `--force` to re-flash the latest regardless, or pass a UF2 path.
 - **Automated Software Reboot**: Run `python3 scripts/reboot_rp2040_bootloader.py` to reboot
   directly into the `RPI-RP2` bootloader via 1200-baud touch CDC without pressing any buttons.
 - **Hardware Double-Tap Reset**: Double-click the physical **RESET** button to enter `RPI-RP2`

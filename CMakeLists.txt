@@ -105,9 +105,29 @@ add_library(tff_core ${CORE_SOURCES})
 # Create RP2040 platform library
 add_library(rp2040_platform ${RP2040_PLATFORM_SOURCES})
 if(PICO_BUILD)
+    # Default any missing version component to 0 so a two-part project() VERSION
+    # (e.g. "2.0") never injects an empty -DTFF_VERSION_PATCH= that would break
+    # the firmware build.
+    set(_tff_ver_major "${PROJECT_VERSION_MAJOR}")
+    set(_tff_ver_minor "${PROJECT_VERSION_MINOR}")
+    set(_tff_ver_patch "${PROJECT_VERSION_PATCH}")
+    if(NOT _tff_ver_major)
+        set(_tff_ver_major 0)
+    endif()
+    if(NOT _tff_ver_minor)
+        set(_tff_ver_minor 0)
+    endif()
+    if(NOT _tff_ver_patch)
+        set(_tff_ver_patch 0)
+    endif()
     target_compile_definitions(rp2040_platform PUBLIC
         CFG_TUH_RPI_PIO_USB=1
         PIO_USB_USE_TINYUSB=1
+        # Inject firmware version so the board advertises it via USB bcdDevice
+        # and the CDC "version" command (see src/platform/rp2040/usb_descriptors.c).
+        TFF_VERSION_MAJOR=${_tff_ver_major}
+        TFF_VERSION_MINOR=${_tff_ver_minor}
+        TFF_VERSION_PATCH=${_tff_ver_patch}
     )
     if(NOT DEFINED PICO_TINYUSB_PATH)
         set(PICO_TINYUSB_PATH "${PICO_SDK_PATH}/lib/tinyusb")
