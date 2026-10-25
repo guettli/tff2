@@ -1,10 +1,15 @@
 # TFF-like Keyboard Remapping System
 
-A cross-platform keyboard remapping solution that allows overlapping key combinations for enhanced productivity. Inspired by the Ten Flying Fingers (TFF) project, implemented in C++ to run both as a native Linux background daemon and directly on RP2040 hardware USB adapters without host software.
+A cross-platform keyboard remapping solution that allows overlapping key combinations for enhanced
+productivity. Inspired by the Ten Flying Fingers (TFF) project, implemented in C++ to run both as a
+native Linux background daemon and directly on RP2040 hardware USB adapters without host software.
 
-### Overall Goal
+## Overall Goal
 
-Keep your fingers on the home row! Stretching fingers to reach distant keys like Backspace, Delete, Escape, or arrow keys disrupts typing flow and strains hands. TFF lets you trigger these actions using fast, natural overlapping chords and dual-role keys directly on the home row (e.g. `J` + `F` for Backspace, `F` + `J` for Delete, or holding `Caps Lock` for Super while tapping for Escape).
+Keep your fingers on the home row! Stretching fingers to reach distant keys like Backspace, Delete,
+Escape, or arrow keys disrupts typing flow and strains hands. TFF lets you trigger these actions
+using fast, natural overlapping chords and dual-role keys directly on the home row (e.g. `J` + `F`
+for Backspace, `F` + `J` for Delete, or holding `Caps Lock` for Super while tapping for Escape).
 
 ## Features
 
@@ -13,7 +18,8 @@ Keep your fingers on the home row! Stretching fingers to reach distant keys like
 - **Configurable Mappings**: Custom key combinations defined in configuration files
 - **Low Latency**: Optimized for real-time keyboard processing
 - **Hardware Agnostic Core**: Same logic runs on multiple platforms
-- **Modal Layers & Notifications**: Momentary and persistent toggle layers with optional Linux desktop notifications (`notify-send` / DBus)
+- **Modal Layers & Notifications**: Momentary and persistent toggle layers with optional Linux
+  desktop notifications (`notify-send` / DBus)
 - **Fast Unit Tests**: Core functionality can be tested without hardware
 
 ## How It Works
@@ -26,7 +32,7 @@ Keep your fingers on the home row! Stretching fingers to reach distant keys like
 ### Example Combinations
 
 - Press F and J together (F+J) → Outputs "1"
-- Press J and F together (J+F) → Outputs "2"  
+- Press J and F together (J+F) → Outputs "2"
 - Press F and Space together → Saves document (Ctrl+S)
 - Press J and Space together → Undoes last action (Ctrl+Z)
 
@@ -94,23 +100,33 @@ sequenceDiagram
     Engine->>Out: Emit KEY_LEFTMETA (Up)
 ```
 
-**How Dual-Role Tap-Hold Works**: Keys like Caps Lock can perform two distinct roles without any mode switching:
-- **Tapping** (pressing and releasing within 200ms without pressing another key) emits a standard keypress like `Escape`.
-- **Holding** (holding longer than 200ms, or pressing another key while holding) transforms the key into a modifier like `Super` (Windows/Cmd) or `Ctrl`.
-This completely eliminates awkward hand stretching for modifier keys.
+**How Dual-Role Tap-Hold Works**: Keys like Caps Lock can perform two distinct roles without any
+mode switching:
+- **Tapping** (pressing and releasing within 200ms without pressing another key) emits a standard
+  keypress like `Escape`.
+- **Holding** (holding longer than 200ms, or pressing another key while holding) transforms the key
+into a modifier like `Super` (Windows/Cmd) or `Ctrl`. This completely eliminates awkward hand
+stretching for modifier keys.
 
 ### Emergency State Machine Reset
-If you ever find yourself locked in an unexpected modal layer or state loop, simply **press and hold Escape (`ESC`) continuously for 3.0 seconds**.
-TFF will automatically trigger an emergency state machine reset: clearing all active and toggle layers, releasing any held tap-hold or one-shot modifiers, clearing leader sequences and buffers, and cleanly swallowing the `ESC` release event. This safeguard is always active by default without needing configuration.
+If you ever find yourself locked in an unexpected modal layer or state loop, simply **press and hold
+Escape (`ESC`) continuously for 3.0 seconds**. TFF will automatically trigger an emergency state
+machine reset: clearing all active and toggle layers, releasing any held tap-hold or one-shot
+modifiers, clearing leader sequences and buffers, and cleanly swallowing the `ESC` release event.
+This safeguard is always active by default without needing configuration.
 
 ## Platforms
 
 ### Linux Version
-- **Input**: Reads physical keyboard events via evdev (`/dev/input/event*`) with optional exclusive grab (`ioctl(fd, EVIOCGRAB, 1)`)
+- **Input**: Reads physical keyboard events via evdev (`/dev/input/event*`) with optional exclusive
+  grab (`ioctl(fd, EVIOCGRAB, 1)`)
 - **Output**: Emits remapped virtual keyboard events via uinput (`/dev/uinput`)
-- **Core**: 100% shared `tff::TFFEngine` running identically across Linux and embedded microcontroller firmware
-- **CLI Daemon**: `tff` supports auto-discovery, custom YAML configs, multi-keyboard polling, and graceful signal handling
-- **Systemd Service**: Runs in the background with auto-restart and highest CPU priority (`Nice=-20`)
+- **Core**: 100% shared `tff::TFFEngine` running identically across Linux and embedded
+  microcontroller firmware
+- **CLI Daemon**: `tff` supports auto-discovery, custom YAML configs, multi-keyboard polling, and
+  graceful signal handling
+- **Systemd Service**: Runs in the background with auto-restart and highest CPU priority
+  (`Nice=-20`)
 
 ```bash
 # Install official Debian / Ubuntu package:
@@ -160,24 +176,40 @@ sudo systemctl status ten-flying-fingers
 sudo journalctl -u ten-flying-fingers -f
 ```
 
-See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, systemd user services, and [Systemd Service Example](ten-flying-fingers.service.example).
+See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, systemd user services, and
+[Systemd Service Example](ten-flying-fingers.service.example).
 
 ### RP2040 Firmware (Microcontroller Mode)
 
-The Raspberry Pi RP2040 is an inexpensive 32-bit dual ARM Cortex-M0+ microcontroller. When flashed with Ten Flying Fingers on a board equipped with a USB Host port (such as the Adafruit Feather RP2040 USB Host), it functions as a standalone hardware keyboard adapter that sits between your physical keyboard and your computer.
+The Raspberry Pi RP2040 is an inexpensive 32-bit dual ARM Cortex-M0+ microcontroller. When flashed
+with Ten Flying Fingers on a board equipped with a USB Host port (such as the Adafruit Feather
+RP2040 USB Host), it functions as a standalone hardware keyboard adapter that sits between your
+physical keyboard and your computer.
 
-- **Pure C++ Bare-Metal**: 100% compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` (zero Python runtime, microsecond latency).
-- **Dual-Core Concurrency**: Dedicated Core 1 runs PIO USB Host (`tuh_task`) on GPIO 16/17; Core 0 runs composite USB Device (`tud_task`), shared `tff::TFFEngine`, and hardware timers.
-- **Zero Host Software**: Runs 100% on the microcontroller. Requires zero drivers, background services, or administrative rights on the host computer.
-- **Universal Compatibility**: Works seamlessly in BIOS/UEFI setup screens, on corporate-restricted laptops, Apple macOS, Microsoft Windows, Linux, and iPad/tablets.
-- **Automated Flashing**: 1200-baud touch reset and `BOOTSEL` serial command for 100% button-free reflashing. Double-tap reset button also supported.
-- **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode or `./scripts/deploy_rp2040.sh`.
-- **Diagnostic Ring Buffer & Keystroke Dump**: Zero-heap 64-event circular log of keyboard transitions formatted as test state strings (`IN: d_ (250ms) d/ | OUT: ...`). Trigger a pure text dump anytime with dedicated hotkey `F12` or `Pause/Break` (types directly into active window) or via `tff dump` over USB serial CDC.
-- See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware setup, wiring, and flashing steps.
+- **Pure C++ Bare-Metal**: 100% compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` (zero
+  Python runtime, microsecond latency).
+- **Dual-Core Concurrency**: Dedicated Core 1 runs PIO USB Host (`tuh_task`) on GPIO 16/17; Core 0
+  runs composite USB Device (`tud_task`), shared `tff::TFFEngine`, and hardware timers.
+- **Zero Host Software**: Runs 100% on the microcontroller. Requires zero drivers, background
+  services, or administrative rights on the host computer.
+- **Universal Compatibility**: Works seamlessly in BIOS/UEFI setup screens, on corporate-restricted
+  laptops, Apple macOS, Microsoft Windows, Linux, and iPad/tablets.
+- **Automated Flashing**: 1200-baud touch reset and `BOOTSEL` serial command for 100% button-free
+  reflashing. Double-tap reset button also supported.
+- **Pre-Built UF2**: Download pre-compiled `tff_rp2040.uf2` directly from [GitHub
+  Releases](https://github.com/guettli/tff2/releases) and flash via drag-and-drop BOOTSEL mode or
+  `./scripts/deploy_rp2040.sh`.
+- **Diagnostic Ring Buffer & Keystroke Dump**: Zero-heap 64-event circular log of keyboard
+  transitions formatted as test state strings (`IN: d_ (250ms) d/ | OUT: ...`). Trigger a pure text
+  dump anytime with dedicated hotkey `F12` or `Pause/Break` (types directly into active window) or
+  via `tff dump` over USB serial CDC.
+- See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware setup,
+  wiring, and flashing steps.
 
 ## Configuration
 
-Define custom key mappings in YAML format matching standard TFF combos. See [configuration documentation](docs/configuration.md) for detailed information.
+Define custom key mappings in YAML format matching standard TFF combos. See [configuration
+documentation](docs/configuration.md) for detailed information.
 
 ```yaml
 combos:
@@ -226,7 +258,8 @@ make
 
 ### RP2040 Build
 
-Ten Flying Fingers provides an automated cross-compilation script (`./build_rp2040.sh`) that checks the ARM toolchain and compiles `tff_rp2040.uf2` using the Pico SDK:
+Ten Flying Fingers provides an automated cross-compilation script (`./build_rp2040.sh`) that checks
+the ARM toolchain and compiles `tff_rp2040.uf2` using the Pico SDK:
 
 ```bash
 # Automated cross-compilation:
@@ -237,19 +270,26 @@ PICO_BOARD=pico ./build_rp2040.sh
 ```
 
 **Deploying & Flashing**:
-- **Cabling**: Physical keyboard connects to **USB-A (Host)**; computer connects to **USB-C (Device)**.
-- **Automated UF2 Flashing**: Run `./scripts/deploy_rp2040.sh` to automatically detect `build-rp2040/tff_rp2040.uf2`, trigger automated reboot into bootloader, and flash.
-- **Automated Software Reboot**: Run `python3 scripts/reboot_rp2040_bootloader.py` to reboot directly into the `RPI-RP2` bootloader via 1200-baud touch CDC without pressing any buttons.
-- **Hardware Double-Tap Reset**: Double-click the physical **RESET** button to enter `RPI-RP2` bootloader mode.
-- **Hardware Button Recovery**: Hold **BOOT**, click **RESET**, then release **BOOT** to enter the `RPI-RP2` bootloader drive.
+- **Cabling**: Physical keyboard connects to **USB-A (Host)**; computer connects to **USB-C
+  (Device)**.
+- **Automated UF2 Flashing**: Run `./scripts/deploy_rp2040.sh` to automatically detect
+  `build-rp2040/tff_rp2040.uf2`, trigger automated reboot into bootloader, and flash.
+- **Automated Software Reboot**: Run `python3 scripts/reboot_rp2040_bootloader.py` to reboot
+  directly into the `RPI-RP2` bootloader via 1200-baud touch CDC without pressing any buttons.
+- **Hardware Double-Tap Reset**: Double-click the physical **RESET** button to enter `RPI-RP2`
+  bootloader mode.
+- **Hardware Button Recovery**: Hold **BOOT**, click **RESET**, then release **BOOT** to enter the
+  `RPI-RP2` bootloader drive.
 
-See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware details and architecture.
+See the [RP2040 Implementation Guide](docs/rp2040_implementation.md) for full hardware details and
+architecture.
 
 ## Testing
 
 ### Unit Tests (Hardware-Independent C++)
 
-Run all native unit tests (running all 20 test suites without requiring special privileges or hardware):
+Run all native unit tests (running all 20 test suites without requiring special privileges or
+hardware):
 
 ```bash
 ./build.sh
@@ -257,7 +297,9 @@ Run all native unit tests (running all 20 test suites without requiring special 
 
 ### Pre-Push Verification & Invariant Testing
 
-Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 20 CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing), Cppcheck static analysis, and CLI smoke tests:
+Run the comprehensive pre-push quality check covering code formatting, strict `-Werror` build, 20
+CTest unit test suites (including property-based invariant verification and 5,000-cycle fuzzing),
+Cppcheck static analysis, and CLI smoke tests:
 
 ```bash
 ./scripts/check.sh             # Full quality verification pipeline
@@ -268,13 +310,15 @@ Run the comprehensive pre-push quality check covering code formatting, strict `-
 
 ### Automated Hardware Testing (USB-OTG Loop)
 
-End-to-end hardware testing can be run using any Linux device equipped with a USB-OTG port (such as an UpBoard, Raspberry Pi Zero, or USB gadget controller) connected to the RP2040 USB-A host port:
+End-to-end hardware testing can be run using any Linux device equipped with a USB-OTG port (such as
+an UpBoard, Raspberry Pi Zero, or USB gadget controller) connected to the RP2040 USB-A host port:
 
 ```bash
 ./test_tff_usb_otg.sh
 ```
 
-See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural details and test cases.
+See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural details and test
+cases.
 
 ## Hardware Setup
 
@@ -286,18 +330,22 @@ See [docs/hardware_testing.md](docs/hardware_testing.md) for full architectural 
 
 ## Documentation & Manual
 
-- **System Architecture**: Detailed event processing sequence diagrams and invariants in [`docs/architecture.md`](docs/architecture.md)
-- **C++ Core API Reference**: Complete engine API and struct documentation in [`docs/api.md`](docs/api.md)
+- **System Architecture**: Detailed event processing sequence diagrams and invariants in
+  [`docs/architecture.md`](docs/architecture.md)
+- **C++ Core API Reference**: Complete engine API and struct documentation in
+  [`docs/api.md`](docs/api.md)
 - **Unix Manual Page**: Run `man tff` (or see [`docs/man/tff.1`](docs/man/tff.1))
 - **Configuration Guide**: [`docs/configuration.md`](docs/configuration.md)
 - **Configuration Cookbook**: [`docs/cookbook.md`](docs/cookbook.md)
 - **Troubleshooting & Diagnostics**: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - **Linux Installation & Systemd**: [`docs/install.md`](docs/install.md)
-- **Shell Autocompletions**: Bash, Zsh, and Fish completions in [`completions/`](completions/) (installed automatically via [`install.sh`](install.sh))
+- **Shell Autocompletions**: Bash, Zsh, and Fish completions in [`completions/`](completions/)
+  (installed automatically via [`install.sh`](install.sh))
 - **Local Development Guide**: [`docs/local_dev.md`](docs/local_dev.md)
 - **RP2040 Implementation**: [`docs/rp2040_implementation.md`](docs/rp2040_implementation.md)
 - **Automated Hardware Testing**: [`docs/hardware_testing.md`](docs/hardware_testing.md)
 
 ## Contributing
 
-We welcome contributions! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines on branch naming, code formatting (`clang-format`), and pre-push verification with `./scripts/check.sh`.
+We welcome contributions! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines on branch
+naming, code formatting (`clang-format`), and pre-push verification with `./scripts/check.sh`.
