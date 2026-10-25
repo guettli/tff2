@@ -1,0 +1,109 @@
+name: Auto Release
+
+# When CI succeeds for a push to main, bump the patch version, tag it, and kick
+# off the existing Release workflow. Doc-only pushes don't run CI (see ci.yml
+# paths-ignore), so they never trigger a release. The bump commit is made with
+# "[skip ci]" and is also guarded against below, so this never loops.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  bump-and-release:
+    name: Bump patch version and release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only for a successful CI run triggered by a push to main.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Skip if HEAD is already a version bump
+        id: guard
+        shell: bash
+        run: |
+          msg="$(git log -1 --pretty=%s)"
+          echo "HEAD commit: ${msg}"
+          if printf '%s' "${msg}" | grep -qiE 'bump version|\[skip ci\]'; then
+            echo "HEAD is a bump/skip-ci commit; nothing to do."
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Compute next patch version
+        if: steps.guard.outputs.skip != 'true'
+        id: ver
+        shell: bash
+        run: |
+          cur="$(sed -nE 's/^project\(tff2 VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt | head -n1)"
+          if [ -z "${cur}" ]; then
+            echo "::error::Could not parse version from CMakeLists.txt project() line"
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<< "${cur}"
+          new="${major}.${minor}.$((patch + 1))"
+          {
+            echo "cur=${cur}"
+            echo "new=${new}"
+            echo "tag=v${new}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Bumping ${cur} -> ${new}"
+
+      - name: Apply version bump
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        env:
+          NEW: ${{ steps.ver.outputs.new }}
+        run: |
+          # Single source of truth: the project() VERSION in CMakeLists.txt.
+          sed -i -E "s/^(project\(tff2 VERSION )[0-9]+\.[0-9]+\.[0-9]+/\1${NEW}/" CMakeLists.txt
+          grep -q "project(tff2 VERSION ${NEW} " CMakeLists.txt
+          # Keep the man page version in sync (cosmetic; under docs/, ignored by CI).
+          sed -i -E "s/\"TFF [0-9]+\.[0-9]+\.[0-9]+\"/\"TFF ${NEW}\"/" docs/man/tff.1 || true
+
+      - name: Commit, tag and push
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        env:
+          NEW: ${{ steps.ver.outputs.new }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CMakeLists.txt docs/man/tff.1
+          git commit -m "chore: bump version to ${NEW} [skip ci]"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin HEAD:main
+          git push origin "${TAG}"
+
+      - name: Trigger Release workflow for the new tag
+        if: steps.guard.outputs.skip != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          # The tag push above does not trigger the tag-based Release workflow
+          # (pushes made with GITHUB_TOKEN don't start new workflow runs), so we
+          # dispatch it explicitly against the freshly created tag.
+          gh workflow run release.yml --ref "${TAG}" -f tag="${TAG}"
+          echo "Dispatched Release workflow for ${TAG}" >> "${GITHUB_STEP_SUMMARY}"
