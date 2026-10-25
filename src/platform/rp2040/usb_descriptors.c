@@ -7,6 +7,36 @@
 #define USB_VID 0xCafe
 #define USB_BCD 0x0200
 
+// Firmware version. The numeric components are injected by CMake from the
+// project() VERSION (see CMakeLists.txt). Defaults keep standalone builds
+// compiling. TFF_VERSION_STRING is assembled here so CMake only needs to pass
+// plain integers (no awkward quote escaping for a string define).
+#ifndef TFF_VERSION_MAJOR
+#define TFF_VERSION_MAJOR 0
+#endif
+#ifndef TFF_VERSION_MINOR
+#define TFF_VERSION_MINOR 0
+#endif
+#ifndef TFF_VERSION_PATCH
+#define TFF_VERSION_PATCH 0
+#endif
+
+#define TFF_STR_HELPER(x) #x
+#define TFF_STR(x) TFF_STR_HELPER(x)
+#define TFF_VERSION_STRING                                                                         \
+    TFF_STR(TFF_VERSION_MAJOR) "." TFF_STR(TFF_VERSION_MINOR) "." TFF_STR(TFF_VERSION_PATCH)
+
+// Expose the version through the USB device descriptor's bcdDevice field so a
+// host can read it from sysfs (/sys/bus/usb/.../bcdDevice) without opening the
+// serial console or grabbing the HID keyboard. Layout (16 bits):
+//   [15:12] major (0-15)   [11:8] minor (0-15)   [7:0] patch (0-255)
+// e.g. 2.0.3 -> 0x2003. Patch gets a full byte so frequent patch releases stay
+// representable; the CDC "version" command reports the exact, unbounded semver
+// string, so bcdDevice is only the no-serial quick check within these ranges.
+#define USB_BCD_DEVICE                                                                             \
+    ((((TFF_VERSION_MAJOR) & 0x0F) << 12) | (((TFF_VERSION_MINOR) & 0x0F) << 8) |                  \
+     ((TFF_VERSION_PATCH) & 0xFF))
+
 // Device Descriptor (Composite IAD Device)
 static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_device_t),
                                                .bDescriptorType = TUSB_DESC_DEVICE,
@@ -17,7 +47,7 @@ static tusb_desc_device_t const desc_device = {.bLength = sizeof(tusb_desc_devic
                                                .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
                                                .idVendor = USB_VID,
                                                .idProduct = USB_PID,
-                                               .bcdDevice = 0x0100,
+                                               .bcdDevice = USB_BCD_DEVICE,
                                                .iManufacturer = 0x01,
                                                .iProduct = 0x02,
                                                .iSerialNumber = 0x03,
@@ -150,8 +180,12 @@ void tud_cdc_rx_cb(uint8_t itf) {
     uint32_t count = tud_cdc_read(buf, sizeof(buf) - 1);
     if (count > 0) {
         buf[count] = '\0';
-        if (strstr(buf, "bootsel") || strstr(buf, "BOOTSEL") || strstr(buf, "bootloader") ||
-            strstr(buf, "BOOTLOADER") || strstr(buf, "reset") || strstr(buf, "reboot")) {
+        if (strstr(buf, "version") || strstr(buf, "VERSION")) {
+            const char* v = "TFF " TFF_VERSION_STRING "\r\n";
+            tud_cdc_write(v, (uint32_t)strlen(v));
+            tud_cdc_write_flush();
+        } else if (strstr(buf, "bootsel") || strstr(buf, "BOOTSEL") || strstr(buf, "bootloader") ||
+                   strstr(buf, "BOOTLOADER") || strstr(buf, "reset") || strstr(buf, "reboot")) {
             reset_usb_boot(0, 0);
         } else if (strstr(buf, "dump") || strstr(buf, "DUMP") || strstr(buf, "debug") ||
                    strstr(buf, "DEBUG")) {
