@@ -136,19 +136,39 @@ detect_version_bcd() {
     return 1
 }
 
-# Query the running firmware over the CDC serial console ("version" command).
-# Restricted to the TFF board's own persistent by-id ports so we never write to
-# unrelated /dev/ttyACM* devices (other modems/microcontrollers) on the system.
-detect_version_cdc() {
-    local port out ver
-    for port in /dev/serial/by-id/*TFF*RP2040* /dev/serial/by-id/*Flying_Fingers*; do
-        [[ -e "${port}" ]] || continue
-        command -v stty &>/dev/null && stty -F "${port}" 115200 raw -echo &>/dev/null || true
-        out="$( { timeout 2 cat "${port}" & local cp=$!; \
-                  printf 'version\r\n' >"${port}" 2>/dev/null || true; wait "${cp}"; } 2>/dev/null || true )"
-        ver="$(printf '%s' "${out}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
-        [[ -n "${ver}" ]] && { printf '%s' "${ver}"; return 0; }
+# Persistent by-id path of the TFF board's CDC serial console, if present. We
+# only ever touch the board's own port, never unrelated /dev/ttyACM* devices.
+cdc_port() {
+    local p
+    for p in /dev/serial/by-id/*TFF*RP2040* /dev/serial/by-id/*Flying_Fingers*; do
+        [[ -e "${p}" ]] && { printf '%s' "${p}"; return 0; }
     done
+    return 1
+}
+
+# Query the running firmware over the CDC serial console ("version" command).
+# Returns the reported version, or fails if the port is absent / not accessible
+# (e.g. the user is not in the 'dialout' group) or the firmware did not answer.
+detect_version_cdc() {
+    local port resp ver line deadline
+    port="$(cdc_port)" || return 1
+    [[ -r "${port}" && -w "${port}" ]] || return 1
+    # One read/write fd; -hupcl keeps DTR asserted across the exchange so the
+    # firmware's reply is not cut off by a hangup when the port is opened.
+    exec 3<>"${port}" 2>/dev/null || return 1
+    command -v stty &>/dev/null && stty -F "${port}" 115200 raw -echo -hupcl &>/dev/null || true
+    printf 'version\r\n' >&3 2>/dev/null || true
+    resp=""
+    deadline=$((SECONDS + 3))
+    while ((SECONDS < deadline)); do
+        if IFS= read -r -t 1 -u 3 line; then
+            resp+="${line} "
+            [[ "${resp}" =~ [0-9]+\.[0-9]+\.[0-9]+ ]] && break
+        fi
+    done
+    exec 3>&- 2>/dev/null || true
+    ver="$(printf '%s' "${resp}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
+    [[ -n "${ver}" ]] && { printf '%s' "${ver}"; return 0; }
     return 1
 }
 
@@ -188,25 +208,43 @@ verify_after_flash() {
         return 0
     fi
 
-    # Give the CDC interface a moment to come up, then query it too.
-    for ((i = 0; i < 6; i++)); do
-        cdc_ver="$(detect_version_cdc || true)"
-        [[ -n "${cdc_ver}" ]] && break
-        sleep 0.5
-    done
+    # The CDC "version" command is a supplementary check. Distinguish a real
+    # mismatch from "could not read it" (port missing, or no serial access).
+    local cdc_note="" port
+    if ! port="$(cdc_port)"; then
+        cdc_note="serial port not found"
+    elif [[ ! -r "${port}" || ! -w "${port}" ]]; then
+        cdc_note="no access to ${port} — add your user to the 'dialout' group: sudo usermod -aG dialout \"\$USER\" (then re-login)"
+    else
+        # Give the CDC interface a moment to come up, then query it.
+        for ((i = 0; i < 6; i++)); do
+            cdc_ver="$(detect_version_cdc || true)"
+            [[ -n "${cdc_ver}" ]] && break
+            sleep 0.5
+        done
+        [[ -z "${cdc_ver}" ]] && cdc_note="no response from firmware"
+    fi
 
     echo "✓ Board re-enumerated. Reported firmware version:"
     printf '    USB bcdDevice : %s\n' "${bcd_ver:-<unavailable>}"
-    printf "    CDC 'version' : %s\n" "${cdc_ver:-<no response>}"
+    if [[ -n "${cdc_ver}" ]]; then
+        printf "    CDC 'version' : %s\n" "${cdc_ver}"
+    else
+        printf "    CDC 'version' : <%s>\n" "${cdc_note:-no response}"
+    fi
 
     if [[ -n "${expected}" ]]; then
         if [[ "${bcd_ver}" == "${expected}" && "${cdc_ver}" == "${expected}" ]]; then
-            echo "✓ Verified ${expected}: confirmed via both the USB descriptor and CDC serial."
+            echo "✓ Verified ${expected}: confirmed via both the USB descriptor and the CDC serial."
+        elif [[ "${bcd_ver}" == "${expected}" && -z "${cdc_ver}" ]]; then
+            # bcdDevice is read straight from the running device's USB descriptor,
+            # so it alone is sufficient confirmation; CDC is a bonus.
+            echo "✓ Verified ${expected} via the USB descriptor. (CDC not checked: ${cdc_note}.)"
         elif [[ "${bcd_ver}" == "${expected}" || "${cdc_ver}" == "${expected}" ]]; then
-            echo "⚠ Only one channel confirmed ${expected} (see above)."
+            echo "⚠ Channels disagree — expected ${expected}, got bcdDevice=${bcd_ver:-?}, CDC=${cdc_ver:-?}."
         else
-            echo "⚠ Could not confirm ${expected}. The flashed firmware may predate version"
-            echo "  reporting (releases built before this feature), or the flash did not take."
+            echo "⚠ Could not confirm ${expected} (bcdDevice=${bcd_ver:-?}, CDC=${cdc_ver:-?})."
+            echo "  The flashed firmware may predate version reporting, or the flash did not take."
         fi
     fi
 
