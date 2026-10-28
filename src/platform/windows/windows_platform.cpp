@@ -20,6 +20,10 @@ constexpr UINT WM_TFF_RESUME = WM_APP + 4;
 /// Raw keyboard input without a hook callback for this long means the hook is gone.
 constexpr ULONGLONG kHookDeadAfterMs = 1000;
 
+/// An engine timer that is still due right after firing (the engine didn't advance it) is
+/// retried after this delay instead of in a busy loop.
+constexpr int64_t kStuckTimerRetryUs = 10 * 1000;
+
 /// Editors save in several steps (truncate, write, rename): reload once the file is quiet.
 constexpr ULONGLONG kConfigReloadDelayMs = 150;
 
@@ -298,25 +302,41 @@ void WindowsPlatform::processEngineEvent(const tff::Event& ev) {
 void WindowsPlatform::snapshotHeldKeys() {
     // Keys Windows already sees as held went down before our hook existed (TFF starting,
     // hook reinstalled). Their repeats and key-ups must reach Windows, not the engine.
+    const bool altgr_down = (GetAsyncKeyState(VK_RMENU) & 0x8000) != 0;
     for (const auto& m : tff::win::keyMappings()) {
-        if (m.vk != 0 && (GetAsyncKeyState(m.vk) & 0x8000) != 0) {
-            translator_.markForeignDown(m.code);
+        if (m.vk == 0 || (GetAsyncKeyState(m.vk) & 0x8000) == 0) {
+            continue;
         }
+        if (m.code == tff::Keys::KEY_KPENTER) {
+            continue;  // shares VK_RETURN with Enter; GetAsyncKeyState can't tell them apart
+        }
+        if (m.code == tff::Keys::KEY_LEFTCTRL && altgr_down) {
+            continue;  // the fake LCtrl of AltGr, released through the AltGr path
+        }
+        translator_.markForeignDown(m.code);
     }
 }
 
 void WindowsPlatform::handleTimers() {
     initialize();
-    // Bounded, in case a timer handler re-arms a timer that is already due.
     for (int i = 0; i < 16 && engine_->hasActiveTimer(); ++i) {
         const tff::TimeVal t = now();
-        if (engine_->getActiveTimerTime() > t) {
+        const tff::TimeVal due = engine_->getActiveTimerTime();
+        if (due > t) {
             break;
+        }
+        if (due == stuck_timer_ && tff::timeSubMicros(stuck_since_, t) < kStuckTimerRetryUs) {
+            break;  // fired already without effect; don't spin on it
         }
         if (monitor_mode_) {
             monitor_->clearTrace();
         }
         engine_->onTimer(t);
+        if (engine_->hasActiveTimer() && engine_->getActiveTimerTime() == due) {
+            stuck_timer_ = due;  // the engine left this timer due: retry later
+            stuck_since_ = t;
+            break;
+        }
         if (monitor_mode_) {
             std::string line = monitor_->formatTimer(t);
             if (!line.empty()) {
@@ -479,8 +499,10 @@ void WindowsPlatform::checkHookAlive() {
         log("[TFF] Keyboard hook was removed by Windows (callback too slow?), reinstalling");
         removeHook();
         resetState("hook reinstalled");
-        snapshotHeldKeys();
         installHook();
+        // Keys pressed while the hook was gone went to Windows. Take the snapshot after the
+        // key-ups injected by resetState() above have been processed (next loop iteration).
+        snapshot_pending_ = true;
     }
     raw_input_tick_ = 0;
 }
@@ -585,7 +607,16 @@ int WindowsPlatform::run() {
     // Keystrokes must never wait behind other work.
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
-    // 1 ms timer resolution for combo / tap-hold deadlines (default is 15.6 ms)
+    // 1 ms timer resolution for combo / tap-hold deadlines (default is 15.6 ms). Windows 11
+    // ignores it for processes without visible windows (the tray app) unless they opt out.
+#ifdef PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION
+    PROCESS_POWER_THROTTLING_STATE throttling{};
+    throttling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+    throttling.ControlMask = PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
+    throttling.StateMask = 0;
+    SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &throttling,
+                          sizeof(throttling));
+#endif
     timeBeginPeriod(1);
     createMessageWindow();
     snapshotHeldKeys();
@@ -606,7 +637,13 @@ int WindowsPlatform::run() {
         if (engine_->hasActiveTimer()) {
             const int64_t diff_us = tff::timeSubMicros(now(), engine_->getActiveTimerTime());
             // A due timer is handled below; still pump messages (hook callbacks) first.
-            timeout = diff_us <= 0 ? 0 : static_cast<DWORD>(diff_us / 1000 + 1);
+            if (diff_us > 0) {
+                timeout = static_cast<DWORD>(diff_us / 1000 + 1);
+            } else if (engine_->getActiveTimerTime() == stuck_timer_) {
+                timeout = static_cast<DWORD>(kStuckTimerRetryUs / 1000);
+            } else {
+                timeout = 0;  // due now: handled below, after pumping messages
+            }
         }
         if (reload_due_tick_ != 0) {
             const ULONGLONG t = GetTickCount64();
@@ -648,6 +685,10 @@ int WindowsPlatform::run() {
             DispatchMessageW(&msg);
         }
         handleTimers();
+        if (snapshot_pending_) {
+            snapshot_pending_ = false;
+            snapshotHeldKeys();
+        }
         if (reload_due_tick_ != 0 && GetTickCount64() >= reload_due_tick_) {
             reloadNow();
         }

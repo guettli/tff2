@@ -299,6 +299,9 @@ void showCheatsheet() {
 
 void toggleAutostart() {
     std::string err;
+    if (g_app.task_query_thread.joinable()) {
+        g_app.task_query_thread.join();  // its (older) result must not overwrite ours
+    }
     const auto status = tff::win::autostartStatus();
     const bool ok = (status.run_key || status.task) ? tff::win::autostartDisable(err)
                                                     : tff::win::autostartEnable(false, err);

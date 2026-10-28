@@ -48,6 +48,7 @@ struct Recorder {
     std::vector<OutputInput> inputs;
     int batches = 0;
     bool reject = false;  ///< simulate SendInput failing (secure desktop, UIPI)
+    void setReject(bool r) { reject = r; }
     OutputBuilder::Sender sender() {
         return [this](const std::vector<OutputInput>& batch) {
             ++batches;
@@ -350,15 +351,25 @@ void test_output_builder_repeat_source_and_retry() {
     assert(rec.keys().size() == 1);
 
     // Secure desktop: the key-up is rejected, so `a` stays recorded as held ...
-    rec.reject = true;
+    rec.setReject(true);
     builder.releaseAll();
     assert(builder.isHeld(Keys::KEY_A));
+    // Same for key-ups the engine itself writes (e.g. engine.reset() releasing a tap-hold)
+    builder.writeOne(Event{ms(2), EV_KEY, Keys::KEY_LEFTCTRL, KEY_VAL_DOWN});
+    rec.setReject(false);
+    builder.flush();
+    rec.setReject(true);
+    builder.writeOne(Event{ms(3), EV_KEY, Keys::KEY_LEFTCTRL, KEY_VAL_UP});
+    builder.releaseAll();
+    assert(builder.isHeld(Keys::KEY_LEFTCTRL) && builder.isHeld(Keys::KEY_A));
     // ... and is released on the next attempt (session unlocked)
-    rec.reject = false;
+    rec.setReject(false);
     builder.releaseAll();
     assert(!builder.isHeld(Keys::KEY_A));
+    assert(!builder.isHeld(Keys::KEY_LEFTCTRL));
     auto keys = rec.keys();
-    assert(keys.size() == 2 && keys[1] == std::make_pair(Keys::KEY_A, true));
+    assert(keys.size() == 4);  // a down, ctrl down, then the retried ups
+    assert(keys[2].second && keys[3].second);
     std::cout << "PASSED\n";
 }
 

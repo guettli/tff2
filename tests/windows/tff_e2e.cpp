@@ -48,6 +48,12 @@ std::mutex g_mutex;
 std::vector<Recorded> g_output;  // injected by tff.exe
 std::vector<Recorded> g_leaked;  // typed by us and NOT swallowed by tff.exe
 std::atomic<int> g_harness_seen{0};
+std::atomic<const char*> g_phase{"start"};
+
+void progress(const char* phase) {
+    g_phase = phase;
+    std::cout << "[e2e] " << phase << std::endl;
+}
 
 LRESULT CALLBACK sinkHook(int code, WPARAM wparam, LPARAM lparam) {
     if (code == HC_ACTION) {
@@ -152,6 +158,7 @@ std::string readFile(const std::wstring& path) {
 
 int runTests(const std::wstring& tff_exe, const std::wstring& config) {
     // Calibration: do LL hooks see SendInput at all on this machine (interactive desktop)?
+    progress("calibrating: is the keyboard hook called for SendInput?");
     if (!type({Keys::KEY_A, false, 20}) || !type({Keys::KEY_A, true, 200})) {
         std::cout << "SKIP: SendInput failed (error " << GetLastError()
                   << "), no interactive desktop\n";
@@ -180,6 +187,7 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
     si.hStdError = log;
     si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     PROCESS_INFORMATION pi{};
+    progress("starting tff.exe");
     std::wstring cmd = L"\"" + tff_exe + L"\" --verbose -c \"" + config + L"\"";
     if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
                         nullptr, &si, &pi)) {
@@ -202,8 +210,10 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
                   << readFile(log_path) << "\n";
         failures = 1;
     } else {
+        progress("tff.exe is ready");
         Sleep(200);
         for (const auto& sc : scenarios()) {
+            g_phase = sc.name;
             {
                 std::lock_guard<std::mutex> lock(g_mutex);
                 g_output.clear();
@@ -234,6 +244,7 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
         }
     }
 
+    progress("stopping tff.exe");
     TerminateProcess(pi.hProcess, 0);
     WaitForSingleObject(pi.hProcess, 5000);
     CloseHandle(pi.hThread);
@@ -253,6 +264,14 @@ int wmain(int argc, wchar_t* argv[]) {
         return 2;
     }
     timeBeginPeriod(1);  // 1 ms Sleep() resolution for the chord timings
+    std::cout << std::unitbuf;
+
+    // Never hang a CI job: report where we got stuck and give up.
+    std::thread([] {
+        Sleep(120000);
+        std::cout << "[e2e] TIMEOUT in phase: " << g_phase.load() << std::endl;
+        ExitProcess(3);
+    }).detach();
 
     HHOOK hook = SetWindowsHookExW(WH_KEYBOARD_LL, sinkHook, GetModuleHandleW(nullptr), 0);
     if (hook == nullptr) {

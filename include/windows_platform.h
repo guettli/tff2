@@ -132,7 +132,10 @@ private:
     HWND msg_window_ = nullptr;
     HANDLE config_change_ = INVALID_HANDLE_VALUE;
     int64_t config_mtime_ = 0;
-    ULONGLONG reload_due_tick_ = 0;  ///< debounced config reload (0 = none pending)
+    ULONGLONG reload_due_tick_ = 0;    ///< debounced config reload (0 = none pending)
+    bool snapshot_pending_ = false;    ///< re-read held keys after a hook reinstall
+    tff::TimeVal stuck_timer_{-1, 0};  ///< engine timer that stayed due after firing
+    tff::TimeVal stuck_since_{};
 
     // Hook watchdog: raw input proves a key was pressed; if the hook didn't see it, the hook
     // was removed (LowLevelHooksTimeout) and gets reinstalled.

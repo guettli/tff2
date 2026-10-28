@@ -155,6 +155,7 @@ jobs:
 
       - name: End-to-end test (real keyboard hook + SendInput)
         shell: pwsh
+        timeout-minutes: 5
         run: |
           & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
           if ($LASTEXITCODE -eq 77) {

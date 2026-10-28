@@ -403,6 +403,17 @@ bool OutputBuilder::flush() {
         return true;
     }
     const bool ok = sender_ ? sender_(pending_) : true;
+    if (!ok) {
+        // Windows rejected the batch: keys whose key-up didn't arrive are still down there.
+        for (const auto& in : pending_) {
+            const bool is_release = in.up && (in.type == OutputInput::Type::Key ||
+                                              in.type == OutputInput::Type::MouseButton);
+            const KeyCode code = in.type == OutputInput::Type::Key ? in.key.code : in.button;
+            if (is_release && std::find(held_.begin(), held_.end(), code) == held_.end()) {
+                held_.push_back(code);
+            }
+        }
+    }
     pending_.clear();
     return ok;
 }
@@ -436,10 +447,9 @@ void OutputBuilder::releaseAll() {
         }
         pending_.push_back(in);
     }
+    held_.clear();
     repeat_key_ = 0;
-    if (flush()) {
-        held_.clear();
-    }
+    flush();  // on failure, flush() records the rejected keys as held again
 }
 
 bool OutputBuilder::isHeld(KeyCode code) const {
