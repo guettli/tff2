@@ -308,8 +308,10 @@ void WindowsPlatform::handleTimers() {
 
 void WindowsPlatform::resetState(const char* reason) {
     initialize();
-    output_.releaseAll();
+    // The engine releases what it holds itself (tap-hold modifiers, layer remaps, ...);
+    // releaseAll() then lifts whatever is still down, so no key gets a second key-up.
     engine_->reset();
+    output_.releaseAll();
     translator_.reset();
     if (verbose_) {
         log(std::string("[TFF] State reset (") + reason + ")");
