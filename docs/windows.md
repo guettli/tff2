@@ -109,10 +109,10 @@ Tray menu → *Layer notifications*:
 
 ## Building from source
 
-Needs Visual Studio 2022 (or the Build Tools) with the C++ workload and CMake ≥ 3.16:
+Needs Visual Studio 2022 or newer (or the Build Tools) with the C++ workload and CMake ≥ 3.16:
 
 ```powershell
-cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake -B build -A x64
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 cd build; cpack -C Release -G ZIP     # MSI: install the WiX .NET tool, then -G WIX
