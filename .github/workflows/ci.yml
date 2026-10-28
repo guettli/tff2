@@ -153,18 +153,6 @@ jobs:
       - name: Run unit tests
         run: ctest --test-dir build -C Release --output-on-failure -E test_windows_e2e
 
-      - name: End-to-end test (real keyboard hook + SendInput)
-        shell: pwsh
-        timeout-minutes: 5
-        run: |
-          & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
-          if ($LASTEXITCODE -eq 77) {
-            Write-Output "::warning::E2E test skipped: no interactive desktop on this runner"
-          } elseif ($LASTEXITCODE -ne 0) {
-            exit 1
-          }
-          exit 0
-
       - name: Test TFF CLI commands
         shell: pwsh
         run: |
@@ -236,6 +224,44 @@ jobs:
             build/tff2-*-windows-x64.zip
             build/tff2-*-windows-x64.msi
           if-no-files-found: error
+
+      # Last step, with a hard kill: it drives the real desktop input stack of the runner.
+      - name: End-to-end test (real keyboard hook + SendInput)
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $p = Start-Process -FilePath build/Release/tff_e2e.exe `
+                 -ArgumentList "build/Release/tff.exe", "tests/windows/e2e.yaml" `
+                 -RedirectStandardOutput e2e-out.log -RedirectStandardError e2e-err.log `
+                 -NoNewWindow -PassThru
+          if (-not $p.WaitForExit(180000)) {
+            Write-Output "::error::E2E test did not finish within 180 s, killing it"
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            Get-Process tff -ErrorAction SilentlyContinue | Stop-Process -Force
+            $code = 1
+          } else {
+            $code = $p.ExitCode
+          }
+          Get-Content e2e-out.log, e2e-err.log -ErrorAction SilentlyContinue
+          if (Test-Path "$env:TEMP/tff_e2e_tff.log") {
+            Write-Output "--- tff.exe log ---"
+            Get-Content "$env:TEMP/tff_e2e_tff.log"
+          }
+          if ($code -eq 77) {
+            Write-Output "::warning::E2E test skipped: no interactive desktop on this runner"
+            exit 0
+          }
+          exit $code
+
+      - name: Upload E2E logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: |
+            e2e-out.log
+            e2e-err.log
+          if-no-files-found: ignore
 
   coverage:
     name: Code Coverage (gcov)

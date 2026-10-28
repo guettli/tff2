@@ -49,6 +49,7 @@ std::vector<Recorded> g_output;  // injected by tff.exe
 std::vector<Recorded> g_leaked;  // typed by us and NOT swallowed by tff.exe
 std::atomic<int> g_harness_seen{0};
 std::atomic<const char*> g_phase{"start"};
+std::atomic<HANDLE> g_tff_process{nullptr};
 
 void progress(const char* phase) {
     g_phase = phase;
@@ -180,21 +181,36 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
     SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
     HANDLE log = CreateFileW(log_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
                              &sa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdOutput = log;
-    si.hStdError = log;
-    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    // tff.exe inherits only the log file handle. Inheriting our stdout (a pipe of the CI
+    // step) would keep the step waiting for as long as tff.exe lives.
+    SIZE_T attr_size = 0;
+    InitializeProcThreadAttributeList(nullptr, 1, 0, &attr_size);
+    std::vector<char> attr_buf(attr_size);
+    auto* attrs = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attr_buf.data());
+    InitializeProcThreadAttributeList(attrs, 1, 0, &attr_size);
+    UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &log, sizeof(log),
+                              nullptr, nullptr);
+    STARTUPINFOEXW si{};
+    si.StartupInfo.cb = sizeof(si);
+    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.StartupInfo.hStdInput = nullptr;
+    si.StartupInfo.hStdOutput = log;
+    si.StartupInfo.hStdError = log;
+    si.lpAttributeList = attrs;
     PROCESS_INFORMATION pi{};
     progress("starting tff.exe");
     std::wstring cmd = L"\"" + tff_exe + L"\" --verbose -c \"" + config + L"\"";
-    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
-                        nullptr, &si, &pi)) {
-        std::cout << "FAIL: cannot start tff.exe (error " << GetLastError() << ")\n";
+    const BOOL started = CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE,
+                                        CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr,
+                                        nullptr, &si.StartupInfo, &pi);
+    const DWORD create_error = GetLastError();
+    DeleteProcThreadAttributeList(attrs);
+    CloseHandle(log);
+    if (!started) {
+        std::cout << "FAIL: cannot start tff.exe (error " << create_error << ")\n";
         return 1;
     }
-    CloseHandle(log);
+    g_tff_process = pi.hProcess;
 
     bool ready = false;
     for (int i = 0; i < 100 && !ready; ++i) {
@@ -245,6 +261,7 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
     }
 
     progress("stopping tff.exe");
+    g_tff_process = nullptr;
     TerminateProcess(pi.hProcess, 0);
     WaitForSingleObject(pi.hProcess, 5000);
     CloseHandle(pi.hThread);
@@ -270,6 +287,9 @@ int wmain(int argc, wchar_t* argv[]) {
     std::thread([] {
         Sleep(120000);
         std::cout << "[e2e] TIMEOUT in phase: " << g_phase.load() << std::endl;
+        if (HANDLE p = g_tff_process.load()) {
+            TerminateProcess(p, 3);
+        }
         ExitProcess(3);
     }).detach();
 
