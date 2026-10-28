@@ -1,0 +1,48 @@
+// Icons and version information for tff.exe and tffw.exe.
+#include <winver.h>
+#include "tff_resource.h"
+
+#ifndef TFF_VERSION_MAJOR
+#define TFF_VERSION_MAJOR 0
+#endif
+#ifndef TFF_VERSION_MINOR
+#define TFF_VERSION_MINOR 0
+#endif
+#ifndef TFF_VERSION_PATCH
+#define TFF_VERSION_PATCH 0
+#endif
+#define TFF_RC_STR2(x) #x
+#define TFF_RC_STR(x) TFF_RC_STR2(x)
+#define TFF_RC_VERSION_STRING                                                                      \
+    TFF_RC_STR(TFF_VERSION_MAJOR) "." TFF_RC_STR(TFF_VERSION_MINOR) "." TFF_RC_STR(TFF_VERSION_PATCH)
+
+// The first icon is the program icon shown by Explorer.
+IDI_TFF_ACTIVE ICON "tff_active.ico"
+IDI_TFF_PAUSED ICON "tff_paused.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION TFF_VERSION_MAJOR, TFF_VERSION_MINOR, TFF_VERSION_PATCH, 0
+PRODUCTVERSION TFF_VERSION_MAJOR, TFF_VERSION_MINOR, TFF_VERSION_PATCH, 0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Thomas Guettler"
+            VALUE "FileDescription", "Ten Flying Fingers keyboard remapper"
+            VALUE "FileVersion", TFF_RC_VERSION_STRING
+            VALUE "ProductName", "TFF2 (Ten Flying Fingers)"
+            VALUE "ProductVersion", TFF_RC_VERSION_STRING
+            VALUE "LegalCopyright", "https://github.com/guettli/tff2"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

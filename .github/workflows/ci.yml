@@ -135,6 +135,102 @@ jobs:
           ! test -e /usr/bin/tff_linux
 
 
+  build-windows:
+    name: Build & Test (Windows MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DTFF_WARNINGS_AS_ERRORS=ON
+
+      - name: Build targets
+        run: cmake --build build --config Release --parallel
+
+      - name: Run unit tests
+        run: ctest --test-dir build -C Release --output-on-failure -E test_windows_e2e
+
+      - name: End-to-end test (real keyboard hook + SendInput)
+        shell: pwsh
+        run: |
+          & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
+          if ($LASTEXITCODE -eq 77) {
+            Write-Output "::warning::E2E test skipped: no interactive desktop on this runner"
+          } elseif ($LASTEXITCODE -ne 0) {
+            exit 1
+          }
+          exit 0
+
+      - name: Test TFF CLI commands
+        shell: pwsh
+        run: |
+          $tff = "build/Release/tff.exe"
+          function Check([int]$expected) {
+            if ($LASTEXITCODE -ne $expected) {
+              Write-Output "::error::exit code $LASTEXITCODE, expected $expected"
+              exit 1
+            }
+          }
+          & $tff --help; Check 0
+          & $tff --version; Check 0
+          & $tff -V; Check 0
+          & $tff validate config/tff-combos.yaml; Check 0
+          & $tff validate tests/windows/e2e.yaml; Check 0
+          & $tff cheatsheet --plain config/tff-combos.yaml; Check 0
+          & $tff cheatsheet --markdown config/tff-combos.yaml; Check 0
+          & $tff init --list-presets; Check 0
+          & $tff init --preset minimal --print; Check 0
+          & $tff list; Check 0
+          & $tff autostart status; Check 0
+          & $tff --grab 2>$null; Check 2
+          & $tff setup-udev 2>$null; Check 2
+          & $tff validate does-not-exist.yaml 2>$null; Check 1
+          # Non-ASCII path (UTF-8 active code page)
+          New-Item -ItemType Directory -Force "$env:TEMP/tff-ü" | Out-Null
+          Copy-Item config/tff-combos.yaml "$env:TEMP/tff-ü/kömbos.yaml"
+          & $tff validate "$env:TEMP/tff-ü/kömbos.yaml"; Check 0
+          exit 0
+
+      - name: Install WiX Toolset
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      - name: Package (ZIP + MSI)
+        working-directory: build
+        run: cpack -C Release -G "ZIP;WIX"
+
+      - name: Test MSI install (per-user, no admin)
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem build/tff2-*-windows-x64.msi | Select-Object -First 1
+          $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /l*v msi.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content msi.log -Tail 60; exit 1 }
+          $exe = Get-ChildItem -Recurse "$env:LOCALAPPDATA/Programs" -Filter tff.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { $exe = Get-ChildItem -Recurse "$env:ProgramFiles/TFF2" -Filter tff.exe -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (-not $exe) { Write-Output "::error::tff.exe not found after MSI install"; Get-Content msi.log -Tail 60; exit 1 }
+          Write-Output "Installed: $($exe.FullName)"
+          Get-ChildItem $exe.DirectoryName
+          & $exe.FullName --version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          & $exe.FullName validate (Join-Path $exe.DirectoryName "tff-combos.yaml")
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn" -Wait -PassThru
+          exit $p.ExitCode
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: tff2-windows-x64
+          path: |
+            build/tff2-*-windows-x64.zip
+            build/tff2-*-windows-x64.msi
+          if-no-files-found: error
+
   coverage:
     name: Code Coverage (gcov)
     runs-on: ubuntu-latest

@@ -2,7 +2,9 @@
 #include "tff_engine.h"
 #include "tff_parser.h"
 #include "tff_key_codes.h"
+#ifndef _WIN32
 #include "linux_platform.h"
+#endif
 #include <iostream>
 #include <cassert>
 #include <sstream>
@@ -340,6 +342,7 @@ void test_device_label() {
     std::cout << "PASSED\n";
 }
 
+#ifndef _WIN32
 void test_platform_monitor_api() {
     std::cout << "Test 11: LinuxPlatform monitor API... " << std::flush;
     LinuxPlatform platform;
@@ -355,6 +358,7 @@ void test_platform_monitor_api() {
     assert(engine.getCombos().empty());
     std::cout << "PASSED\n";
 }
+#endif
 
 void test_options_toggles() {
     std::cout << "Test 12: Monitor options toggles (--no-deltas, --no-emitted, --plain)... "
@@ -445,7 +449,9 @@ int main() {
     test_leader_key_monitor();
     test_auto_shift_monitor();
     test_device_label();
+#ifndef _WIN32
     test_platform_monitor_api();
+#endif
     test_options_toggles();
     test_column_alignment_long_key_names();
     std::cout << "===============================\n";

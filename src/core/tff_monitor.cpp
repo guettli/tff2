@@ -27,7 +27,11 @@ std::string EventMonitor::formatTimestamp(TimeVal time) {
     if (time.sec > 0) {
         std::time_t s = static_cast<std::time_t>(time.sec);
         struct tm tm_info;
+#ifdef _WIN32
+        localtime_s(&tm_info, &s);
+#else
         localtime_r(&s, &tm_info);
+#endif
         std::snprintf(buf, sizeof(buf), "[%02d:%02d:%02d.%03d]", tm_info.tm_hour, tm_info.tm_min,
                       tm_info.tm_sec, static_cast<int>((time.usec / 1000) % 1000));
     } else {

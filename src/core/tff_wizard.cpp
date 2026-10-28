@@ -326,6 +326,13 @@ std::string generateConfigFromAnswers(const WizardAnswers& a) {
 }
 
 std::string getDefaultOutputPath() {
+#ifdef _WIN32
+    // %APPDATA%\tff\tff-combos.yaml (roaming profile, e.g. C:\Users\me\AppData\Roaming)
+    const char* appdata = std::getenv("APPDATA");
+    if (appdata != nullptr && appdata[0] != '\0') {
+        return std::string(appdata) + "\\tff\\tff-combos.yaml";
+    }
+#endif
     const char* xdg_config = std::getenv("XDG_CONFIG_HOME");
     if (xdg_config != nullptr && xdg_config[0] != '\0') {
         return std::string(xdg_config) + "/tff/tff-combos.yaml";

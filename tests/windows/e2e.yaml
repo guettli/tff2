@@ -1,0 +1,24 @@
+# Configuration for the Windows end-to-end test (tests/windows/tff_e2e.cpp).
+# Timeouts are generous so the test is stable on slow CI machines.
+settings:
+  combo_timeout_ms: 80
+  tap_hold_timeout_ms: 250
+
+combos:
+  - keys: f j
+    outKeys: delete
+  - keys: j f
+    outKeys: backspace
+
+tap_hold:
+  capslock:
+    tap: esc
+    hold: leftctrl
+  space:
+    tap: space
+    layer: nav
+
+layers:
+  nav:
+    h: left
+    l: right

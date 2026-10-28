@@ -107,7 +107,14 @@ set(RP2040_PLATFORM_SOURCES
 # Compiler warning options
 option(TFF_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 if(NOT PICO_BUILD)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    if(MSVC)
+        add_compile_options(/W4 /permissive- /utf-8 /EHsc /Zc:__cplusplus)
+        add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE
+            _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+        if(TFF_WARNINGS_AS_ERRORS)
+            add_compile_options(/WX)
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         add_compile_options(-Wall -Wextra -Wpedantic)
         if(TFF_WARNINGS_AS_ERRORS)
             add_compile_options(-Werror)
@@ -180,17 +187,19 @@ else()
 endif()
 
 if(NOT PICO_BUILD)
-    # Add Linux-specific core sources (udev and permission setup)
-    target_sources(tff_core PRIVATE src/core/tff_udev.cpp)
+    if(NOT WIN32)
+        # Add Linux-specific core sources (udev and permission setup)
+        target_sources(tff_core PRIVATE src/core/tff_udev.cpp)
 
-    # Linux platform source files
-    set(LINUX_PLATFORM_SOURCES
-        src/platform/linux/linux_platform.cpp
-    )
+        # Linux platform source files
+        set(LINUX_PLATFORM_SOURCES
+            src/platform/linux/linux_platform.cpp
+        )
 
-    # Create Linux platform library
-    add_library(linux_platform ${LINUX_PLATFORM_SOURCES})
-    target_link_libraries(linux_platform tff_core)
+        # Create Linux platform library
+        add_library(linux_platform ${LINUX_PLATFORM_SOURCES})
+        target_link_libraries(linux_platform tff_core)
+    endif()
 
     # Create separate unit test executables
     add_executable(test_rp2040_platform
@@ -254,92 +263,102 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_tff_go_suite tff_core)
 
-    # Create Linux TFF remapper daemon
-    add_executable(tff_linux
-        src/platform/linux/main_linux.cpp
-    )
-    target_link_libraries(tff_linux tff_core linux_platform)
+    if(WIN32)
+        # Windows remapper (tff.exe), tray app (tffw.exe) and MSI/ZIP packaging
+        include(cmake/TffWindows.cmake)
+    else()
+        # Create Linux TFF remapper daemon
+        add_executable(tff_linux
+            src/platform/linux/main_linux.cpp
+        )
+        target_link_libraries(tff_linux tff_core linux_platform)
 
-    # Symlink tff and tff2 to tff_linux in build directory for convenience
-    add_custom_command(TARGET tff_linux POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink tff_linux tff
-        COMMAND ${CMAKE_COMMAND} -E create_symlink tff_linux tff2
-        COMMENT "Creating tff and tff2 symlinks for tff_linux"
-    )
+        # Symlink tff and tff2 to tff_linux in build directory for convenience
+        add_custom_command(TARGET tff_linux POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E create_symlink tff_linux tff
+            COMMAND ${CMAKE_COMMAND} -E create_symlink tff_linux tff2
+            COMMENT "Creating tff and tff2 symlinks for tff_linux"
+        )
 
-    # Installation rules using GNUInstallDirs
-    include(GNUInstallDirs)
-    install(TARGETS tff_linux RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-    install(FILES config/tff-combos.yaml DESTINATION /etc/tff)
-    install(FILES packaging/udev/99-tff.rules DESTINATION lib/udev/rules.d)
-    install(FILES packaging/systemd/system/ten-flying-fingers.service DESTINATION lib/systemd/system)
-    install(FILES packaging/systemd/user/ten-flying-fingers.service DESTINATION ${CMAKE_INSTALL_DATADIR}/systemd/user)
-    install(FILES completions/bash/tff DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions)
-    install(FILES completions/zsh/_tff DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions)
-    install(FILES completions/fish/tff.fish DESTINATION ${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d)
-    install(FILES docs/man/tff.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
-    install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-        install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} RENAME copyright)
+        # Installation rules using GNUInstallDirs
+        include(GNUInstallDirs)
+        install(TARGETS tff_linux RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        install(FILES config/tff-combos.yaml DESTINATION /etc/tff)
+        install(FILES packaging/udev/99-tff.rules DESTINATION lib/udev/rules.d)
+        install(FILES packaging/systemd/system/ten-flying-fingers.service DESTINATION lib/systemd/system)
+        install(FILES packaging/systemd/user/ten-flying-fingers.service DESTINATION ${CMAKE_INSTALL_DATADIR}/systemd/user)
+        install(FILES completions/bash/tff DESTINATION ${CMAKE_INSTALL_DATADIR}/bash-completion/completions)
+        install(FILES completions/zsh/_tff DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions)
+        install(FILES completions/fish/tff.fish DESTINATION ${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d)
+        install(FILES docs/man/tff.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+        install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+            install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} RENAME copyright)
+        endif()
+
+        install(CODE "
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff_linux \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/tff\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff_linux \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/tff2\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/bash-completion/completions/tff2\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/bash-completion/completions/tff_linux\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink _tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/zsh/site-functions/_tff2\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink _tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/zsh/site-functions/_tff_linux\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.fish \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d/tff2.fish\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.fish \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d/tff_linux.fish\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.1 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_MANDIR}/man1/tff2.1\")
+            execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.1 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_MANDIR}/man1/tff_linux.1\")
+        ")
+
+        # CPack Debian and Tarball packaging configuration
+        set(CPACK_PACKAGE_NAME "tff2")
+        set(CPACK_PACKAGE_VENDOR "Thomas Guettler")
+        set(CPACK_PACKAGE_CONTACT "Thomas Guettler <guettlimm@thomas-guettler.de>")
+        set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Ten Flying Fingers (TFF) Keyboard Remapper")
+        set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/guettli/tff2")
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+            set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+        endif()
+        set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+        set(CPACK_SET_DESTDIR ON)
+        set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+
+        # Debian generator specific settings
+        set(CPACK_GENERATOR "DEB;TGZ")
+        set(CPACK_DEBIAN_PACKAGE_NAME "tff2")
+        set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+        set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.31)")
+        set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "udev, systemd")
+        set(CPACK_DEBIAN_PACKAGE_PROVIDES "tff, tff-linux")
+        set(CPACK_DEBIAN_PACKAGE_CONFLICTS "tff (<< 2.0.0)")
+        set(CPACK_DEBIAN_PACKAGE_REPLACES "tff, tff-linux")
+        set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+            "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/prerm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postrm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/conffiles"
+        )
+        set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+        include(CPack)
     endif()
-
-    install(CODE "
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff_linux \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/tff\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff_linux \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/tff2\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/bash-completion/completions/tff2\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/bash-completion/completions/tff_linux\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink _tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/zsh/site-functions/_tff2\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink _tff \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/zsh/site-functions/_tff_linux\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.fish \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d/tff2.fish\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.fish \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/fish/vendor_completions.d/tff_linux.fish\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.1 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_MANDIR}/man1/tff2.1\")
-        execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink tff.1 \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_MANDIR}/man1/tff_linux.1\")
-    ")
-
-    # CPack Debian and Tarball packaging configuration
-    set(CPACK_PACKAGE_NAME "tff2")
-    set(CPACK_PACKAGE_VENDOR "Thomas Guettler")
-    set(CPACK_PACKAGE_CONTACT "Thomas Guettler <guettlimm@thomas-guettler.de>")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Ten Flying Fingers (TFF) Keyboard Remapper")
-    set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/guettli/tff2")
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-        set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-    endif()
-    set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-    set(CPACK_SET_DESTDIR ON)
-    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
-
-    # Debian generator specific settings
-    set(CPACK_GENERATOR "DEB;TGZ")
-    set(CPACK_DEBIAN_PACKAGE_NAME "tff2")
-    set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
-    set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.31)")
-    set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "udev, systemd")
-    set(CPACK_DEBIAN_PACKAGE_PROVIDES "tff, tff-linux")
-    set(CPACK_DEBIAN_PACKAGE_CONFLICTS "tff (<< 2.0.0)")
-    set(CPACK_DEBIAN_PACKAGE_REPLACES "tff, tff-linux")
-    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
-        "${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/prerm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postinst;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/postrm;${CMAKE_CURRENT_SOURCE_DIR}/packaging/debian/conffiles"
-    )
-    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-    include(CPack)
-
-    # Create Linux platform unit/integration test
-    add_executable(test_linux_platform
-        tests/test_linux_platform.cpp
-    )
-    target_link_libraries(test_linux_platform tff_core linux_platform)
 
     add_executable(test_monitor
         tests/test_monitor.cpp
     )
-    target_link_libraries(test_monitor tff_core linux_platform)
+    target_link_libraries(test_monitor tff_core)
 
-    add_executable(test_udev
-        tests/test_udev.cpp
-    )
-    target_link_libraries(test_udev tff_core)
+    if(NOT WIN32)
+        # Create Linux platform unit/integration test
+        add_executable(test_linux_platform
+            tests/test_linux_platform.cpp
+        )
+        target_link_libraries(test_linux_platform tff_core linux_platform)
+
+        # test_monitor also covers the LinuxPlatform monitor API (Test 11)
+        target_link_libraries(test_monitor linux_platform)
+
+        add_executable(test_udev
+            tests/test_udev.cpp
+        )
+        target_link_libraries(test_udev tff_core)
+    endif()
 
     add_executable(test_layer_combos
         tests/test_layer_combos.cpp
@@ -361,6 +380,16 @@ if(NOT PICO_BUILD)
     )
     target_link_libraries(test_wizard tff_core)
 
+    # Platform-neutral part of the Windows port (keymap, hook translation, output batching).
+    # Built and tested on every host so Linux CI covers it too.
+    add_library(win_input src/platform/windows/win_input.cpp)
+    target_link_libraries(win_input tff_core)
+
+    add_executable(test_win_input
+        tests/test_win_input.cpp
+    )
+    target_link_libraries(test_win_input tff_core win_input)
+
     # Enable testing
     enable_testing()
     add_test(NAME test_rp2040_platform COMMAND test_rp2040_platform)
@@ -376,15 +405,18 @@ if(NOT PICO_BUILD)
     add_test(NAME test_auto_shift COMMAND test_auto_shift)
     add_test(NAME test_mouse_keys COMMAND test_mouse_keys)
     add_test(NAME test_tff_go_suite COMMAND test_tff_go_suite)
-    add_test(NAME test_linux_platform COMMAND test_linux_platform)
     add_test(NAME test_monitor COMMAND test_monitor)
-    add_test(NAME test_udev COMMAND test_udev)
+    if(NOT WIN32)
+        add_test(NAME test_linux_platform COMMAND test_linux_platform)
+        add_test(NAME test_udev COMMAND test_udev)
+    endif()
     add_test(NAME test_invariants COMMAND test_invariants)
     add_test(NAME test_tap_dance COMMAND test_tap_dance)
     add_test(NAME test_wizard COMMAND test_wizard)
+    add_test(NAME test_win_input COMMAND test_win_input)
 
     find_program(PYTHON3_EXECUTABLE NAMES python3 python)
-    if(PYTHON3_EXECUTABLE)
+    if(PYTHON3_EXECUTABLE AND NOT WIN32)
         add_test(NAME test_pre_commit_hook COMMAND ${PYTHON3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_pre_commit_hook.py)
     endif()
 
@@ -409,10 +441,23 @@ if(NOT PICO_BUILD)
         test_invariants
         test_tap_dance
         test_wizard
+        test_win_input
     )
+    if(WIN32)
+        list(APPEND TEST_TARGETS ${TFF_WINDOWS_TEST_TARGETS})
+    endif()
     foreach(target ${TEST_TARGETS})
-        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        if(NOT TARGET ${target})
+            continue()
+        endif()
+        if(MSVC)
+            target_compile_options(${target} PRIVATE /UNDEBUG)
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             target_compile_options(${target} PRIVATE -UNDEBUG)
+        endif()
+        if(WIN32)
+            # Report assert()/abort() failures on stderr instead of a modal dialog (CI would hang)
+            target_sources(${target} PRIVATE tests/win_test_setup.cpp)
         endif()
     endforeach()
 
@@ -431,6 +476,7 @@ if(NOT PICO_BUILD)
                 --suppress=unusedPrivateFunction:*rp2040_platform.h
                 --error-exitcode=1
                 --std=c++17
+                --library=windows
                 -I ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests
