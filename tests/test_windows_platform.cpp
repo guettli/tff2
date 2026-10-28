@@ -11,6 +11,13 @@
 #include <thread>
 #include <vector>
 
+// assert() on a call with side effects, without cppcheck's assertWithSideEffect warning
+#define CHECK(expr)                                                                                \
+    do {                                                                                           \
+        const bool check_ok_ = (expr);                                                             \
+        assert(check_ok_);                                                                         \
+    } while (0)
+
 using tff::win::HookEvent;
 using tff::win::kInjectedMagic;
 using tff::win::kLlkhfExtended;
@@ -83,9 +90,9 @@ void test_plain_key_via_scancode() {
     bool ok = p.loadConfiguration(writeConfig("plain.yaml", kConfig), err);
     assert(ok);
 
-    assert(p.handleHookEvent(key(0x41, 0x1E, false)));  // 'a' down: swallowed
-    waitAndFireTimers(p, 80);                           // combo timeout expires
-    assert(p.handleHookEvent(key(0x41, 0x1E, true)));
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, false)));  // 'a' down: swallowed
+    waitAndFireTimers(p, 80);                          // combo timeout expires
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, true)));
 
     auto keys = rec.keys();
     assert(keys.size() == 2);
@@ -105,11 +112,11 @@ void test_chord_extended_key() {
     bool ok = p.loadConfiguration(writeConfig("chord.yaml", kConfig), err);
     assert(ok);
 
-    assert(p.handleHookEvent(key(0x46, 0x21, false)));
-    assert(p.handleHookEvent(key(0x4A, 0x24, false)));
-    assert(p.handleHookEvent(key(0x46, 0x21, true)));
-    assert(p.handleHookEvent(key(0x4A, 0x24, true)));
-    p.handleTimers();
+    CHECK(p.handleHookEvent(key(0x46, 0x21, false)));
+    CHECK(p.handleHookEvent(key(0x4A, 0x24, false)));
+    waitAndFireTimers(p, 80);  // a chord fires once both keys were held for combo_timeout_ms
+    CHECK(p.handleHookEvent(key(0x46, 0x21, true)));
+    CHECK(p.handleHookEvent(key(0x4A, 0x24, true)));
 
     auto keys = rec.keys();
     assert(keys.size() == 2);
@@ -131,13 +138,13 @@ void test_pass_through_cases() {
 
     HookEvent own = key(0x41, 0x1E, false, tff::win::kLlkhfInjected);
     own.extra_info = kInjectedMagic;
-    assert(!p.handleHookEvent(own));
-    assert(!p.handleHookEvent(key(0xFF, 0x00, false)));
+    CHECK(!p.handleHookEvent(own));
+    CHECK(!p.handleHookEvent(key(0xFF, 0x00, false)));
 
     p.setPaused(true);
     assert(p.isPaused());
-    assert(!p.handleHookEvent(key(0x41, 0x1E, false)));
-    assert(!p.handleHookEvent(key(0x41, 0x1E, true)));
+    CHECK(!p.handleHookEvent(key(0x41, 0x1E, false)));
+    CHECK(!p.handleHookEvent(key(0x41, 0x1E, true)));
     p.setPaused(false);
     assert(rec.inputs.empty());
     std::cout << "PASSED\n";
@@ -154,17 +161,17 @@ void test_tap_hold_and_reset() {
     assert(ok);
 
     // Hold CapsLock past the tap-hold timeout: LeftCtrl goes down
-    assert(p.handleHookEvent(key(0x14, 0x3A, false)));
+    CHECK(p.handleHookEvent(key(0x14, 0x3A, false)));
     waitAndFireTimers(p, 260);
     auto keys = rec.keys();
     assert(!keys.empty());
     assert(keys.back().ki.wScan == 0x1D && (keys.back().ki.dwFlags & KEYEVENTF_KEYUP) == 0);
 
     // 'a' while held, then auto-repeat of 'a' re-sends 'a' down
-    assert(p.handleHookEvent(key(0x41, 0x1E, false)));
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, false)));
     waitAndFireTimers(p, 80);
     size_t before = rec.keys().size();
-    assert(p.handleHookEvent(key(0x41, 0x1E, false)));  // repeat
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, false)));  // repeat
     keys = rec.keys();
     assert(keys.size() == before + 1);
     assert(keys.back().ki.wScan == 0x1E && (keys.back().ki.dwFlags & KEYEVENTF_KEYUP) == 0);
@@ -195,10 +202,10 @@ void test_monitor_mode() {
     bool ok = p.loadConfiguration(writeConfig("monitor.yaml", kConfig), err);
     assert(ok);
 
-    assert(!p.handleHookEvent(key(0x46, 0x21, false)));
-    assert(!p.handleHookEvent(key(0x4A, 0x24, false)));
-    assert(!p.handleHookEvent(key(0x46, 0x21, true)));
-    assert(!p.handleHookEvent(key(0x4A, 0x24, true)));
+    CHECK(!p.handleHookEvent(key(0x46, 0x21, false)));
+    CHECK(!p.handleHookEvent(key(0x4A, 0x24, false)));
+    CHECK(!p.handleHookEvent(key(0x46, 0x21, true)));
+    CHECK(!p.handleHookEvent(key(0x4A, 0x24, true)));
     assert(rec.inputs.empty());
     assert(lines.size() >= 4);
     bool saw_delete = false;
@@ -216,21 +223,21 @@ void test_config_errors_and_reload() {
               << std::flush;
     WindowsPlatform p;
     std::string err;
-    assert(!p.loadConfiguration("C:\\does\\not\\exist\\tff.yaml", err));
+    CHECK(!p.loadConfiguration("C:\\does\\not\\exist\\tff.yaml", err));
     assert(err.find("Failed to open") != std::string::npos);
 
     // Non-ASCII path (UTF-8 active code page + u8path)
     const std::string path = writeConfig(u8"k\u00f6nfig-\u00e4\u00fc.yaml", kConfig);
     bool ok = p.loadConfiguration(path, err);
     assert(ok);
-    assert(p.getEngine().getCombos().size() == 1);
+    CHECK(p.getEngine().getCombos().size() == 1);
 
     {
         std::ofstream f(std::filesystem::u8path(path), std::ios::binary);
         f << "combos:\n  - keys: f\n    outKeys: notakey\n";
     }
-    assert(!p.reloadConfiguration(err));
-    assert(p.getEngine().getCombos().size() == 1);
+    CHECK(!p.reloadConfiguration(err));
+    CHECK(p.getEngine().getCombos().size() == 1);
 
     {
         std::ofstream f(std::filesystem::u8path(path), std::ios::binary);
@@ -239,7 +246,7 @@ void test_config_errors_and_reload() {
     }
     ok = p.reloadConfiguration(err);
     assert(ok);  // CRLF line endings (Notepad) parse fine
-    assert(p.getEngine().getCombos().size() == 2);
+    CHECK(p.getEngine().getCombos().size() == 2);
     std::cout << "PASSED\n";
 }
 
@@ -252,7 +259,7 @@ void test_win_util() {
     assert(tff::win::userConfigPath().find("\\tff\\tff-combos.yaml") != std::string::npos);
     assert(!tff::win::exeDir().empty());
     std::string content;
-    assert(tff::win::readTextFile(writeConfig(u8"\u00f6.yaml", "x: 1\n"), content));
+    CHECK(tff::win::readTextFile(writeConfig(u8"\u00f6.yaml", "x: 1\n"), content));
     assert(content == "x: 1\n");
     std::cout << "PASSED\n";
 }

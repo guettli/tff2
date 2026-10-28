@@ -10,6 +10,13 @@
 #include <utility>
 #include <vector>
 
+// assert() on a call with side effects, without cppcheck's assertWithSideEffect warning
+#define CHECK(expr)                                                                                \
+    do {                                                                                           \
+        const bool check_ok_ = (expr);                                                             \
+        assert(check_ok_);                                                                         \
+    } while (0)
+
 using namespace tff;
 using namespace tff::win;
 
@@ -67,7 +74,7 @@ void test_keymap_round_trip() {
             assert(seen_scans.insert({m.scan, m.extended}).second);  // (scan, E0) unique
         }
         KeyCode back = 0;
-        assert(hookToKeyCode(m.vk, m.scan, m.extended, back));
+        CHECK(hookToKeyCode(m.vk, m.scan, m.extended, back));
         assert(back == m.code);
         // Every mapped key has a name the YAML parser understands
         assert(!keyCodeToWord(m.code).empty());
@@ -79,27 +86,27 @@ void test_keymap_round_trip() {
 void test_keymap_known_keys() {
     std::cout << "Test 2: Known scan codes and special keys... " << std::flush;
     KeyMapping m;
-    assert(keyCodeToMapping(Keys::KEY_A, m) && m.scan == 0x1E && !m.extended && m.vk == kVkA);
-    assert(keyCodeToMapping(Keys::KEY_RIGHTALT, m) && m.scan == 0x38 && m.extended);
-    assert(keyCodeToMapping(Keys::KEY_DELETE, m) && m.scan == 0x53 && m.extended);
-    assert(keyCodeToMapping(Keys::KEY_PAUSE, m) && m.output_vk && m.vk == kVkPause);
-    assert(!keyCodeToMapping(Keys::BTN_LEFT, m));
+    CHECK(keyCodeToMapping(Keys::KEY_A, m) && m.scan == 0x1E && !m.extended && m.vk == kVkA);
+    CHECK(keyCodeToMapping(Keys::KEY_RIGHTALT, m) && m.scan == 0x38 && m.extended);
+    CHECK(keyCodeToMapping(Keys::KEY_DELETE, m) && m.scan == 0x53 && m.extended);
+    CHECK(keyCodeToMapping(Keys::KEY_PAUSE, m) && m.output_vk && m.vk == kVkPause);
+    CHECK(!keyCodeToMapping(Keys::BTN_LEFT, m));
 
     KeyCode code = 0;
     // NumLock and Pause share scan 0x45 and are told apart by virtual-key
-    assert(hookToKeyCode(kVkNumLock, 0x45, true, code) && code == Keys::KEY_NUMLOCK);
-    assert(hookToKeyCode(kVkPause, 0x45, false, code) && code == Keys::KEY_PAUSE);
+    CHECK(hookToKeyCode(kVkNumLock, 0x45, true, code) && code == Keys::KEY_NUMLOCK);
+    CHECK(hookToKeyCode(kVkPause, 0x45, false, code) && code == Keys::KEY_PAUSE);
     // Ctrl+Pause arrives as VK_CANCEL (Break)
-    assert(hookToKeyCode(kVkCancel, 0x46, true, code) && code == Keys::KEY_PAUSE);
+    CHECK(hookToKeyCode(kVkCancel, 0x46, true, code) && code == Keys::KEY_PAUSE);
     // Extended vs. non-extended: KP Enter vs. Enter, Right Ctrl vs. Left Ctrl
-    assert(hookToKeyCode(0x0D, 0x1C, false, code) && code == Keys::KEY_ENTER);
-    assert(hookToKeyCode(0x0D, 0x1C, true, code) && code == Keys::KEY_KPENTER);
-    assert(hookToKeyCode(0xA3, 0x1D, true, code) && code == Keys::KEY_RIGHTCTRL);
+    CHECK(hookToKeyCode(0x0D, 0x1C, false, code) && code == Keys::KEY_ENTER);
+    CHECK(hookToKeyCode(0x0D, 0x1C, true, code) && code == Keys::KEY_KPENTER);
+    CHECK(hookToKeyCode(0xA3, 0x1D, true, code) && code == Keys::KEY_RIGHTCTRL);
     // Media key reported without scan code falls back to the virtual-key
-    assert(hookToKeyCode(kVkMediaNext, 0, false, code) && code == 163 /* KEY_NEXTSONG */);
-    assert(hookToKeyCode(kVkF13, 0x64, false, code) && code == 183 /* KEY_F13 */);
+    CHECK(hookToKeyCode(kVkMediaNext, 0, false, code) && code == 163 /* KEY_NEXTSONG */);
+    CHECK(hookToKeyCode(kVkF13, 0x64, false, code) && code == 183 /* KEY_F13 */);
     // Unknown key
-    assert(!hookToKeyCode(0xFF, 0x00, false, code));
+    CHECK(!hookToKeyCode(0xFF, 0x00, false, code));
     std::cout << "PASSED\n";
 }
 
@@ -108,16 +115,16 @@ void test_translator_pass_through() {
     InputTranslator tr;
     std::vector<Event> out;
     // Our own injected output
-    assert(tr.translate(hook(kVkA, 0x1E, false, kLlkhfInjected, kInjectedMagic), ms(1), out) ==
-           HookDecision::PassThrough);
+    CHECK(tr.translate(hook(kVkA, 0x1E, false, kLlkhfInjected, kInjectedMagic), ms(1), out) ==
+          HookDecision::PassThrough);
     assert(out.empty());
     // Unicode text injected by other software
-    assert(tr.translate(hook(kVkPacket, 0, false, kLlkhfInjected), ms(2), out) ==
-           HookDecision::PassThrough);
+    CHECK(tr.translate(hook(kVkPacket, 0, false, kLlkhfInjected), ms(2), out) ==
+          HookDecision::PassThrough);
     // Unmapped key
-    assert(tr.translate(hook(0xFF, 0x00, false), ms(3), out) == HookDecision::PassThrough);
+    CHECK(tr.translate(hook(0xFF, 0x00, false), ms(3), out) == HookDecision::PassThrough);
     // Fake shift around navigation keys
-    assert(tr.translate(hook(0xA0, 0x2A, false, kLlkhfExtended), ms(4), out) == HookDecision::Drop);
+    CHECK(tr.translate(hook(0xA0, 0x2A, false, kLlkhfExtended), ms(4), out) == HookDecision::Drop);
     assert(tr.downCount() == 0);
     std::cout << "PASSED\n";
 }
@@ -127,14 +134,14 @@ void test_translator_altgr() {
               << std::flush;
     InputTranslator tr;
     std::vector<Event> out;
-    assert(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, false), ms(1), out) ==
-           HookDecision::Drop);
-    assert(tr.translate(hook(kVkRMenu, 0x38, false, kLlkhfExtended), ms(1), out) ==
-           HookDecision::Process);
+    CHECK(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, false), ms(1), out) ==
+          HookDecision::Drop);
+    CHECK(tr.translate(hook(kVkRMenu, 0x38, false, kLlkhfExtended), ms(1), out) ==
+          HookDecision::Process);
     assert(out.size() == 1 && out[0].code == Keys::KEY_RIGHTALT);
     // The fake LCtrl Windows adds to our injected RightAlt passes through
-    assert(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, false, kLlkhfInjected), ms(2), out) ==
-           HookDecision::PassThrough);
+    CHECK(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, false, kLlkhfInjected), ms(2), out) ==
+          HookDecision::PassThrough);
     std::cout << "PASSED\n";
 }
 
@@ -142,7 +149,7 @@ void test_translator_down_repeat_up() {
     std::cout << "Test 5: Translator down / repeat / up / stale key-up... " << std::flush;
     InputTranslator tr;
     std::vector<Event> out;
-    assert(tr.translate(hook(kVkA, 0x1E, false), ms(100), out) == HookDecision::Process);
+    CHECK(tr.translate(hook(kVkA, 0x1E, false), ms(100), out) == HookDecision::Process);
     assert(out.size() == 1 && out[0].code == Keys::KEY_A && out[0].value == KEY_VAL_DOWN);
     assert(out[0].time == ms(100));
     assert(tr.isDown(Keys::KEY_A));
@@ -165,7 +172,7 @@ void test_translator_down_repeat_up() {
     assert(out[1].code == Keys::KEY_F && out[1].value == KEY_VAL_DOWN);
 
     // Key-up of a key pressed before TFF started passes through to Windows
-    assert(tr.translate(hook(kVkJ, 0x24, true), ms(9100), out) == HookDecision::PassThrough);
+    CHECK(tr.translate(hook(kVkJ, 0x24, true), ms(9100), out) == HookDecision::PassThrough);
 
     tr.reset();
     assert(tr.downCount() == 0);
@@ -178,12 +185,12 @@ void test_translator_ignore_injected() {
     InputTranslator tr;
     std::vector<Event> out;
     // By default, input injected by other software is remapped like physical input
-    assert(tr.translate(hook(kVkA, 0x1E, false, kLlkhfInjected), ms(1), out) ==
-           HookDecision::Process);
+    CHECK(tr.translate(hook(kVkA, 0x1E, false, kLlkhfInjected), ms(1), out) ==
+          HookDecision::Process);
     tr.setIgnoreInjected(true);
-    assert(tr.translate(hook(kVkJ, 0x24, false, kLlkhfInjected), ms(2), out) ==
-           HookDecision::PassThrough);
-    assert(tr.translate(hook(kVkJ, 0x24, false), ms(3), out) == HookDecision::Process);
+    CHECK(tr.translate(hook(kVkJ, 0x24, false, kLlkhfInjected), ms(2), out) ==
+          HookDecision::PassThrough);
+    CHECK(tr.translate(hook(kVkJ, 0x24, false), ms(3), out) == HookDecision::Process);
     std::cout << "PASSED\n";
 }
 
@@ -213,10 +220,10 @@ void test_output_builder_with_engine() {
     };
 
     // Plain key: buffered by the engine, emitted after the combo timeout
-    assert(feed(hook(kVkA, 0x1E, false), 1000) == HookDecision::Process);
+    CHECK(feed(hook(kVkA, 0x1E, false), 1000) == HookDecision::Process);
     engine.onTimer(ms(1100));
     builder.flush();
-    assert(feed(hook(kVkA, 0x1E, true), 1150) == HookDecision::Process);
+    CHECK(feed(hook(kVkA, 0x1E, true), 1150) == HookDecision::Process);
     auto keys = rec.keys();
     assert(keys.size() == 2);
     assert(keys[0] == std::make_pair(Keys::KEY_A, false));

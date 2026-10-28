@@ -215,10 +215,9 @@ int runAutostart(const std::string& action, bool elevated) {
 /// Holds the single-instance mutex while a remapper runs.
 class InstanceLock {
 public:
-    InstanceLock() {
-        handle_ = CreateMutexW(nullptr, TRUE, tff::win::kInstanceMutexName);
-        already_running_ = handle_ != nullptr && GetLastError() == ERROR_ALREADY_EXISTS;
-    }
+    InstanceLock()
+        : handle_(CreateMutexW(nullptr, TRUE, tff::win::kInstanceMutexName)),
+          already_running_(handle_ != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {}
     ~InstanceLock() {
         if (handle_ != nullptr) {
             CloseHandle(handle_);
@@ -235,6 +234,7 @@ private:
 
 }  // anonymous namespace
 
+// cppcheck-suppress constParameter ; standard main() signature
 int main(int argc, char* argv[]) {
     const bool color_console = tff::win::setupConsole();
 
