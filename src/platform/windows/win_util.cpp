@@ -354,7 +354,15 @@ bool autostartDisable(std::string& err_msg) {
     return true;
 }
 
-AutostartStatus autostartStatus() {
+void* acquireInstanceMutex(bool& already_running) {
+    HANDLE h = CreateMutexW(nullptr, TRUE, kInstanceMutexName);
+    const DWORD err = GetLastError();
+    already_running = (h != nullptr && err == ERROR_ALREADY_EXISTS) ||
+                      (h == nullptr && err == ERROR_ACCESS_DENIED);
+    return h;
+}
+
+AutostartStatus autostartStatus(bool query_task) {
     AutostartStatus s;
     wchar_t buf[1024];
     DWORD size = sizeof(buf);
@@ -363,7 +371,7 @@ AutostartStatus autostartStatus() {
         s.run_key = true;
         s.run_command = narrow(buf);
     }
-    s.task = runHidden(L"schtasks.exe /Query /TN " + std::wstring(kTaskName)) == 0;
+    s.task = query_task && runHidden(L"schtasks.exe /Query /TN " + std::wstring(kTaskName)) == 0;
     return s;
 }
 

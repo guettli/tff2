@@ -186,7 +186,7 @@ See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, system
   `monitor` and `autostart`
 - **Tray app** `tffw.exe`: pause/resume, live config reload, on-screen layer indicator,
   start at sign-in
-- **Install**: MSI (per user) or portable ZIP from
+- **Install**: MSI or portable ZIP from
   [GitHub Releases](https://github.com/guettli/tff2/releases)
 
 See the [Windows Guide](docs/windows.md).

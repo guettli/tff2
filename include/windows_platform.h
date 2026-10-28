@@ -110,7 +110,9 @@ private:
     void teardownConfigWatch();
     void onConfigDirChanged();
     void checkHookAlive();
-    void sendInputs(const std::vector<tff::win::OutputInput>& inputs);
+    bool sendInputs(const std::vector<tff::win::OutputInput>& inputs);
+    void snapshotHeldKeys();
+    void reloadNow();
     void processEngineEvent(const tff::Event& ev);
     void triggerDebugDump();
     void log(const std::string& line);
@@ -130,6 +132,7 @@ private:
     HWND msg_window_ = nullptr;
     HANDLE config_change_ = INVALID_HANDLE_VALUE;
     int64_t config_mtime_ = 0;
+    ULONGLONG reload_due_tick_ = 0;  ///< debounced config reload (0 = none pending)
 
     // Hook watchdog: raw input proves a key was pressed; if the hook didn't see it, the hook
     // was removed (LowLevelHooksTimeout) and gets reinstalled.

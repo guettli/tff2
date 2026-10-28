@@ -1,7 +1,7 @@
 # TFF on Windows
 
 TFF runs natively on Windows 10 and 11. It uses the same engine and YAML configuration as on
-Linux. No driver and no administrator rights are needed.
+Linux. It needs no driver, and running it needs no administrator rights.
 
 There are two programs:
 
@@ -16,9 +16,10 @@ Only one remapper (`tffw.exe` or `tff.exe`) can run at a time.
 
 Download from [GitHub Releases](https://github.com/guettli/tff2/releases):
 
-- `tff2-<version>-windows-x64.msi`: installs for the current user into
-  `%LOCALAPPDATA%\Programs\TFF2` and adds a Start menu entry. No administrator rights needed.
-- `tff2-<version>-windows-x64.zip`: portable; unpack anywhere.
+- `tff2-<version>-windows-x64.msi`: installs into `C:\Program Files\TFF2` and adds a Start
+  menu entry (asks for administrator rights once, for the installation only).
+- `tff2-<version>-windows-x64.zip`: portable, no administrator rights needed; unpack anywhere
+  (e.g. `%LOCALAPPDATA%\Programs\TFF2`) and start `tffw.exe`.
 
 The programs are not code-signed yet, so Windows SmartScreen may warn on first start ("More
 info" → "Run anyway"). Some antivirus products are suspicious of any program that hooks the

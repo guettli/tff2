@@ -1,0 +1,4 @@
+TFF2 - Ten Flying Fingers keyboard remapper
+
+Source code, license and documentation:
+https://github.com/guettli/tff2

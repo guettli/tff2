@@ -204,6 +204,7 @@ void test_monitor_mode() {
 
     CHECK(!p.handleHookEvent(key(0x46, 0x21, false)));
     CHECK(!p.handleHookEvent(key(0x4A, 0x24, false)));
+    waitAndFireTimers(p, 80);  // chord resolves once both keys were held for the timeout
     CHECK(!p.handleHookEvent(key(0x46, 0x21, true)));
     CHECK(!p.handleHookEvent(key(0x4A, 0x24, true)));
     assert(rec.inputs.empty());

@@ -215,9 +215,7 @@ int runAutostart(const std::string& action, bool elevated) {
 /// Holds the single-instance mutex while a remapper runs.
 class InstanceLock {
 public:
-    InstanceLock()
-        : handle_(CreateMutexW(nullptr, TRUE, tff::win::kInstanceMutexName)),
-          already_running_(handle_ != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {}
+    InstanceLock() : handle_(tff::win::acquireInstanceMutex(already_running_)) {}
     ~InstanceLock() {
         if (handle_ != nullptr) {
             CloseHandle(handle_);
@@ -228,8 +226,8 @@ public:
     bool alreadyRunning() const { return already_running_; }
 
 private:
+    bool already_running_ = false;  // declared first: set while handle_ is initialized
     HANDLE handle_ = nullptr;
-    bool already_running_ = false;
 };
 
 }  // anonymous namespace

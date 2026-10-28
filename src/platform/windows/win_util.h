@@ -75,10 +75,15 @@ struct AutostartStatus {
 /// windows running as administrator.
 bool autostartEnable(bool elevated, std::string& err_msg);
 bool autostartDisable(std::string& err_msg);
-AutostartStatus autostartStatus();
+/// query_task=false skips the (slow) schtasks query and reports task=false.
+AutostartStatus autostartStatus(bool query_task = true);
 
 /// Name of the mutex that keeps two remapping instances (tff.exe / tffw.exe) from running.
 extern const wchar_t* const kInstanceMutexName;
+
+/// Creates the instance mutex. Sets already_running if another TFF owns it, including one
+/// running elevated (then CreateMutex fails with ERROR_ACCESS_DENIED).
+void* acquireInstanceMutex(bool& already_running);
 
 }  // namespace win
 }  // namespace tff

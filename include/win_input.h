@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tff {
@@ -97,16 +98,32 @@ public:
      */
     HookDecision translate(const HookEvent& in, TimeVal now, std::vector<Event>& out);
 
-    /// Forget all keys believed to be held (e.g. after the session was locked).
+    /**
+     * @brief Bookkeeping for an event Windows handles while TFF is paused.
+     *
+     * Keys pressed while paused went to Windows; after resuming, their auto-repeat and key-up
+     * must go to Windows too, or they would stay stuck.
+     */
+    void observePassThrough(const HookEvent& in);
+
+    /// A key Windows already sees as held (pressed before the hook was installed): its
+    /// repeats and key-up pass through.
+    void markForeignDown(KeyCode code) { foreign_.insert(code); }
+
+    /// Forget the keys the engine was tracking (pause, session lock). Foreign keys stay
+    /// known until Windows reports their key-up.
     void reset() { down_.clear(); }
 
     bool isDown(KeyCode code) const { return down_.count(code) != 0; }
+    bool isForeign(KeyCode code) const { return foreign_.count(code) != 0; }
     size_t downCount() const { return down_.size(); }
 
 private:
     bool ignore_injected_ = false;
     int64_t stale_after_us_ = 1500 * 1000;
     std::unordered_map<KeyCode, TimeVal> down_;  ///< key -> time of last down/repeat
+    std::unordered_set<KeyCode> foreign_;        ///< held keys Windows saw go down
+    bool altgr_ctrl_dropped_ = false;            ///< fake LCtrl key-down was dropped
 };
 
 /// One abstract SendInput record. The Win32 layer converts it into an INPUT struct.
@@ -133,7 +150,8 @@ struct OutputInput {
  */
 class OutputBuilder : public EventWriter {
 public:
-    using Sender = std::function<void(const std::vector<OutputInput>&)>;
+    /// Injects a batch; returns false if Windows rejected it (secure desktop, UIPI).
+    using Sender = std::function<bool(const std::vector<OutputInput>&)>;
     using Observer = std::function<void(const Event&)>;
 
     explicit OutputBuilder(Sender sender = nullptr) : sender_(std::move(sender)) {}
@@ -144,13 +162,21 @@ public:
 
     void writeOne(const Event& ev) override;
 
-    /// Send everything collected so far.
-    void flush();
+    /// Send everything collected so far. Returns false if the sender rejected the batch.
+    bool flush();
 
     /// A physical key auto-repeated: re-send the last held output key (if any).
     void onPhysicalRepeat();
 
-    /// Release every key and mouse button this builder holds down, then flush.
+    /// A physical key went down. Like a real keyboard, only output caused by the most recent
+    /// physical key press repeats: holding `a` and then a layer key must not repeat `a`.
+    void onPhysicalDown() { repeat_key_ = 0; }
+
+    /**
+     * @brief Release every key and mouse button this builder holds down, then flush.
+     * If Windows rejects the key-ups (e.g. the secure desktop is active), the keys stay
+     * recorded as held, so a later call can release them.
+     */
     void releaseAll();
 
     bool isHeld(KeyCode code) const;

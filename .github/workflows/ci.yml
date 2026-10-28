@@ -204,23 +204,28 @@ jobs:
         working-directory: build
         run: cpack -C Release -G "ZIP;WIX"
 
-      - name: Test MSI install (per-user, no admin)
+      - name: Test MSI install / uninstall
         shell: pwsh
         run: |
           $msi = Get-ChildItem build/tff2-*-windows-x64.msi | Select-Object -First 1
           $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /l*v msi.log" -Wait -PassThru
           if ($p.ExitCode -ne 0) { Get-Content msi.log -Tail 60; exit 1 }
-          $exe = Get-ChildItem -Recurse "$env:LOCALAPPDATA/Programs" -Filter tff.exe -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { $exe = Get-ChildItem -Recurse "$env:ProgramFiles/TFF2" -Filter tff.exe -ErrorAction SilentlyContinue | Select-Object -First 1 }
-          if (-not $exe) { Write-Output "::error::tff.exe not found after MSI install"; Get-Content msi.log -Tail 60; exit 1 }
-          Write-Output "Installed: $($exe.FullName)"
-          Get-ChildItem $exe.DirectoryName
-          & $exe.FullName --version
+          $dir = Join-Path $env:ProgramFiles "TFF2"
+          foreach ($f in "tff.exe", "tffw.exe", "tff-combos.yaml") {
+            if (-not (Test-Path (Join-Path $dir $f))) {
+              Write-Output "::error::$f missing in $dir after MSI install"
+              Get-ChildItem -Recurse $dir -ErrorAction SilentlyContinue
+              exit 1
+            }
+          }
+          & (Join-Path $dir "tff.exe") --version
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          & $exe.FullName validate (Join-Path $exe.DirectoryName "tff-combos.yaml")
+          & (Join-Path $dir "tff.exe") validate (Join-Path $dir "tff-combos.yaml")
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn" -Wait -PassThru
-          exit $p.ExitCode
+          if ($p.ExitCode -ne 0) { exit 1 }
+          if (Test-Path (Join-Path $dir "tff.exe")) { Write-Output "::error::uninstall left tff.exe"; exit 1 }
+          exit 0
 
       - name: Upload Windows packages
         uses: actions/upload-artifact@v4

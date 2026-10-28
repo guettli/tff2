@@ -13,7 +13,7 @@ add_library(windows_platform
     ${TFF_WIN_DIR}/win_util.cpp
 )
 target_include_directories(windows_platform PUBLIC ${TFF_WIN_DIR})
-target_link_libraries(windows_platform PUBLIC tff_core win_input user32 gdi32 shell32 ole32 advapi32 wtsapi32)
+target_link_libraries(windows_platform PUBLIC tff_core win_input user32 gdi32 shell32 ole32 advapi32 wtsapi32 winmm)
 
 # Icons, version info and the manifest (UTF-8 code page, Per-Monitor DPI awareness)
 set(TFF_WIN_RESOURCES
@@ -72,10 +72,12 @@ set(CPACK_PACKAGE_INSTALL_DIRECTORY "TFF2")
 set(CPACK_PACKAGE_FILE_NAME "tff2-${PROJECT_VERSION}-windows-x64")
 set(CPACK_GENERATOR "ZIP")
 
-# MSI (cpack -G WIX). Per-user install into %LOCALAPPDATA%\Programs: no administrator rights
-# needed. The upgrade GUID must never change, so new versions replace old ones.
+# MSI (cpack -G WIX): installs into Program Files (CPack WIX doesn't support per-user
+# installs). The ZIP is the no-admin option. The upgrade GUID must never change, so new
+# versions replace old ones.
 set(CPACK_WIX_VERSION 4)
-set(CPACK_WIX_INSTALL_SCOPE "perUser")
+set(CPACK_WIX_INSTALL_SCOPE "perMachine")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/license.txt")
 set(CPACK_WIX_UPGRADE_GUID "E758079D-89DE-4B5E-A32E-D129F34FF9F2")
 set(CPACK_WIX_PRODUCT_ICON "${TFF_WIN_DIR}/tff_active.ico")
 set(CPACK_WIX_PROGRAM_MENU_FOLDER "TFF2")

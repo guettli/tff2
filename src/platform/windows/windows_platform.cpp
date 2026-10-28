@@ -2,6 +2,7 @@
 #include "tff_key_codes.h"
 #include "tff_parser.h"
 #include <wtsapi32.h>
+#include <timeapi.h>
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,9 @@ constexpr UINT WM_TFF_RESUME = WM_APP + 4;
 
 /// Raw keyboard input without a hook callback for this long means the hook is gone.
 constexpr ULONGLONG kHookDeadAfterMs = 1000;
+
+/// Editors save in several steps (truncate, write, rename): reload once the file is quiet.
+constexpr ULONGLONG kConfigReloadDelayMs = 150;
 
 const wchar_t kMessageWindowClass[] = L"TffMessageWindow";
 
@@ -99,7 +103,7 @@ bool WindowsPlatform::initialize() {
         return true;
     }
     output_.setSender(
-        [this](const std::vector<tff::win::OutputInput>& inputs) { sendInputs(inputs); });
+        [this](const std::vector<tff::win::OutputInput>& inputs) { return sendInputs(inputs); });
     output_.setObserver([this](const tff::Event& ev) {
         if (ev.type != tff::EV_KEY || ev.value == tff::KEY_VAL_REPEAT) {
             return;
@@ -236,8 +240,12 @@ bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
     initialize();
     last_hook_tick_ = GetTickCount64();
     if (paused_.load()) {
+        translator_.observePassThrough(ev);
         return false;
     }
+    // Timers that are already due come first: the message loop may not have woken up yet,
+    // and a tap-hold or combo decision depends on whether its deadline passed before this key.
+    handleTimers();
     const auto decision = translator_.translate(ev, now(), scratch_events_);
     if (decision == tff::win::HookDecision::PassThrough) {
         return false;
@@ -278,9 +286,22 @@ void WindowsPlatform::processEngineEvent(const tff::Event& ev) {
                 (ev.value == tff::KEY_VAL_DOWN ? "DOWN" : "UP"));
         }
     }
+    if (ev.value == tff::KEY_VAL_DOWN) {
+        output_.onPhysicalDown();
+    }
     engine_->processEvent(ev);
     if (ev.value == tff::KEY_VAL_REPEAT) {
         output_.onPhysicalRepeat();
+    }
+}
+
+void WindowsPlatform::snapshotHeldKeys() {
+    // Keys Windows already sees as held went down before our hook existed (TFF starting,
+    // hook reinstalled). Their repeats and key-ups must reach Windows, not the engine.
+    for (const auto& m : tff::win::keyMappings()) {
+        if (m.vk != 0 && (GetAsyncKeyState(m.vk) & 0x8000) != 0) {
+            translator_.markForeignDown(m.code);
+        }
     }
 }
 
@@ -318,9 +339,9 @@ void WindowsPlatform::resetState(const char* reason) {
     }
 }
 
-void WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& inputs) {
+bool WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& inputs) {
     if (monitor_mode_ || inputs.empty()) {
-        return;
+        return true;
     }
     scratch_inputs_.clear();
     for (const auto& in : inputs) {
@@ -374,7 +395,7 @@ void WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
         scratch_inputs_.push_back(x);
     }
     if (scratch_inputs_.empty()) {
-        return;
+        return true;
     }
     const UINT n = static_cast<UINT>(scratch_inputs_.size());
     const UINT sent = send_input_ ? send_input_(n, scratch_inputs_.data())
@@ -384,7 +405,9 @@ void WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
         log("[TFF] SendInput injected " + std::to_string(sent) + " of " + std::to_string(n) +
             " event(s), error " + std::to_string(GetLastError()) +
             " (is the active window running as administrator?)");
+        return false;
     }
+    return true;
 }
 
 void WindowsPlatform::triggerDebugDump() {
@@ -456,6 +479,7 @@ void WindowsPlatform::checkHookAlive() {
         log("[TFF] Keyboard hook was removed by Windows (callback too slow?), reinstalling");
         removeHook();
         resetState("hook reinstalled");
+        snapshotHeldKeys();
         installHook();
     }
     raw_input_tick_ = 0;
@@ -527,8 +551,14 @@ void WindowsPlatform::onConfigDirChanged() {
     if (mtime == 0 || mtime == config_mtime_) {
         return;  // another file in the directory changed, or the file is mid-replace
     }
-    // Editors save in several steps; give them a moment to finish writing.
-    Sleep(30);
+    // Reload from the message loop once the file has been quiet for a moment; never sleep
+    // here, this thread also runs the keyboard hook.
+    reload_due_tick_ = GetTickCount64() + kConfigReloadDelayMs;
+}
+
+void WindowsPlatform::reloadNow() {
+    reload_due_tick_ = 0;
+    const int64_t mtime = fileMtime(config_file_);
     std::string err;
     const bool ok = reloadConfiguration(err);
     const std::string msg =
@@ -555,8 +585,12 @@ int WindowsPlatform::run() {
     // Keystrokes must never wait behind other work.
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 
+    // 1 ms timer resolution for combo / tap-hold deadlines (default is 15.6 ms)
+    timeBeginPeriod(1);
     createMessageWindow();
+    snapshotHeldKeys();
     if (!installHook()) {
+        timeEndPeriod(1);
         destroyMessageWindow();
         thread_id_ = 0;
         return 1;
@@ -571,11 +605,13 @@ int WindowsPlatform::run() {
         DWORD timeout = INFINITE;
         if (engine_->hasActiveTimer()) {
             const int64_t diff_us = tff::timeSubMicros(now(), engine_->getActiveTimerTime());
-            if (diff_us <= 0) {
-                handleTimers();
-                continue;
-            }
-            timeout = static_cast<DWORD>(diff_us / 1000 + 1);
+            // A due timer is handled below; still pump messages (hook callbacks) first.
+            timeout = diff_us <= 0 ? 0 : static_cast<DWORD>(diff_us / 1000 + 1);
+        }
+        if (reload_due_tick_ != 0) {
+            const ULONGLONG t = GetTickCount64();
+            const DWORD wait = reload_due_tick_ > t ? static_cast<DWORD>(reload_due_tick_ - t) : 0;
+            timeout = std::min(timeout, wait);
         }
 
         HANDLE handles[1];
@@ -606,14 +642,15 @@ int WindowsPlatform::run() {
                     }
                 } else if (msg.message == WM_TFF_PAUSE) {
                     resetState("paused");
-                } else if (msg.message == WM_TFF_RESUME) {
-                    translator_.reset();
                 }
                 continue;
             }
             DispatchMessageW(&msg);
         }
         handleTimers();
+        if (reload_due_tick_ != 0 && GetTickCount64() >= reload_due_tick_) {
+            reloadNow();
+        }
     }
 
     running_ = false;
@@ -621,6 +658,7 @@ int WindowsPlatform::run() {
     removeHook();
     teardownConfigWatch();
     destroyMessageWindow();
+    timeEndPeriod(1);
     thread_id_ = 0;
     log("[TFF] Keyboard hook removed");
     return 0;

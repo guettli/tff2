@@ -225,7 +225,17 @@ HookDecision InputTranslator::translate(const HookEvent& in, TimeVal now, std::v
     if (in.scan == kAltGrFakeCtrlScan) {
         // Windows puts a fake LCtrl in front of AltGr. For a physical AltGr, drop it: Windows
         // adds it again when we inject RightAlt. The one belonging to our injection passes.
-        return injected ? HookDecision::PassThrough : HookDecision::Drop;
+        // A key-up is only dropped if its key-down was, so LCtrl can't get stuck.
+        if (injected) {
+            return HookDecision::PassThrough;
+        }
+        if ((in.flags & kLlkhfUp) == 0) {
+            altgr_ctrl_dropped_ = true;
+            return HookDecision::Drop;
+        }
+        const bool dropped = altgr_ctrl_dropped_;
+        altgr_ctrl_dropped_ = false;
+        return dropped ? HookDecision::Drop : HookDecision::PassThrough;
     }
     if (injected && ignore_injected_) {
         return HookDecision::PassThrough;
@@ -241,6 +251,12 @@ HookDecision InputTranslator::translate(const HookEvent& in, TimeVal now, std::v
 
     KeyCode code = 0;
     if (!hookToKeyCode(in.vk, in.scan, extended, code)) {
+        return HookDecision::PassThrough;
+    }
+    if (foreign_.count(code) != 0) {
+        if ((in.flags & kLlkhfUp) != 0) {
+            foreign_.erase(code);
+        }
         return HookDecision::PassThrough;
     }
 
@@ -278,6 +294,29 @@ HookDecision InputTranslator::translate(const HookEvent& in, TimeVal now, std::v
         out.push_back(ev);
     }
     return HookDecision::Process;
+}
+
+void InputTranslator::observePassThrough(const HookEvent& in) {
+    if (in.extra_info == kInjectedMagic || (in.flags & kLlkhfInjected) != 0) {
+        return;
+    }
+    const bool up = (in.flags & kLlkhfUp) != 0;
+    if (in.scan == kAltGrFakeCtrlScan) {
+        if (up) {
+            altgr_ctrl_dropped_ = false;  // Windows saw this key-down, let the key-up pass
+        }
+        return;
+    }
+    KeyCode code = 0;
+    if (!hookToKeyCode(in.vk, in.scan, (in.flags & kLlkhfExtended) != 0, code)) {
+        return;
+    }
+    if (up) {
+        foreign_.erase(code);
+        down_.erase(code);
+    } else if (down_.count(code) == 0) {
+        foreign_.insert(code);
+    }
 }
 
 void OutputBuilder::writeOne(const Event& ev) {
@@ -359,14 +398,13 @@ void OutputBuilder::addKey(KeyCode code, bool up) {
     }
 }
 
-void OutputBuilder::flush() {
+bool OutputBuilder::flush() {
     if (pending_.empty()) {
-        return;
+        return true;
     }
-    if (sender_) {
-        sender_(pending_);
-    }
+    const bool ok = sender_ ? sender_(pending_) : true;
     pending_.clear();
+    return ok;
 }
 
 void OutputBuilder::onPhysicalRepeat() {
@@ -398,9 +436,10 @@ void OutputBuilder::releaseAll() {
         }
         pending_.push_back(in);
     }
-    held_.clear();
     repeat_key_ = 0;
-    flush();
+    if (flush()) {
+        held_.clear();
+    }
 }
 
 bool OutputBuilder::isHeld(KeyCode code) const {

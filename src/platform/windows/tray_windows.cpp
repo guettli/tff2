@@ -65,6 +65,8 @@ struct App {
     std::unique_ptr<WindowsPlatform> platform;
     std::thread engine_thread;
     std::atomic<int> engine_rc{0};
+    std::thread task_query_thread;
+    std::atomic<bool> autostart_task{false};  ///< cached: schtasks /Query is slow
 };
 
 App g_app;
@@ -114,6 +116,24 @@ void openLog() {
         }
         file->flush();
     });
+}
+
+/// Posts a heap string to the UI thread; frees it if the window is already gone.
+void postString(HWND hwnd, UINT msg, WPARAM wparam, const std::string& text) {
+    auto* str = new std::wstring(tff::win::widen(text));
+    if (!PostMessageW(hwnd, msg, wparam, reinterpret_cast<LPARAM>(str))) {
+        delete str;
+    }
+}
+
+/// Stops the engine thread (releases injected keys, removes the hook) and waits for it.
+void stopEngine() {
+    if (g_app.platform) {
+        g_app.platform->requestStop();
+    }
+    if (g_app.engine_thread.joinable()) {
+        g_app.engine_thread.join();
+    }
 }
 
 void openWithNotepad(const std::string& path) {
@@ -282,6 +302,7 @@ void toggleAutostart() {
     const auto status = tff::win::autostartStatus();
     const bool ok = (status.run_key || status.task) ? tff::win::autostartDisable(err)
                                                     : tff::win::autostartEnable(false, err);
+    g_app.autostart_task = tff::win::autostartStatus().task;
     if (!ok) {
         MessageBoxW(g_app.tray_window, tff::win::widen(err).c_str(), L"TFF autostart",
                     MB_OK | MB_ICONWARNING);
@@ -295,7 +316,8 @@ void setNotifyMode(NotifyMode mode) {
 
 void showMenu(HWND hwnd) {
     const bool paused = g_app.platform->isPaused();
-    const auto autostart = tff::win::autostartStatus();
+    const auto autostart = tff::win::autostartStatus(false);
+    const bool autostart_on = autostart.run_key || g_app.autostart_task.load();
 
     HMENU notify = CreatePopupMenu();
     AppendMenuW(notify,
@@ -319,9 +341,8 @@ void showMenu(HWND hwnd) {
     AppendMenuW(menu, MF_STRING, ID_CHEATSHEET, L"Show &cheat sheet");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(notify), L"Layer &notifications");
-    AppendMenuW(menu,
-                MF_STRING | ((autostart.run_key || autostart.task) ? MF_CHECKED : MF_UNCHECKED),
-                ID_AUTOSTART, L"Start at &sign-in");
+    AppendMenuW(menu, MF_STRING | (autostart_on ? MF_CHECKED : MF_UNCHECKED), ID_AUTOSTART,
+                L"Start at &sign-in");
     AppendMenuW(menu, MF_STRING, ID_OPEN_LOG, L"Open lo&g");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_QUIT, L"&Quit");
@@ -370,6 +391,7 @@ void showMenu(HWND hwnd) {
             openWithNotepad(g_app.log_file);
             break;
         case ID_QUIT:
+            stopEngine();  // before the window goes away: shutdown may still post layer events
             DestroyWindow(hwnd);
             break;
         default:
@@ -504,12 +526,15 @@ void firstRun() {
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     g_app.instance = instance;
 
-    HANDLE mutex = CreateMutexW(nullptr, TRUE, tff::win::kInstanceMutexName);
-    if (mutex != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {
+    bool already_running = false;
+    HANDLE mutex = tff::win::acquireInstanceMutex(already_running);
+    if (already_running) {
         MessageBoxW(nullptr,
                     L"TFF is already running (see the notification area, or a tff.exe console).",
                     L"Ten Flying Fingers", MB_OK | MB_ICONINFORMATION);
-        CloseHandle(mutex);
+        if (mutex != nullptr) {
+            CloseHandle(mutex);
+        }
         return 0;
     }
 
@@ -553,12 +578,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // Callbacks run on the engine thread: hand the data to the UI thread.
     HWND tray = g_app.tray_window;
     platform.setLayerCallback([tray](const std::string& layer, bool active) {
-        PostMessageW(tray, WM_TFF_LAYER, active ? 1 : 0,
-                     reinterpret_cast<LPARAM>(new std::wstring(tff::win::widen(layer))));
+        postString(tray, WM_TFF_LAYER, active ? 1 : 0, layer);
     });
     platform.setReloadCallback([tray](bool ok, const std::string& msg) {
-        PostMessageW(tray, WM_TFF_RELOADED, ok ? 1 : 0,
-                     reinterpret_cast<LPARAM>(new std::wstring(tff::win::widen(msg))));
+        postString(tray, WM_TFF_RELOADED, ok ? 1 : 0, msg);
     });
 
     // Keystrokes must never wait behind other processes' work.
@@ -568,6 +591,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         PostMessageW(tray, WM_TFF_ENGINE_EXIT, 0, 0);
     });
 
+    g_app.task_query_thread =
+        std::thread([] { g_app.autostart_task = tff::win::autostartStatus().task; });
     updateTrayIcon(NIM_ADD);
     firstRun();
 
@@ -577,9 +602,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         DispatchMessageW(&msg);
     }
 
-    platform.requestStop();
-    if (g_app.engine_thread.joinable()) {
-        g_app.engine_thread.join();
+    stopEngine();
+    if (g_app.task_query_thread.joinable()) {
+        g_app.task_query_thread.join();
     }
     logLine("[TFF] tffw stopped");
     g_app.platform.reset();

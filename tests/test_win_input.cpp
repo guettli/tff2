@@ -47,10 +47,15 @@ HookEvent hook(uint16_t vk, uint32_t scan, bool up, uint32_t extra_flags = 0,
 struct Recorder {
     std::vector<OutputInput> inputs;
     int batches = 0;
+    bool reject = false;  ///< simulate SendInput failing (secure desktop, UIPI)
     OutputBuilder::Sender sender() {
         return [this](const std::vector<OutputInput>& batch) {
             ++batches;
+            if (reject) {
+                return false;
+            }
             inputs.insert(inputs.end(), batch.begin(), batch.end());
+            return true;
         };
     }
     std::vector<std::pair<KeyCode, bool>> keys() const {
@@ -301,6 +306,62 @@ void test_output_builder_mouse_and_batches() {
     std::cout << "PASSED\n";
 }
 
+void test_translator_keys_held_before_tracking() {
+    std::cout << "Test 10: Keys Windows already holds (startup, pause) pass through... "
+              << std::flush;
+    InputTranslator tr;
+    std::vector<Event> out;
+    // Held when the hook was installed: repeats and key-up go to Windows
+    tr.markForeignDown(Keys::KEY_CAPSLOCK);
+    CHECK(tr.translate(hook(0x14, 0x3A, false), ms(10), out) == HookDecision::PassThrough);
+    CHECK(tr.translate(hook(0x14, 0x3A, true), ms(20), out) == HookDecision::PassThrough);
+    assert(!tr.isForeign(Keys::KEY_CAPSLOCK));
+    CHECK(tr.translate(hook(0x14, 0x3A, false), ms(30), out) == HookDecision::Process);
+
+    // Pressed while paused, released after resume
+    tr.observePassThrough(hook(kVkJ, 0x24, false));
+    assert(tr.isForeign(Keys::KEY_J));
+    CHECK(tr.translate(hook(kVkJ, 0x24, false), ms(40), out) == HookDecision::PassThrough);
+    CHECK(tr.translate(hook(kVkJ, 0x24, true), ms(50), out) == HookDecision::PassThrough);
+
+    // AltGr pressed while paused: its fake LCtrl key-up must reach Windows after resume
+    tr.observePassThrough(hook(kVkLControl, kAltGrFakeCtrlScan, false));
+    CHECK(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, true), ms(60), out) ==
+          HookDecision::PassThrough);
+    // ... while a dropped key-down means a dropped key-up
+    CHECK(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, false), ms(70), out) ==
+          HookDecision::Drop);
+    CHECK(tr.translate(hook(kVkLControl, kAltGrFakeCtrlScan, true), ms(80), out) ==
+          HookDecision::Drop);
+    std::cout << "PASSED\n";
+}
+
+void test_output_builder_repeat_source_and_retry() {
+    std::cout << "Test 11: New physical key stops repeat; failed release is retried... "
+              << std::flush;
+    Recorder rec;
+    OutputBuilder builder(rec.sender());
+    builder.writeOne(Event{ms(1), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    builder.flush();
+    assert(builder.repeatKey() == Keys::KEY_A);
+    // A layer key goes down (no output of its own): its repeats must not repeat `a`
+    builder.onPhysicalDown();
+    builder.onPhysicalRepeat();
+    assert(rec.keys().size() == 1);
+
+    // Secure desktop: the key-up is rejected, so `a` stays recorded as held ...
+    rec.reject = true;
+    builder.releaseAll();
+    assert(builder.isHeld(Keys::KEY_A));
+    // ... and is released on the next attempt (session unlocked)
+    rec.reject = false;
+    builder.releaseAll();
+    assert(!builder.isHeld(Keys::KEY_A));
+    auto keys = rec.keys();
+    assert(keys.size() == 2 && keys[1] == std::make_pair(Keys::KEY_A, true));
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -314,6 +375,8 @@ int main() {
     test_output_builder_with_engine();
     test_output_builder_repeat();
     test_output_builder_mouse_and_batches();
+    test_translator_keys_held_before_tracking();
+    test_output_builder_repeat_source_and_retry();
     std::cout << "All Windows input translation tests PASSED!\n";
     return 0;
 }
