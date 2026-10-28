@@ -157,7 +157,7 @@ std::string readFile(const std::wstring& path) {
     return ss.str();
 }
 
-int runTests(const std::wstring& tff_exe, const std::wstring& config) {
+int runTests(const std::wstring& tff_exe, const std::wstring& config, bool calibrate_only) {
     // Calibration: do LL hooks see SendInput at all on this machine (interactive desktop)?
     progress("calibrating: is the keyboard hook called for SendInput?");
     if (!type({Keys::KEY_A, false, 20}) || !type({Keys::KEY_A, true, 200})) {
@@ -173,6 +173,10 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_leaked.clear();
+    }
+    if (calibrate_only) {
+        progress("calibration passed: the hook sees injected keys");
+        return 0;
     }
 
     wchar_t tmp[MAX_PATH];
@@ -276,8 +280,10 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config) {
 }  // namespace
 
 int wmain(int argc, wchar_t* argv[]) {
-    if (argc < 3) {
-        std::cerr << "usage: tff_e2e <tff.exe> <config.yaml>\n";
+    const bool calibrate_only = argc == 2 && std::wstring(argv[1]) == L"--calibrate-only";
+    if (argc < 3 && !calibrate_only) {
+        std::cerr << "usage: tff_e2e <tff.exe> <config.yaml>\n"
+                     "       tff_e2e --calibrate-only\n";
         return 2;
     }
     timeBeginPeriod(1);  // 1 ms Sleep() resolution for the chord timings
@@ -301,7 +307,10 @@ int wmain(int argc, wchar_t* argv[]) {
 
     // The hook runs on this thread, so this thread pumps messages while a worker types.
     std::atomic<int> rc{1};
-    std::thread worker([&] { rc = runTests(argv[1], argv[2]); });
+    std::thread worker([&] {
+        rc = runTests(calibrate_only ? L"" : argv[1], calibrate_only ? L"" : argv[2],
+                      calibrate_only);
+    });
     HANDLE wh = worker.native_handle();
     for (;;) {
         DWORD r = MsgWaitForMultipleObjects(1, &wh, FALSE, INFINITE, QS_ALLINPUT);
