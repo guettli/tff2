@@ -395,6 +395,78 @@ void test_output_builder_reentrant_flush() {
 
 }  // namespace
 
+void test_utf8_to_utf16() {
+    std::cout << "Test 13: UTF-8 -> UTF-16 conversion... " << std::flush;
+    using U = std::vector<uint16_t>;
+    assert(utf8ToUtf16("") == U{});
+    assert(utf8ToUtf16("A:") == (U{'A', ':'}));
+    assert(utf8ToUtf16("\xC3\xBC\xE2\x82\xAC") == (U{0x00FC, 0x20AC}));  // ü €
+    assert(utf8ToUtf16("\xF0\x9F\x98\x80") == (U{0xD83D, 0xDE00}));      // U+1F600
+    assert(utf8ToUtf16("a\xFF"
+                       "b") == (U{'a', 0xFFFD, 'b'}));                   // invalid byte
+    assert(utf8ToUtf16("\xC3") == (U{0xFFFD}));                          // truncated
+    assert(utf8ToUtf16("\xC0\xAF") == (U{0xFFFD, 0xFFFD}));              // overlong '/'
+    assert(utf8ToUtf16("\xED\xA0\x80") == (U{0xFFFD, 0xFFFD, 0xFFFD}));  // surrogate
+    std::cout << "PASSED\n";
+}
+
+void test_output_builder_text() {
+    std::cout << "Test 14: Text snippets are typed as Unicode, Enter/Tab as keys... " << std::flush;
+    Recorder rec;
+    OutputBuilder builder(rec.sender());
+    CHECK(builder.writeText("A\xC3\xBC\t\r\n"));
+    assert(rec.batches == 4);  // one per character
+    assert(rec.inputs.size() == 8);
+    const uint16_t units[] = {'A', 'A', 0x00FC, 0x00FC};
+    for (size_t i = 0; i < 4; ++i) {
+        assert(rec.inputs[i].type == OutputInput::Type::Unicode);
+        assert(rec.inputs[i].unit == units[i]);
+        assert(rec.inputs[i].up == (i % 2 == 1));
+    }
+    auto keys = rec.keys();
+    assert(keys.size() == 4);
+    assert(keys[0] == std::make_pair(Keys::KEY_TAB, false));
+    assert(keys[1] == std::make_pair(Keys::KEY_TAB, true));
+    assert(keys[2] == std::make_pair(Keys::KEY_ENTER, false));
+    assert(keys[3] == std::make_pair(Keys::KEY_ENTER, true));
+    assert(builder.heldCount() == 0);
+
+    // A surrogate pair is one character: one batch
+    rec.inputs.clear();
+    rec.batches = 0;
+    CHECK(builder.writeText("\xF0\x9F\x98\x80"));
+    assert(rec.batches == 1);
+    assert(rec.inputs.size() == 4);
+    assert(rec.inputs[0].unit == 0xD83D && !rec.inputs[0].up);
+    assert(rec.inputs[1].unit == 0xD83D && rec.inputs[1].up);
+    assert(rec.inputs[2].unit == 0xDE00 && !rec.inputs[2].up);
+
+    // The engine hands text snippets to the builder instead of typing Shift + key strokes,
+    // so no Shift (and no layout table) is involved
+    Config config;
+    std::string err;
+    bool ok = loadYamlConfig("combos:\n  - keys: f j\n    outKeys: text \"Hi:\"\n", config, err);
+    assert(ok);
+    TFFEngine engine(&builder);
+    engine.setCombos(config.combos);
+    engine.setSettings(config.settings);
+    rec.inputs.clear();
+    engine.processEvent(Event{ms(1000), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN});
+    engine.processEvent(Event{ms(1010), EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{ms(1050), EV_KEY, Keys::KEY_F, KEY_VAL_UP});
+    engine.processEvent(Event{ms(1060), EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    builder.flush();
+    assert(rec.keys().empty());
+    std::vector<uint16_t> typed;
+    for (const auto& in : rec.inputs) {
+        if (in.type == OutputInput::Type::Unicode && !in.up) {
+            typed.push_back(in.unit);
+        }
+    }
+    assert(typed == (std::vector<uint16_t>{'H', 'i', ':'}));
+    std::cout << "PASSED\n";
+}
+
 int main() {
     std::cout << "Running Windows input translation tests:\n";
     test_keymap_round_trip();
@@ -409,6 +481,8 @@ int main() {
     test_translator_keys_held_before_tracking();
     test_output_builder_repeat_source_and_retry();
     test_output_builder_reentrant_flush();
+    test_utf8_to_utf16();
+    test_output_builder_text();
     std::cout << "All Windows input translation tests PASSED!\n";
     return 0;
 }

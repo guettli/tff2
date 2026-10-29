@@ -1794,6 +1794,9 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
     if (trace_callback_) {
         trace(TraceEvent::Kind::EmitText, "EMIT TEXT: \"" + text + "\"");
     }
+    if (out_dev_ && out_dev_->writeText(text)) {
+        return;
+    }
     TimeVal curr_time = base_time;
     for (char c : text) {
         KeyCode code = 0;

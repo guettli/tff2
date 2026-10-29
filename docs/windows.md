@@ -58,7 +58,9 @@ tff --watch-config               # run the remapper in this console (Ctrl+C stop
 ```
 
 Output keys are injected by scan code, so they refer to physical key positions, like on
-Linux. Use `settings: layout: de` (or another layout) for text snippets, exactly as on Linux.
+Linux. Text snippets (`text "..."`) are typed as characters instead, so they come out right
+with every keyboard layout, including characters that need AltGr (`@`, `{`, `\` on a German
+keyboard). `settings: layout` isn't needed for them on Windows.
 
 ## Autostart
 
@@ -98,7 +100,7 @@ active while a key is held are not announced. Tray menu → *Layer notifications
 | Input from other software | Remapped like physical input (e.g. AutoHotkey). Use `--ignore-injected` to leave it alone. |
 | Key repeat | Holding a key repeats the remapped key with your Windows repeat delay and rate. |
 | Notifications | On-screen indicator or Windows notification instead of `notify-send`. |
-| Diagnostic dump | `F12` / `Pause` type the event log into the active window, as on Linux. The log file is `%LOCALAPPDATA%\tff\tff.log` (tray app). |
+| Diagnostic dump | `F12` / `Pause` type the event log into the active window, as on Linux. It is also written to the log file `%LOCALAPPDATA%\tff\tff.log` (tray app). Windows 11 Notepad may lose characters of a long dump; the log file has it complete. |
 | RP2040 `tff dump` | Not available on Windows yet. The RP2040 adapter itself works with Windows without any software. |
 
 ## Troubleshooting

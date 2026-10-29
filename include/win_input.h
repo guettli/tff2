@@ -128,7 +128,7 @@ private:
 
 /// One abstract SendInput record. The Win32 layer converts it into an INPUT struct.
 struct OutputInput {
-    enum class Type { Key, MouseMove, MouseButton, Wheel, HWheel };
+    enum class Type { Key, MouseMove, MouseButton, Wheel, HWheel, Unicode };
     Type type = Type::Key;
     // Type::Key
     KeyMapping key{};
@@ -138,7 +138,12 @@ struct OutputInput {
     // Type::MouseMove: relative motion; Type::Wheel / HWheel: notches in dx
     int32_t dx = 0;
     int32_t dy = 0;
+    // Type::Unicode: one UTF-16 code unit (KEYEVENTF_UNICODE), up/down in `up`
+    uint16_t unit = 0;
 };
+
+/// Converts UTF-8 to UTF-16 code units; invalid bytes become U+FFFD.
+std::vector<uint16_t> utf8ToUtf16(const std::string& text);
 
 /**
  * @brief EventWriter that collects engine output and hands it to a sender in batches.
@@ -161,6 +166,15 @@ public:
     void setObserver(Observer observer) { observer_ = std::move(observer); }
 
     void writeOne(const Event& ev) override;
+
+    /**
+     * @brief Types text as Unicode characters (KEYEVENTF_UNICODE), one batch per character.
+     * Unlike Shift + key strokes this works with every keyboard layout, including characters
+     * that need AltGr. One batch per character, because Windows 11 Notepad garbles Unicode
+     * characters that arrive in a single SendInput call. Enter and Tab are sent as keys,
+     * because programs handle them as keys, not as characters.
+     */
+    bool writeText(const std::string& text) override;
 
     /// Send everything collected so far. Returns false if the sender rejected the batch.
     bool flush();

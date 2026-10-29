@@ -436,6 +436,12 @@ bool WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
                 }
                 break;
             }
+            case tff::win::OutputInput::Type::Unicode:
+                x.type = INPUT_KEYBOARD;
+                x.ki.wScan = in.unit;
+                x.ki.dwFlags = KEYEVENTF_UNICODE | (in.up ? KEYEVENTF_KEYUP : 0);
+                x.ki.dwExtraInfo = tff::win::kInjectedMagic;
+                break;
             case tff::win::OutputInput::Type::Wheel:
             case tff::win::OutputInput::Type::HWheel:
                 x.type = INPUT_MOUSE;
@@ -475,24 +481,9 @@ void WindowsPlatform::triggerDebugDump() {
     debug_buffer_.setPaused(true);
     const std::string dump = debug_buffer_.formatDump(toMs(now()));
     log("[TFF Dump]\n" + dump);
-    const tff::TimeVal t = now();
-    const std::string layout = engine_ ? engine_->getSettings().layout : "us";
-    tff::emitKeyStrokesForText(
-        dump,
-        [this, t](tff::KeyCode code, bool shift) {
-            if (shift) {
-                output_.writeOne(
-                    tff::Event{t, tff::EV_KEY, tff::Keys::KEY_LEFTSHIFT, tff::KEY_VAL_DOWN});
-            }
-            output_.writeOne(tff::Event{t, tff::EV_KEY, code, tff::KEY_VAL_DOWN});
-            output_.writeOne(tff::Event{t, tff::EV_KEY, code, tff::KEY_VAL_UP});
-            if (shift) {
-                output_.writeOne(
-                    tff::Event{t, tff::EV_KEY, tff::Keys::KEY_LEFTSHIFT, tff::KEY_VAL_UP});
-            }
-        },
-        layout);
-    output_.flush();
+    // Unicode characters: independent of the keyboard layout, and no Shift that a slow
+    // program could miss
+    output_.writeText(dump);
     debug_buffer_.setPaused(false);
     is_dumping_ = false;
 }
