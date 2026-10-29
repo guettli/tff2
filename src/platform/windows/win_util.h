@@ -74,7 +74,9 @@ struct AutostartStatus {
 /// logon task with highest privileges (needs an elevated caller), so remapping also works in
 /// windows running as administrator.
 bool autostartEnable(bool elevated, std::string& err_msg);
-bool autostartDisable(std::string& err_msg);
+/// this_install_only: remove only entries that start this installation's tffw.exe (used by
+/// the MSI uninstall, so a portable copy's autostart survives).
+bool autostartDisable(std::string& err_msg, bool this_install_only = false);
 /// query_task=false skips the (slow) schtasks query and reports task=false.
 AutostartStatus autostartStatus(bool query_task = true);
 
