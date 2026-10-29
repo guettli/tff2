@@ -9,6 +9,10 @@ endif()
 
 project(tff2 VERSION 2.0.7 LANGUAGES C CXX)
 
+# Windows: link the C/C++ runtime statically so tff.exe/tffw.exe start on a clean Windows
+# without the Visual C++ Redistributable (VCRUNTIME140.dll, MSVCP140.dll).
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
