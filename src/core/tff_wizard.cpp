@@ -500,10 +500,14 @@ int runWizard(const WizardOptions& options, std::istream& in, std::ostream& out)
     if (cfg.auto_shift.enabled) {
         out << ", auto-shift enabled";
     }
+    // Quoted, so the commands can be copied even if the path has spaces
+    // (e.g. C:\Users\Jane Doe\AppData\Roaming\tff\tff-combos.yaml).
+    const std::string shown_path =
+        target_path.find(' ') != std::string::npos ? "\"" + target_path + "\"" : target_path;
     out << "\n\nNext steps:\n";
-    out << "  1. Test your configuration:   tff validate " << target_path << "\n";
-    out << "  2. View your visual cheatsheet: tff cheatsheet " << target_path << "\n";
-    out << "  3. Start the remapper daemon:   tff --config " << target_path << "\n";
+    out << "  1. Test your configuration:   tff validate " << shown_path << "\n";
+    out << "  2. View your visual cheatsheet: tff cheatsheet " << shown_path << "\n";
+    out << "  3. Start the remapper daemon:   tff --config " << shown_path << "\n";
 
     return 0;
 }
