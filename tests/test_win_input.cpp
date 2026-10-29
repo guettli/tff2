@@ -59,6 +59,16 @@ struct Recorder {
             return true;
         };
     }
+    /// Characters typed as Unicode (key-down records)
+    std::vector<uint16_t> typed() const {
+        std::vector<uint16_t> out;
+        for (const auto& in : inputs) {
+            if (in.type == OutputInput::Type::Unicode && !in.up) {
+                out.push_back(in.unit);
+            }
+        }
+        return out;
+    }
     std::vector<std::pair<KeyCode, bool>> keys() const {
         std::vector<std::pair<KeyCode, bool>> out;
         for (const auto& in : inputs) {
@@ -482,13 +492,7 @@ void test_output_builder_text() {
     engine.processEvent(Event{ms(1060), EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     builder.flush();
     assert(rec.keys().empty());
-    std::vector<uint16_t> typed;
-    for (const auto& in : rec.inputs) {
-        if (in.type == OutputInput::Type::Unicode && !in.up) {
-            typed.push_back(in.unit);
-        }
-    }
-    assert(typed == (std::vector<uint16_t>{'H', 'i', ':'}));
+    assert(rec.typed() == (std::vector<uint16_t>{'H', 'i', ':'}));
     std::cout << "PASSED\n";
 }
 
