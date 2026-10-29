@@ -759,6 +759,65 @@ static void test_tap_dance_autoshift_modifier_held() {
     std::cout << "test_tap_dance_autoshift_modifier_held: PASSED\n";
 }
 
+// 20. Held past timeout with no hold action for that tap count: the timer must not stay
+// due (it used to, which made the platform loops spin), and the release still counts.
+static void test_tap_dance_hold_without_hold_action_disarms_timer() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+
+    // Only double_tap: tap 1 has neither hold nor tap action.
+    TapDance td;
+    td.key = Keys::KEY_CAPSLOCK;
+    td.double_tap.out_keys = {Keys::KEY_ESC};
+    td.timeout_us = 200000LL;
+    engine.setTapDances({td});
+
+    engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    assert(engine.hasActiveTimer());
+    engine.onTimer(TimeVal{0, 210000});
+    assert(writer.keyEvents().empty());
+    assert(!engine.hasActiveTimer());
+    assert(engine.getActiveTimerTime() == TimeVal::maxTime());
+
+    // Release and tap again quickly: still a double tap.
+    engine.processEvent(Event{TimeVal{0, 500000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    assert(engine.hasActiveTimer());
+    engine.processEvent(Event{TimeVal{0, 550000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 600000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    const auto& evs = writer.keyEvents();
+    assert(evs.size() == 2);
+    assert(evs[0].code == Keys::KEY_ESC && evs[0].value == KEY_VAL_DOWN);
+    assert(evs[1].code == Keys::KEY_ESC && evs[1].value == KEY_VAL_UP);
+    assert(!engine.hasActiveTimer());
+
+    // Tap 2 held past timeout with only triple_tap after it.
+    MockWriter writer2;
+    TFFEngine engine2(&writer2);
+    TapDance td2;
+    td2.key = Keys::KEY_CAPSLOCK;
+    td2.tap.out_keys = {Keys::KEY_A};
+    td2.triple_tap.out_keys = {Keys::KEY_B};
+    td2.timeout_us = 200000LL;
+    engine2.setTapDances({td2});
+    engine2.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine2.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    engine2.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine2.onTimer(TimeVal{0, 300000});
+    assert(writer2.keyEvents().empty());
+    assert(!engine2.hasActiveTimer());
+    assert(engine2.getActiveTimerTime() == TimeVal::maxTime());
+    engine2.onTimer(TimeVal{0, 350000});  // firing again must stay a no-op
+    assert(writer2.keyEvents().empty());
+    engine2.processEvent(Event{TimeVal{0, 400000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    engine2.processEvent(Event{TimeVal{0, 450000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
+    engine2.processEvent(Event{TimeVal{0, 500000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
+    const auto& evs2 = writer2.keyEvents();
+    assert(evs2.size() == 2);
+    assert(evs2[0].code == Keys::KEY_B && evs2[1].code == Keys::KEY_B);
+
+    std::cout << "test_tap_dance_hold_without_hold_action_disarms_timer: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Tap Dance unit test suite...\n";
 
@@ -781,6 +840,7 @@ int main() {
     test_tap_dance_two_key_rollover();
     test_tap_dance_triple_tap_interruption();
     test_tap_dance_autoshift_modifier_held();
+    test_tap_dance_hold_without_hold_action_disarms_timer();
 
     std::cout << "\nAll Tap Dance tests PASSED successfully!\n";
     return 0;
