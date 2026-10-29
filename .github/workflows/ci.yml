@@ -153,6 +153,17 @@ jobs:
       - name: Run unit tests
         run: ctest --test-dir build -C Release --output-on-failure -E test_windows_e2e
 
+      - name: Check executables need no Visual C++ Redistributable
+        shell: pwsh
+        run: |
+          # A clean Windows has no VCRUNTIME140.dll / MSVCP140.dll: the CRT must be static.
+          $bad = Select-String -Path build/Release/tff.exe, build/Release/tffw.exe `
+            -Pattern 'VCRUNTIME\d+(_\d)?\.dll|MSVCP\d+\.dll' -Encoding ascii
+          if ($bad) {
+            $bad | ForEach-Object { Write-Output "::error::$($_.Path) imports $($_.Matches[0].Value)" }
+            exit 1
+          }
+
       - name: Test TFF CLI commands
         shell: pwsh
         run: |
