@@ -121,5 +121,4 @@ cd build; cpack -C Release -G ZIP     # MSI: install the WiX .NET tool, then -G 
 
 `tff_e2e.exe` (test `test_windows_e2e`) starts `tff.exe`, types keys with `SendInput` and
 checks the remapped output. It needs an interactive desktop session; run it on a real machine
-or VM (`ctest -C Release -R test_windows_e2e`). In CI it runs in the non-blocking
-"Windows End-to-End (experimental)" job, because it has hung GitHub-hosted runners.
+or VM (`ctest -C Release -R test_windows_e2e`), or look at the "Windows End-to-End" CI job.

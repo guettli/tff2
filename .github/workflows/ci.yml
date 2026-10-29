@@ -227,13 +227,11 @@ jobs:
 
 
   windows-e2e:
-    # Experimental: drives the real keyboard input stack (low-level hook + SendInput) of the
-    # hosted runner. On GitHub-hosted runners this has hung the whole job, so it may not block
-    # merging. Run tff_e2e.exe on a real desktop to test end to end.
-    name: Windows End-to-End (experimental)
+    # Drives the real keyboard input stack of the runner: tff.exe with its low-level hook,
+    # keys typed with SendInput, remapped output checked by a second hook.
+    name: Windows End-to-End (real hook + SendInput)
     runs-on: windows-latest
-    timeout-minutes: 10
-    continue-on-error: true
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -241,45 +239,21 @@ jobs:
 
       - name: Build tff.exe and tff_e2e.exe
         run: |
-          cmake -B build -A x64
+          cmake -B build -A x64 -DTFF_WARNINGS_AS_ERRORS=ON
           cmake --build build --config Release --parallel --target tff tff_e2e
 
-      - name: Hook calibration only (no tff.exe)
+      - name: Hook calibration (no tff.exe)
         shell: pwsh
         timeout-minutes: 2
         run: |
           & build/Release/tff_e2e.exe --calibrate-only
-          if ($LASTEXITCODE -eq 77) { Write-Output "::warning::no interactive desktop"; exit 0 }
           exit $LASTEXITCODE
 
-      - name: tff.exe idle for 15 s (hook installed, no input)
-        shell: pwsh
-        timeout-minutes: 2
-        run: |
-          $p = Start-Process -FilePath build/Release/tff.exe `
-                 -ArgumentList "--verbose", "-c", "tests/windows/e2e.yaml" `
-                 -RedirectStandardOutput idle-out.log -RedirectStandardError idle-err.log `
-                 -NoNewWindow -PassThru
-          Start-Sleep -Seconds 15
-          Write-Output "alive: $(-not $p.HasExited)  CPU seconds: $($p.TotalProcessorTime.TotalSeconds)"
-          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-          Get-Content idle-out.log, idle-err.log -ErrorAction SilentlyContinue
-
-      - name: End-to-end test, first scenario only
-        shell: pwsh
-        timeout-minutes: 2
-        env:
-          TFF_E2E_ONLY: "0"
-        run: |
-          & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
-          exit $LASTEXITCODE
-
-      - name: End-to-end test (tff.exe + SendInput)
+      - name: End-to-end test
         shell: pwsh
         timeout-minutes: 4
         run: |
           & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
-          if ($LASTEXITCODE -eq 77) { Write-Output "::warning::no interactive desktop"; exit 0 }
           exit $LASTEXITCODE
 
   coverage:
