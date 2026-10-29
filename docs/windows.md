@@ -78,7 +78,8 @@ tff autostart enable --elevated  # logon task with highest privileges, replaces 
 
 ## Layer notifications
 
-Tray menu → *Layer notifications*:
+When a layer is toggled on or off (`toggle_layer(...)`), TFF can show it. Layers that are only
+active while a key is held are not announced. Tray menu → *Layer notifications*:
 
 - **On-screen indicator** (default): a small box at the bottom of the screen for about a second;
   it never takes focus.
