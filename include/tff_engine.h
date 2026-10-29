@@ -276,6 +276,7 @@ private:
     bool hasPendingTapHold() const;
     bool deferForPendingTapHold(const Event& ev);
     void promotePendingTapHolds(TimeVal time);
+    void promoteExpiredTapHolds(TimeVal time);
     void emitTapHoldTap(const ActiveTapHold& ath, TimeVal time);
     void replayDeferredIfResolved();
     bool processEventNow(const Event& ev);

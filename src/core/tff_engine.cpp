@@ -500,6 +500,16 @@ bool TFFEngine::hasActiveTimer() const {
 }
 
 TimeVal TFFEngine::getActiveTimerTime() const {
+    if (!deferred_events_.empty()) {
+        TimeVal earliest = TimeVal::maxTime();
+        for (const auto& ath : active_tap_holds_) {
+            if (!ath.hold_emitted) {
+                earliest = std::min(earliest, TimeVal::fromMicros(ath.down_time.toMicros() +
+                                                                  ath.config.timeout_us));
+            }
+        }
+        return earliest;
+    }
     TimeVal earliest = fake_active_timer_next_time_;
     if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE ||
         active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
@@ -629,12 +639,17 @@ bool TFFEngine::deferForPendingTapHold(const Event& ev) {
             return false;  // the undecided key itself decides on its release
         }
     }
-    const bool pressed_meanwhile =
-        ev.value == KEY_VAL_UP &&
+    const bool down_waiting =
         std::any_of(deferred_events_.begin(), deferred_events_.end(),
                     [&](const Event& d) { return d.code == ev.code && d.value == KEY_VAL_DOWN; });
+    if (ev.value != KEY_VAL_DOWN && !down_waiting && deferred_events_.empty()) {
+        // Released or repeated key that was pressed before the tap-hold key: not part of
+        // the decision, so it goes through at once (keeps typed order, auto-shift timing).
+        // If other keys already wait, it waits behind them to keep the order.
+        return false;
+    }
     deferred_events_.push_back(ev);
-    if (pressed_meanwhile) {
+    if (ev.value == KEY_VAL_UP) {
         promotePendingTapHolds(ev.time);
         replayDeferredIfResolved();
     }
@@ -1298,7 +1313,38 @@ bool TFFEngine::handleUpChar(const Event& ev) {
     return eval(ev.time, "up");
 }
 
+void TFFEngine::promoteExpiredTapHolds(TimeVal time) {
+    for (auto& ath : active_tap_holds_) {
+        if (!ath.hold_emitted) {
+            int64_t expire_us = ath.down_time.toMicros() + ath.config.timeout_us;
+            if (expire_us <= time.toMicros()) {
+                TimeVal expire_tv = TimeVal::fromMicros(expire_us);
+                std::string hold_desc = !ath.config.hold_layer.empty()
+                                            ? ("layer(" + ath.config.hold_layer + ")")
+                                            : keyCodeToWord(ath.config.hold_key);
+                trace(TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold '" + hold_desc + "'");
+                if (!ath.config.hold_layer.empty()) {
+                    activateLayer(ath.config.hold_layer);
+                } else if (ath.config.hold_key != 0) {
+                    writeKey(ath.config.hold_key, KEY_VAL_DOWN, expire_tv);
+                }
+                ath.hold_down_time = expire_tv;
+                ath.hold_emitted = true;
+            }
+        }
+    }
+    replayDeferredIfResolved();
+}
+
 void TFFEngine::onTimer(TimeVal time) {
+    if (!deferred_events_.empty()) {
+        // Other timers (one-shot, auto-shift, leader, combos) wait until the waiting keys,
+        // which happened before their deadlines, have been replayed.
+        promoteExpiredTapHolds(time);
+        if (!deferred_events_.empty()) {
+            return;
+        }
+    }
     if (esc_hold_active_ && !esc_reset_triggered_) {
         TimeVal esc_expire = TimeVal::fromMicros(esc_down_time_.toMicros() + ESC_RESET_TIMEOUT_US);
         if (time >= esc_expire) {
@@ -1368,26 +1414,7 @@ void TFFEngine::onTimer(TimeVal time) {
             pending_auto_shift_.shifted_emitted = true;
         }
     }
-    for (auto& ath : active_tap_holds_) {
-        if (!ath.hold_emitted) {
-            int64_t expire_us = ath.down_time.toMicros() + ath.config.timeout_us;
-            if (expire_us <= time.toMicros()) {
-                TimeVal expire_tv = TimeVal::fromMicros(expire_us);
-                std::string hold_desc = !ath.config.hold_layer.empty()
-                                            ? ("layer(" + ath.config.hold_layer + ")")
-                                            : keyCodeToWord(ath.config.hold_key);
-                trace(TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold '" + hold_desc + "'");
-                if (!ath.config.hold_layer.empty()) {
-                    activateLayer(ath.config.hold_layer);
-                } else if (ath.config.hold_key != 0) {
-                    writeKey(ath.config.hold_key, KEY_VAL_DOWN, expire_tv);
-                }
-                ath.hold_down_time = expire_tv;
-                ath.hold_emitted = true;
-            }
-        }
-    }
-    replayDeferredIfResolved();
+    promoteExpiredTapHolds(time);
 
     for (auto it = armed_one_shot_modifiers_.begin(); it != armed_one_shot_modifiers_.end();) {
         if (time >= it->expire_time) {

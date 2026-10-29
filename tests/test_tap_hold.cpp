@@ -606,6 +606,74 @@ static void test_permissive_hold_finish_and_reset() {
     std::cout << "test_permissive_hold_finish_and_reset: PASSED\n";
 }
 
+static void test_permissive_hold_keys_pressed_before_go_through() {
+    // Release of a key pressed before the tap-hold key isn't held back: "ja" stays "ja"
+    // even with j an auto-shift key whose decision is still open.
+    {
+        MockWriter writer;
+        TFFEngine engine(&writer);
+        Config config;
+        std::string err;
+        assert(loadYamlConfig(R"(
+tap_hold:
+  a:
+    tap: a
+    hold: ctrl
+    timeout_ms: 180
+auto_shift:
+  enabled: true
+  timeout_ms: 175
+  keys: [j]
+)",
+                              config, err));
+        engine.setConfig(config);
+        key(engine, Keys::KEY_J, KEY_VAL_DOWN, 0);
+        key(engine, Keys::KEY_A, KEY_VAL_DOWN, 50);
+        key(engine, Keys::KEY_J, KEY_VAL_UP, 100);
+        engine.onTimer(TimeVal::fromMicros(175000));
+        key(engine, Keys::KEY_A, KEY_VAL_UP, 178);
+        assert(typed(writer) == "+j -j +a -a");
+    }
+    // A key pressed before the tap-hold key is released even if reset() comes in between
+    {
+        MockWriter writer;
+        TFFEngine engine(&writer);
+        loadHomeRowMods(engine);
+        key(engine, Keys::KEY_X, KEY_VAL_DOWN, 0);
+        key(engine, Keys::KEY_A, KEY_VAL_DOWN, 20);
+        key(engine, Keys::KEY_X, KEY_VAL_UP, 40);
+        engine.reset();
+        assert(typed(writer) == "+x -x");
+    }
+    // Other timers wait for the waiting keys: j (pressed at 280ms, inside the one-shot
+    // window that ends at 300ms) still gets the one-shot Shift
+    {
+        MockWriter writer;
+        TFFEngine engine(&writer);
+        Config config;
+        std::string err;
+        assert(loadYamlConfig(R"(
+tap_hold:
+  a:
+    tap: a
+    hold: ctrl
+    timeout_ms: 180
+one_shot:
+  leftshift: 300
+)",
+                              config, err));
+        engine.setConfig(config);
+        key(engine, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN, 0);
+        key(engine, Keys::KEY_LEFTSHIFT, KEY_VAL_UP, 20);
+        key(engine, Keys::KEY_A, KEY_VAL_DOWN, 250);
+        key(engine, Keys::KEY_J, KEY_VAL_DOWN, 280);
+        key(engine, Keys::KEY_A, KEY_VAL_UP, 320);
+        key(engine, Keys::KEY_J, KEY_VAL_UP, 340);
+        assert(typed(writer) == "+a -a +leftshift +j -j -leftshift");
+    }
+    std::cout << "test_permissive_hold_keys_pressed_before_go_through: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Tap-vs-Hold tests...\n";
     test_tap_capslock_emits_esc();
@@ -623,6 +691,7 @@ int main() {
     test_permissive_hold_tap_inside_is_hold();
     test_permissive_hold_timeout_replays_waiting_keys();
     test_permissive_hold_finish_and_reset();
-    std::cout << "All 15 Tap-vs-Hold tests passed successfully!\n";
+    test_permissive_hold_keys_pressed_before_go_through();
+    std::cout << "All 16 Tap-vs-Hold tests passed successfully!\n";
     return 0;
 }
