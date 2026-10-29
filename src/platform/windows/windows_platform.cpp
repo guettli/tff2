@@ -243,6 +243,24 @@ void WindowsPlatform::removeHook() {
 bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
     initialize();
     last_hook_tick_ = GetTickCount64();
+    if (ev.extra_info == tff::win::kInjectedMagic) {
+        // Our own output. SendInput may deliver it to this hook re-entrantly, while the
+        // outer call is still sending: touch nothing (no timers, no flush).
+        return false;
+    }
+    if (in_hook_) {
+        // Other input arriving while we inject: let Windows handle it rather than
+        // re-entering the engine.
+        log("[TFF] Re-entrant key event passed through");
+        return false;
+    }
+    struct HookGuard {
+        bool& flag;
+        explicit HookGuard(bool& f) : flag(f) { flag = true; }
+        ~HookGuard() { flag = false; }
+        HookGuard(const HookGuard&) = delete;
+        HookGuard& operator=(const HookGuard&) = delete;
+    } guard(in_hook_);
     if (paused_.load()) {
         translator_.observePassThrough(ev);
         return false;

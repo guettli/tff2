@@ -373,6 +373,26 @@ void test_output_builder_repeat_source_and_retry() {
     std::cout << "PASSED\n";
 }
 
+void test_output_builder_reentrant_flush() {
+    std::cout << "Test 12: flush() re-entered from the sender doesn't resend the batch... "
+              << std::flush;
+    // SendInput can call the keyboard hook re-entrantly; the hook must not resend output.
+    OutputBuilder* self = nullptr;
+    int sent = 0;
+    OutputBuilder builder([&](const std::vector<OutputInput>& batch) {
+        sent += static_cast<int>(batch.size());
+        if (sent < 100) {
+            self->flush();
+        }
+        return true;
+    });
+    self = &builder;
+    builder.writeOne(Event{ms(1), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    builder.writeOne(Event{ms(1), EV_SYN, SYN_REPORT, 0});
+    assert(sent == 1);
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -388,6 +408,7 @@ int main() {
     test_output_builder_mouse_and_batches();
     test_translator_keys_held_before_tracking();
     test_output_builder_repeat_source_and_retry();
+    test_output_builder_reentrant_flush();
     std::cout << "All Windows input translation tests PASSED!\n";
     return 0;
 }

@@ -288,6 +288,41 @@ void test_run_and_stop() {
     std::cout << "PASSED\n";
 }
 
+void test_sendinput_reentrancy() {
+    std::cout << "Test 9: Hook re-entered from SendInput doesn't resend output (flood)... "
+              << std::flush;
+    // Windows may call the hook again from inside SendInput for the events just injected.
+    WindowsPlatform p;
+    std::vector<INPUT> sent;
+    p.setSendInputFn([&p, &sent](UINT count, INPUT* data) {
+        for (UINT i = 0; i < count; ++i) {
+            sent.push_back(data[i]);
+            if (sent.size() > 100) {
+                break;  // the bug: an endless flood
+            }
+            HookEvent own;
+            own.scan = data[i].ki.wScan;
+            own.flags = tff::win::kLlkhfInjected |
+                        ((data[i].ki.dwFlags & KEYEVENTF_KEYUP) != 0 ? kLlkhfUp : 0);
+            own.extra_info = data[i].ki.dwExtraInfo;
+            p.handleHookEvent(own);  // re-entrant, like Windows does
+            // Foreign input arriving during the injection must not re-enter the engine
+            p.handleHookEvent(key(0x42, 0x30, false));
+        }
+        return count;
+    });
+    std::string err;
+    bool ok = p.loadConfiguration(writeConfig("reentrant.yaml", kConfig), err);
+    assert(ok);
+
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, false)));
+    waitAndFireTimers(p, 80);
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, true)));
+    p.handleTimers();
+    assert(sent.size() == 2);
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -300,6 +335,7 @@ int main() {
     test_config_errors_and_reload();
     test_win_util();
     test_run_and_stop();
+    test_sendinput_reentrancy();
     std::cout << "All Windows platform tests PASSED!\n";
     return 0;
 }

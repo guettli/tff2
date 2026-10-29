@@ -402,10 +402,14 @@ bool OutputBuilder::flush() {
     if (pending_.empty()) {
         return true;
     }
-    const bool ok = sender_ ? sender_(pending_) : true;
+    // Take the batch out first: SendInput can re-enter the keyboard hook, and a flush() from
+    // there must not send this batch a second time.
+    std::vector<OutputInput> batch;
+    batch.swap(pending_);
+    const bool ok = sender_ ? sender_(batch) : true;
     if (!ok) {
         // Windows rejected the batch: keys whose key-up didn't arrive are still down there.
-        for (const auto& in : pending_) {
+        for (const auto& in : batch) {
             const bool is_release = in.up && (in.type == OutputInput::Type::Key ||
                                               in.type == OutputInput::Type::MouseButton);
             const KeyCode code = in.type == OutputInput::Type::Key ? in.key.code : in.button;
@@ -414,7 +418,6 @@ bool OutputBuilder::flush() {
             }
         }
     }
-    pending_.clear();
     return ok;
 }
 
