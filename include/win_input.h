@@ -174,7 +174,7 @@ public:
      * characters that arrive in a single SendInput call. Enter and Tab are sent as keys,
      * because programs handle them as keys, not as characters.
      */
-    bool writeText(const std::string& text) override;
+    bool writeText(const std::string& text, TimeVal time) override;
 
     /// Send everything collected so far. Returns false if the sender rejected the batch.
     bool flush();

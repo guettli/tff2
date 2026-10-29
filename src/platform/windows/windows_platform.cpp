@@ -16,6 +16,7 @@ constexpr UINT WM_TFF_STOP = WM_APP + 1;
 constexpr UINT WM_TFF_RELOAD = WM_APP + 2;
 constexpr UINT WM_TFF_PAUSE = WM_APP + 3;
 constexpr UINT WM_TFF_RESUME = WM_APP + 4;
+constexpr UINT WM_TFF_DUMP = WM_APP + 5;
 
 /// Raw keyboard input without a hook callback for this long means the hook is gone.
 constexpr ULONGLONG kHookDeadAfterMs = 1000;
@@ -307,7 +308,9 @@ void WindowsPlatform::processEngineEvent(const tff::Event& ev) {
     if (tff::isDiagnosticDumpHotkey(ev.code)) {
         if (ev.value == tff::KEY_VAL_DOWN && !dump_hotkey_latched_) {
             dump_hotkey_latched_ = true;
-            triggerDebugDump();
+            // Typing the dump takes a SendInput call per character: do it from the message
+            // loop, not inside the hook callback, which Windows allows only a short time
+            PostThreadMessageW(GetCurrentThreadId(), WM_TFF_DUMP, 0, 0);
         } else if (ev.value == tff::KEY_VAL_UP) {
             dump_hotkey_latched_ = false;
         }
@@ -483,7 +486,7 @@ void WindowsPlatform::triggerDebugDump() {
     log("[TFF Dump]\n" + dump);
     // Unicode characters: independent of the keyboard layout, and no Shift that a slow
     // program could miss
-    output_.writeText(dump);
+    output_.writeText(dump, now());
     debug_buffer_.setPaused(false);
     is_dumping_ = false;
 }
@@ -707,6 +710,9 @@ int WindowsPlatform::run() {
                     }
                 } else if (msg.message == WM_TFF_PAUSE) {
                     resetState("paused");
+                } else if (msg.message == WM_TFF_DUMP) {
+                    triggerDebugDump();
+                    processDeferred();  // keys typed while the dump was being injected
                 }
                 continue;
             }

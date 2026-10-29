@@ -334,7 +334,7 @@ public:
     virtual void writeOne(const Event& ev) = 0;
     /// Types UTF-8 text as characters, independent of the keyboard layout. Returns false if
     /// the output can't do that; the engine then types the text as key strokes.
-    virtual bool writeText(const std::string& /*text*/) { return false; }
+    virtual bool writeText(const std::string& /*text*/, TimeVal /*time*/) { return false; }
 };
 
 class EventReader {

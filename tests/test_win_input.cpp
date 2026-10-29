@@ -393,8 +393,6 @@ void test_output_builder_reentrant_flush() {
     std::cout << "PASSED\n";
 }
 
-}  // namespace
-
 void test_utf8_to_utf16() {
     std::cout << "Test 13: UTF-8 -> UTF-16 conversion... " << std::flush;
     using U = std::vector<uint16_t>;
@@ -414,7 +412,10 @@ void test_output_builder_text() {
     std::cout << "Test 14: Text snippets are typed as Unicode, Enter/Tab as keys... " << std::flush;
     Recorder rec;
     OutputBuilder builder(rec.sender());
-    CHECK(builder.writeText("A\xC3\xBC\t\r\n"));
+    std::vector<std::pair<KeyCode, int32_t>> observed;
+    builder.setObserver([&](const Event& ev) { observed.emplace_back(ev.code, ev.value); });
+    // \r and other control characters are dropped: they would act as keys (\b, ESC)
+    CHECK(builder.writeText("A\xC3\xBC\t\r\x08\x1B\x7F\n", ms(5)));
     assert(rec.batches == 4);  // one per character
     assert(rec.inputs.size() == 8);
     const uint16_t units[] = {'A', 'A', 0x00FC, 0x00FC};
@@ -430,16 +431,40 @@ void test_output_builder_text() {
     assert(keys[2] == std::make_pair(Keys::KEY_ENTER, false));
     assert(keys[3] == std::make_pair(Keys::KEY_ENTER, true));
     assert(builder.heldCount() == 0);
+    // Enter and Tab reach the observer (log, diagnostic dump) like other output keys
+    assert(observed.size() == 4);
+    assert(observed[0] == std::make_pair(Keys::KEY_TAB, int32_t{KEY_VAL_DOWN}));
+    assert(observed[3] == std::make_pair(Keys::KEY_ENTER, int32_t{KEY_VAL_UP}));
 
     // A surrogate pair is one character: one batch
     rec.inputs.clear();
     rec.batches = 0;
-    CHECK(builder.writeText("\xF0\x9F\x98\x80"));
+    CHECK(builder.writeText("\xF0\x9F\x98\x80", ms(6)));
     assert(rec.batches == 1);
     assert(rec.inputs.size() == 4);
     assert(rec.inputs[0].unit == 0xD83D && !rec.inputs[0].up);
     assert(rec.inputs[1].unit == 0xD83D && rec.inputs[1].up);
     assert(rec.inputs[2].unit == 0xDE00 && !rec.inputs[2].up);
+    assert(rec.inputs[3].unit == 0xDE00 && rec.inputs[3].up);
+
+    // Output already pending goes out first, in order
+    rec.inputs.clear();
+    builder.writeOne(Event{ms(7), EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
+    builder.writeOne(Event{ms(7), EV_KEY, Keys::KEY_A, KEY_VAL_UP});
+    CHECK(builder.writeText("b", ms(7)));
+    assert(rec.inputs.size() == 4);
+    assert(rec.inputs[0].type == OutputInput::Type::Key && rec.inputs[1].up);
+    assert(rec.inputs[2].type == OutputInput::Type::Unicode && rec.inputs[2].unit == 'b');
+
+    // Windows rejects the input (secure desktop): stop after the first failed character
+    rec.inputs.clear();
+    rec.batches = 0;
+    rec.setReject(true);
+    CHECK(builder.writeText("abc\n", ms(8)));
+    assert(rec.batches == 1);
+    rec.setReject(false);
+    CHECK(builder.flush());
+    assert(rec.inputs.empty());
 
     // The engine hands text snippets to the builder instead of typing Shift + key strokes,
     // so no Shift (and no layout table) is involved
@@ -466,6 +491,8 @@ void test_output_builder_text() {
     assert(typed == (std::vector<uint16_t>{'H', 'i', ':'}));
     std::cout << "PASSED\n";
 }
+
+}  // namespace
 
 int main() {
     std::cout << "Running Windows input translation tests:\n";

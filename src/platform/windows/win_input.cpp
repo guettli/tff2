@@ -447,15 +447,18 @@ std::vector<uint16_t> utf8ToUtf16(const std::string& text) {
     return out;
 }
 
-bool OutputBuilder::writeText(const std::string& text) {
+bool OutputBuilder::writeText(const std::string& text, TimeVal time) {
     for (uint16_t unit : utf8ToUtf16(text)) {
-        if (unit == '\r') {
-            continue;
-        }
         if (unit == '\n' || unit == '\t') {
             const KeyCode code = unit == '\n' ? Keys::KEY_ENTER : Keys::KEY_TAB;
-            addKey(code, false);
-            addKey(code, true);
+            for (const bool up : {false, true}) {
+                if (observer_) {
+                    observer_(Event{time, EV_KEY, code, up ? KEY_VAL_UP : KEY_VAL_DOWN});
+                }
+                addKey(code, up);
+            }
+        } else if (unit < 0x20 || unit == 0x7F) {
+            continue;  // other control characters (\r, \b, ESC, ...) would act as keys
         } else {
             OutputInput in;
             in.type = OutputInput::Type::Unicode;
@@ -467,7 +470,11 @@ bool OutputBuilder::writeText(const std::string& text) {
                 continue;  // keep a surrogate pair in one batch
             }
         }
-        flush();
+        if (!flush()) {
+            // Windows rejects input (secure desktop, elevated window): the rest would fail too
+            pending_.clear();
+            return true;
+        }
     }
     flush();
     return true;
