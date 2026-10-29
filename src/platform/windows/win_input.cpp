@@ -398,6 +398,88 @@ void OutputBuilder::addKey(KeyCode code, bool up) {
     }
 }
 
+std::vector<uint16_t> utf8ToUtf16(const std::string& text) {
+    std::vector<uint16_t> out;
+    out.reserve(text.size());
+    size_t i = 0;
+    while (i < text.size()) {
+        const auto b0 = static_cast<unsigned char>(text[i]);
+        size_t len = 0;
+        uint32_t cp = 0;
+        if (b0 < 0x80) {
+            len = 1;
+            cp = b0;
+        } else if ((b0 & 0xE0) == 0xC0) {
+            len = 2;
+            cp = b0 & 0x1F;
+        } else if ((b0 & 0xF0) == 0xE0) {
+            len = 3;
+            cp = b0 & 0x0F;
+        } else if ((b0 & 0xF8) == 0xF0) {
+            len = 4;
+            cp = b0 & 0x07;
+        }
+        bool valid = len != 0 && i + len <= text.size();
+        for (size_t k = 1; valid && k < len; ++k) {
+            const auto b = static_cast<unsigned char>(text[i + k]);
+            valid = (b & 0xC0) == 0x80;
+            cp = (cp << 6) | (b & 0x3F);
+        }
+        // Reject overlong forms, surrogates and values beyond U+10FFFF
+        static const uint32_t kMin[] = {0, 0, 0x80, 0x800, 0x10000};
+        if (valid && (cp < kMin[len] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))) {
+            valid = false;
+        }
+        if (!valid) {
+            out.push_back(0xFFFD);
+            ++i;
+            continue;
+        }
+        if (cp >= 0x10000) {
+            cp -= 0x10000;
+            out.push_back(static_cast<uint16_t>(0xD800 + (cp >> 10)));
+            out.push_back(static_cast<uint16_t>(0xDC00 + (cp & 0x3FF)));
+        } else {
+            out.push_back(static_cast<uint16_t>(cp));
+        }
+        i += len;
+    }
+    return out;
+}
+
+bool OutputBuilder::writeText(const std::string& text, TimeVal time) {
+    for (uint16_t unit : utf8ToUtf16(text)) {
+        if (unit == '\n' || unit == '\t') {
+            const KeyCode code = unit == '\n' ? Keys::KEY_ENTER : Keys::KEY_TAB;
+            for (const bool up : {false, true}) {
+                if (observer_) {
+                    observer_(Event{time, EV_KEY, code, up ? KEY_VAL_UP : KEY_VAL_DOWN});
+                }
+                addKey(code, up);
+            }
+        } else if (unit < 0x20 || unit == 0x7F) {
+            continue;  // other control characters (\r, \b, ESC, ...) would act as keys
+        } else {
+            OutputInput in;
+            in.type = OutputInput::Type::Unicode;
+            in.unit = unit;
+            pending_.push_back(in);
+            in.up = true;
+            pending_.push_back(in);
+            if (unit >= 0xD800 && unit <= 0xDBFF) {
+                continue;  // keep a surrogate pair in one batch
+            }
+        }
+        if (!flush()) {
+            // Windows rejects input (secure desktop, elevated window): the rest would fail too
+            pending_.clear();
+            return true;
+        }
+    }
+    flush();
+    return true;
+}
+
 bool OutputBuilder::flush() {
     if (pending_.empty()) {
         return true;
