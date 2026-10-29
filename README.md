@@ -365,3 +365,7 @@ cases.
 
 We welcome contributions! Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines on branch
 naming, code formatting (`clang-format`), and pre-push verification with `./scripts/check.sh`.
+
+## License
+
+TFF2 is released under the [MIT License](LICENSE).

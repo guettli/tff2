@@ -63,6 +63,7 @@ set(TFF_WINDOWS_TEST_TARGETS test_windows_platform tff_e2e)
 install(TARGETS tff tffw RUNTIME DESTINATION .)
 install(FILES config/tff-combos.yaml DESTINATION .)
 install(FILES README.md docs/windows.md DESTINATION doc)
+install(FILES LICENSE DESTINATION . RENAME LICENSE.txt)
 
 set(CPACK_PACKAGE_NAME "tff2")
 set(CPACK_PACKAGE_VENDOR "Thomas Guettler")
@@ -77,7 +78,9 @@ set(CPACK_GENERATOR "ZIP")
 # versions replace old ones.
 set(CPACK_WIX_VERSION 4)
 set(CPACK_WIX_INSTALL_SCOPE "perMachine")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/license.txt")
+# The WiX license page needs a .txt (or .rtf) file
+configure_file(LICENSE ${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt COPYONLY)
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_BINARY_DIR}/LICENSE.txt")
 set(CPACK_WIX_UPGRADE_GUID "E758079D-89DE-4B5E-A32E-D129F34FF9F2")
 set(CPACK_WIX_PRODUCT_ICON "${TFF_WIN_DIR}/tff_active.ico")
 set(CPACK_WIX_PROGRAM_MENU_FOLDER "TFF2")
