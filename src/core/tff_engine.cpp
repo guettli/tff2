@@ -473,8 +473,9 @@ bool TFFEngine::hasActiveTimer() const {
     if (fake_active_timer_next_time_ < TimeVal::maxTime()) {
         return true;
     }
-    if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE ||
-        active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
+    if ((active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE ||
+         active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) &&
+        active_tap_dance_.expire_time < TimeVal::maxTime()) {
         return true;
     }
     for (const auto& ath : active_tap_holds_) {
@@ -1268,6 +1269,11 @@ void TFFEngine::onTimer(TimeVal time) {
                                           active_tap_dance_.expire_time, true);
                     active_tap_dance_.stage = TapDanceStage::HELD;
                 }
+            }
+            if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
+                // No hold action for this tap count: keep waiting for the release, but
+                // disarm the deadline so the timer doesn't stay due (busy loop).
+                active_tap_dance_.expire_time = TimeVal::maxTime();
             }
         } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
             if (active_tap_dance_.tap_count == 1) {
