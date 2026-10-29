@@ -179,22 +179,34 @@ bool updateTrayIcon(DWORD action) {
     return ok;
 }
 
+/// Adds the tray icon. Returns true if the icon is there afterwards.
+bool ensureTrayIcon() {
+    if (updateTrayIcon(NIM_ADD)) {
+        return true;
+    }
+    // NIM_ADD also fails if the icon exists already: Explorer may have added it although the
+    // call timed out (busy right after sign-in), or TaskbarCreated came without an Explorer
+    // restart (DPI change). Then just switch it to version 4 callbacks.
+    if (updateTrayIcon(NIM_MODIFY)) {
+        NOTIFYICONDATAW nid{};
+        nid.cbSize = sizeof(nid);
+        nid.hWnd = g_app.tray_window;
+        nid.uID = kTrayId;
+        nid.uVersion = NOTIFYICON_VERSION_4;
+        Shell_NotifyIconW(NIM_SETVERSION, &nid);
+        return true;
+    }
+    return false;
+}
+
 /// Adds the tray icon; if the taskbar isn't there yet (TFF started at sign-in before
 /// Explorer), retries with a timer.
 void addTrayIcon() {
     KillTimer(g_app.tray_window, kTrayRetryTimer);
-    if (updateTrayIcon(NIM_ADD)) {
+    if (ensureTrayIcon()) {
         return;
     }
-    // An icon left over from before an Explorer restart makes NIM_ADD fail: replace it
-    NOTIFYICONDATAW nid{};
-    nid.cbSize = sizeof(nid);
-    nid.hWnd = g_app.tray_window;
-    nid.uID = kTrayId;
-    Shell_NotifyIconW(NIM_DELETE, &nid);
-    if (updateTrayIcon(NIM_ADD)) {
-        return;
-    }
+    logLine("[TFF] Tray icon not added (taskbar not ready?), retrying");
     g_app.tray_retries_left = kTrayRetries;
     SetTimer(g_app.tray_window, kTrayRetryTimer, kTrayRetryMs, nullptr);
 }
@@ -434,9 +446,14 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     }
     switch (msg) {
         case WM_TIMER:
-            if (wparam == kTrayRetryTimer &&
-                (updateTrayIcon(NIM_ADD) || --g_app.tray_retries_left <= 0)) {
-                KillTimer(hwnd, kTrayRetryTimer);
+            if (wparam == kTrayRetryTimer) {
+                if (ensureTrayIcon()) {
+                    KillTimer(hwnd, kTrayRetryTimer);
+                    logLine("[TFF] Tray icon added");
+                } else if (--g_app.tray_retries_left <= 0) {
+                    KillTimer(hwnd, kTrayRetryTimer);
+                    logLine("[TFF] Tray icon could not be added, giving up");
+                }
             }
             return 0;
         case WM_TFF_TRAY:
