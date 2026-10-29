@@ -101,9 +101,42 @@ jobs:
             build-rp2040/tff_rp2040.elf
           if-no-files-found: error
 
+  build-windows:
+    name: Build Windows Packages (ZIP + MSI)
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure & build
+        run: |
+          cmake -B build -A x64
+          cmake --build build --config Release --parallel --target tff tffw
+
+      - name: Install WiX Toolset
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      - name: Package (ZIP + MSI)
+        working-directory: build
+        run: cpack -C Release -G "ZIP;WIX"
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-assets
+          path: |
+            build/tff2-*-windows-x64.zip
+            build/tff2-*-windows-x64.msi
+          if-no-files-found: error
+
   publish-release:
     name: Publish GitHub Release
-    needs: [build-linux, build-rp2040]
+    needs: [build-linux, build-rp2040, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -129,6 +162,12 @@ jobs:
           name: linux-assets
           path: release-assets
 
+      - name: Download Windows release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-assets
+          path: release-assets
+
       - name: Download RP2040 firmware asset
         uses: actions/download-artifact@v4
         with:
@@ -149,7 +188,7 @@ jobs:
         run: |
           cd release-assets
           rm -f SHA256SUMS.txt
-          sha256sum *.tar.gz *.deb *.uf2 *.elf > SHA256SUMS.txt
+          sha256sum *.tar.gz *.deb *.uf2 *.elf *.zip *.msi > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Create or Update GitHub Release

@@ -135,6 +135,127 @@ jobs:
           ! test -e /usr/bin/tff_linux
 
 
+  build-windows:
+    name: Build & Test (Windows MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -B build -A x64 -DTFF_WARNINGS_AS_ERRORS=ON
+
+      - name: Build targets
+        run: cmake --build build --config Release --parallel
+
+      - name: Run unit tests
+        run: ctest --test-dir build -C Release --output-on-failure -E test_windows_e2e
+
+      - name: Test TFF CLI commands
+        shell: pwsh
+        run: |
+          $tff = "build/Release/tff.exe"
+          function Check([int]$expected) {
+            if ($LASTEXITCODE -ne $expected) {
+              Write-Output "::error::exit code $LASTEXITCODE, expected $expected"
+              exit 1
+            }
+          }
+          & $tff --help; Check 0
+          & $tff --version; Check 0
+          & $tff -V; Check 0
+          & $tff validate config/tff-combos.yaml; Check 0
+          & $tff validate tests/windows/e2e.yaml; Check 0
+          & $tff cheatsheet --plain config/tff-combos.yaml; Check 0
+          & $tff cheatsheet --markdown config/tff-combos.yaml; Check 0
+          & $tff init --list-presets; Check 0
+          & $tff init --preset minimal --print; Check 0
+          & $tff list; Check 0
+          & $tff autostart status; Check 0
+          & $tff --grab 2>$null; Check 2
+          & $tff setup-udev 2>$null; Check 2
+          & $tff validate does-not-exist.yaml 2>$null; Check 1
+          # Non-ASCII path (UTF-8 active code page)
+          New-Item -ItemType Directory -Force "$env:TEMP/tff-ü" | Out-Null
+          Copy-Item config/tff-combos.yaml "$env:TEMP/tff-ü/kömbos.yaml"
+          & $tff validate "$env:TEMP/tff-ü/kömbos.yaml"; Check 0
+          exit 0
+
+      - name: Install WiX Toolset
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add --global WixToolset.UI.wixext/5.0.2
+          wix extension add --global WixToolset.Util.wixext/5.0.2
+
+      - name: Package (ZIP + MSI)
+        working-directory: build
+        run: cpack -C Release -G "ZIP;WIX"
+
+      - name: Test MSI install / uninstall
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem build/tff2-*-windows-x64.msi | Select-Object -First 1
+          $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /l*v msi.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content msi.log -Tail 60; exit 1 }
+          $dir = Join-Path $env:ProgramFiles "TFF2"
+          foreach ($f in "tff.exe", "tffw.exe", "tff-combos.yaml") {
+            if (-not (Test-Path (Join-Path $dir $f))) {
+              Write-Output "::error::$f missing in $dir after MSI install"
+              Get-ChildItem -Recurse $dir -ErrorAction SilentlyContinue
+              exit 1
+            }
+          }
+          & (Join-Path $dir "tff.exe") --version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          & (Join-Path $dir "tff.exe") validate (Join-Path $dir "tff-combos.yaml")
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit 1 }
+          if (Test-Path (Join-Path $dir "tff.exe")) { Write-Output "::error::uninstall left tff.exe"; exit 1 }
+          exit 0
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: tff2-windows-x64
+          path: |
+            build/tff2-*-windows-x64.zip
+            build/tff2-*-windows-x64.msi
+          if-no-files-found: error
+
+
+  windows-e2e:
+    # Drives the real keyboard input stack of the runner: tff.exe with its low-level hook,
+    # keys typed with SendInput, remapped output checked by a second hook.
+    name: Windows End-to-End (real hook + SendInput)
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build tff.exe and tff_e2e.exe
+        run: |
+          cmake -B build -A x64 -DTFF_WARNINGS_AS_ERRORS=ON
+          cmake --build build --config Release --parallel --target tff tff_e2e
+
+      - name: Hook calibration (no tff.exe)
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          & build/Release/tff_e2e.exe --calibrate-only
+          exit $LASTEXITCODE
+
+      - name: End-to-end test
+        shell: pwsh
+        timeout-minutes: 4
+        run: |
+          & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
+          exit $LASTEXITCODE
+
   coverage:
     name: Code Coverage (gcov)
     runs-on: ubuntu-latest

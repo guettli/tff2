@@ -14,7 +14,7 @@ for Backspace, `F` + `J` for Delete, or holding `Caps Lock` for Super while tapp
 ## Features
 
 - **Overlapping Key Detection**: Detect combinations like F+J vs J+F to trigger different actions
-- **Cross-Platform**: Runs on both Linux and RP2040 hardware
+- **Cross-Platform**: Runs on Linux, Windows and RP2040 hardware
 - **Configurable Mappings**: Custom key combinations defined in configuration files
 - **Low Latency**: Optimized for real-time keyboard processing
 - **Hardware Agnostic Core**: Same logic runs on multiple platforms
@@ -179,6 +179,18 @@ sudo journalctl -u ten-flying-fingers -f
 See [Linux Installation & Systemd Guide](docs/install.md) for mise usage, systemd user services, and
 [Systemd Service Example](ten-flying-fingers.service.example).
 
+### Windows Version
+- **Input/Output**: Low-level keyboard hook (`WH_KEYBOARD_LL`) and `SendInput`; no driver, no
+  administrator rights
+- **Same engine and YAML config** as Linux; `tff.exe` offers `init`, `validate`, `cheatsheet`,
+  `monitor` and `autostart`
+- **Tray app** `tffw.exe`: pause/resume, live config reload, on-screen layer indicator,
+  start at sign-in
+- **Install**: MSI or portable ZIP from
+  [GitHub Releases](https://github.com/guettli/tff2/releases)
+
+See the [Windows Guide](docs/windows.md).
+
 ### RP2040 Firmware (Microcontroller Mode)
 
 The Raspberry Pi RP2040 is an inexpensive 32-bit dual ARM Cortex-M0+ microcontroller. When flashed
@@ -342,6 +354,7 @@ cases.
 - **Configuration Cookbook**: [`docs/cookbook.md`](docs/cookbook.md)
 - **Troubleshooting & Diagnostics**: [`docs/troubleshooting.md`](docs/troubleshooting.md)
 - **Linux Installation & Systemd**: [`docs/install.md`](docs/install.md)
+- **Windows Guide**: [`docs/windows.md`](docs/windows.md)
 - **Shell Autocompletions**: Bash, Zsh, and Fish completions in [`completions/`](completions/)
   (installed automatically via [`install.sh`](install.sh))
 - **Local Development Guide**: [`docs/local_dev.md`](docs/local_dev.md)
