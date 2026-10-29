@@ -17,7 +17,9 @@ constexpr UINT WM_TFF_RELOAD = WM_APP + 2;
 constexpr UINT WM_TFF_PAUSE = WM_APP + 3;
 constexpr UINT WM_TFF_RESUME = WM_APP + 4;
 
-/// Raw keyboard input without a hook callback for this long means the hook is gone.
+/// Raw keyboard input without a hook callback within this time (before or after it) means the
+/// hook is gone. Raw input and the hook callback for the same key reach the engine thread in
+/// either order, so the watchdog waits instead of deciding when WM_INPUT arrives.
 constexpr ULONGLONG kHookDeadAfterMs = 1000;
 
 /// An engine timer that is still due right after firing (the engine didn't advance it) is
@@ -518,10 +520,10 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
             if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lparam), RID_HEADER, &header, &size,
                                 sizeof(RAWINPUTHEADER)) == sizeof(RAWINPUTHEADER) &&
                 header.dwType == RIM_TYPEKEYBOARD && header.hDevice != nullptr) {
-                // A physical key event. The hook sees input before raw input does, so a
-                // hook that hasn't been called for a while has been removed by Windows.
-                self->raw_input_tick_ = GetTickCount64();
-                self->checkHookAlive();
+                // A physical key event: the hook must see it too (checkHookAlive)
+                if (self->raw_input_tick_ == 0) {
+                    self->raw_input_tick_ = GetTickCount64();
+                }
             }
         }
     }
@@ -529,10 +531,15 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
 }
 
 void WindowsPlatform::checkHookAlive() {
-    if (hook_ == nullptr || paused_.load() || raw_input_tick_ == 0) {
+    if (raw_input_tick_ == 0) {
         return;
     }
-    if (raw_input_tick_ > last_hook_tick_ + kHookDeadAfterMs) {
+    if (hook_ == nullptr || paused_.load() ||
+        last_hook_tick_ + kHookDeadAfterMs >= raw_input_tick_) {
+        raw_input_tick_ = 0;  // the hook saw this key (or isn't expected to)
+        return;
+    }
+    if (GetTickCount64() >= raw_input_tick_ + kHookDeadAfterMs) {
         log("[TFF] Keyboard hook was removed by Windows (callback too slow?), reinstalling");
         removeHook();
         resetState("hook reinstalled");
@@ -540,8 +547,8 @@ void WindowsPlatform::checkHookAlive() {
         // Keys pressed while the hook was gone went to Windows. Take the snapshot after the
         // key-ups injected by resetState() above have been processed (next loop iteration).
         snapshot_pending_ = true;
+        raw_input_tick_ = 0;
     }
-    raw_input_tick_ = 0;
 }
 
 void WindowsPlatform::createMessageWindow() {
@@ -687,6 +694,11 @@ int WindowsPlatform::run() {
             const DWORD wait = reload_due_tick_ > t ? static_cast<DWORD>(reload_due_tick_ - t) : 0;
             timeout = std::min(timeout, wait);
         }
+        if (raw_input_tick_ != 0) {
+            const ULONGLONG due = raw_input_tick_ + kHookDeadAfterMs;
+            const ULONGLONG t = GetTickCount64();
+            timeout = std::min(timeout, due > t ? static_cast<DWORD>(due - t) : DWORD{0});
+        }
 
         HANDLE handles[1];
         DWORD count = 0;
@@ -722,6 +734,7 @@ int WindowsPlatform::run() {
             DispatchMessageW(&msg);
         }
         handleTimers();
+        checkHookAlive();
         if (snapshot_pending_) {
             snapshot_pending_ = false;
             snapshotHeldKeys();
