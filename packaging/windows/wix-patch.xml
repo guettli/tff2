@@ -1,0 +1,26 @@
+<CPackWiXPatch>
+  <!-- On uninstall (not on upgrade), remove the per-user autostart entries that tffw/tff
+       created (HKCU Run value, elevated logon task), so nothing points to deleted files.
+       Runs as the user (Impersonate) before the files are removed; failures are ignored. -->
+  <CPackWiXFragment Id="#PRODUCT">
+    <SetProperty Id="TffAutostartOff" Sequence="execute" Before="TffAutostartOff"
+                 Value="&quot;[INSTALL_ROOT]tff.exe&quot; autostart disable"
+                 Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    <CustomAction Id="TffAutostartOff" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec"
+                  Execute="deferred" Impersonate="yes" Return="ignore" />
+    <!-- The elevated logon task can't be deleted with the user's (filtered) token when the
+         uninstall starts from Settings: delete it as SYSTEM. Task names are machine-wide;
+         schtasks exits 1 when there is no task, which is ignored. -->
+    <SetProperty Id="TffLogonTaskOff" Sequence="execute" Before="TffLogonTaskOff"
+                 Value="&quot;[SystemFolder]schtasks.exe&quot; /Delete /F /TN TFF2"
+                 Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    <CustomAction Id="TffLogonTaskOff" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="TffAutostartOff" Before="RemoveFiles"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="TffLogonTaskOff" After="TffAutostartOff"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </CPackWiXFragment>
+</CPackWiXPatch>

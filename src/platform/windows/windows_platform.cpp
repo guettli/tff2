@@ -457,10 +457,11 @@ bool WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
                                   : SendInput(n, scratch_inputs_.data(), sizeof(INPUT));
     injecting_ = was_injecting;
     if (sent != n) {
-        // Typical cause: UIPI. The foreground window runs elevated and TFF does not.
+        // Typical causes: UIPI (the foreground window runs elevated and TFF does not), or the
+        // secure desktop (lock screen, UAC prompt), which rejects all injected input.
         log("[TFF] SendInput injected " + std::to_string(sent) + " of " + std::to_string(n) +
             " event(s), error " + std::to_string(GetLastError()) +
-            " (is the active window running as administrator?)");
+            " (active window running as administrator, or screen locked?)");
         return false;
     }
     return true;
