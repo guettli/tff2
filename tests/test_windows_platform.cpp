@@ -306,8 +306,6 @@ void test_sendinput_reentrancy() {
                         ((data[i].ki.dwFlags & KEYEVENTF_KEYUP) != 0 ? kLlkhfUp : 0);
             own.extra_info = data[i].ki.dwExtraInfo;
             p.handleHookEvent(own);  // re-entrant, like Windows does
-            // Foreign input arriving during the injection must not re-enter the engine
-            p.handleHookEvent(key(0x42, 0x30, false));
         }
         return count;
     });
@@ -320,6 +318,40 @@ void test_sendinput_reentrancy() {
     CHECK(p.handleHookEvent(key(0x41, 0x1E, true)));
     p.handleTimers();
     assert(sent.size() == 2);
+    std::cout << "PASSED\n";
+}
+
+void test_key_during_injection_is_deferred() {
+    std::cout << "Test 10: A key arriving during SendInput is deferred, not lost... " << std::flush;
+    WindowsPlatform p;
+    std::vector<INPUT> sent;
+    bool injected_b = false;
+    p.setSendInputFn([&](UINT count, INPUT* data) {
+        sent.insert(sent.end(), data, data + count);
+        if (!injected_b) {
+            injected_b = true;
+            // 'b' is pressed and released while 'a' is being injected
+            CHECK(p.handleHookEvent(key(0x42, 0x30, false)));
+            CHECK(p.handleHookEvent(key(0x42, 0x30, true)));
+        }
+        return count;
+    });
+    std::string err;
+    bool ok = p.loadConfiguration(writeConfig("deferred.yaml", kConfig), err);
+    assert(ok);
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, false)));
+    waitAndFireTimers(p, 80);  // 'a' down is injected here, 'b' arrives meanwhile
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, true)));
+    waitAndFireTimers(p, 80);
+    bool saw_b_down = false;
+    bool saw_b_up = false;
+    for (const auto& in : sent) {
+        if (in.ki.wScan == 0x30) {
+            ((in.ki.dwFlags & KEYEVENTF_KEYUP) != 0 ? saw_b_up : saw_b_down) = true;
+        }
+    }
+    assert(saw_b_down && saw_b_up);
+    assert(p.getOutput().heldCount() == 0);
     std::cout << "PASSED\n";
 }
 
@@ -336,6 +368,7 @@ int main() {
     test_win_util();
     test_run_and_stop();
     test_sendinput_reentrancy();
+    test_key_during_injection_is_deferred();
     std::cout << "All Windows platform tests PASSED!\n";
     return 0;
 }

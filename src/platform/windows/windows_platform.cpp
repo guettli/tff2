@@ -248,22 +248,20 @@ bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
         // outer call is still sending: touch nothing (no timers, no flush).
         return false;
     }
-    if (in_hook_) {
-        // Other input arriving while we inject: let Windows handle it rather than
-        // re-entering the engine.
-        log("[TFF] Re-entrant key event passed through");
-        return false;
-    }
-    struct HookGuard {
-        bool& flag;
-        explicit HookGuard(bool& f) : flag(f) { flag = true; }
-        ~HookGuard() { flag = false; }
-        HookGuard(const HookGuard&) = delete;
-        HookGuard& operator=(const HookGuard&) = delete;
-    } guard(in_hook_);
     if (paused_.load()) {
         translator_.observePassThrough(ev);
         return false;
+    }
+    if (injecting_) {
+        // Another key arrived while we are inside SendInput (engine output in progress).
+        // Decide now, but feed the engine only after the outer call has finished.
+        std::vector<tff::Event> events;
+        const auto decision = translator_.translate(ev, now(), events);
+        if (decision == tff::win::HookDecision::PassThrough) {
+            return false;
+        }
+        deferred_.insert(deferred_.end(), events.begin(), events.end());
+        return !monitor_mode_;
     }
     // Timers that are already due come first: the message loop may not have woken up yet,
     // and a tap-hold or combo decision depends on whether its deadline passed before this key.
@@ -279,7 +277,22 @@ bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
         processEngineEvent(e);
     }
     output_.flush();
+    processDeferred();
     return !monitor_mode_;
+}
+
+void WindowsPlatform::processDeferred() {
+    if (injecting_) {
+        return;  // only from the top level, never from inside engine output
+    }
+    for (int round = 0; round < 8 && !deferred_.empty(); ++round) {
+        std::vector<tff::Event> events;
+        events.swap(deferred_);
+        for (const auto& e : events) {
+            processEngineEvent(e);
+        }
+        output_.flush();
+    }
 }
 
 void WindowsPlatform::processEngineEvent(const tff::Event& ev) {
@@ -363,12 +376,14 @@ void WindowsPlatform::handleTimers() {
         }
     }
     output_.flush();
+    processDeferred();
 }
 
 void WindowsPlatform::resetState(const char* reason) {
     initialize();
     // The engine releases what it holds itself (tap-hold modifiers, layer remaps, ...);
     // releaseAll() then lifts whatever is still down, so no key gets a second key-up.
+    deferred_.clear();
     engine_->reset();
     output_.releaseAll();
     translator_.reset();
@@ -436,8 +451,11 @@ bool WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
         return true;
     }
     const UINT n = static_cast<UINT>(scratch_inputs_.size());
+    const bool was_injecting = injecting_;
+    injecting_ = true;
     const UINT sent = send_input_ ? send_input_(n, scratch_inputs_.data())
                                   : SendInput(n, scratch_inputs_.data(), sizeof(INPUT));
+    injecting_ = was_injecting;
     if (sent != n) {
         // Typical cause: UIPI. The foreground window runs elevated and TFF does not.
         log("[TFF] SendInput injected " + std::to_string(sent) + " of " + std::to_string(n) +

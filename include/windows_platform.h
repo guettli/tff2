@@ -112,6 +112,7 @@ private:
     void checkHookAlive();
     bool sendInputs(const std::vector<tff::win::OutputInput>& inputs);
     void snapshotHeldKeys();
+    void processDeferred();
     void reloadNow();
     void processEngineEvent(const tff::Event& ev);
     void triggerDebugDump();
@@ -133,9 +134,11 @@ private:
     HANDLE config_change_ = INVALID_HANDLE_VALUE;
     int64_t config_mtime_ = 0;
     ULONGLONG reload_due_tick_ = 0;  ///< debounced config reload (0 = none pending)
-    bool snapshot_pending_ = false;
-    bool in_hook_ = false;  ///< handleHookEvent() is running (re-entrancy guard)    ///< re-read
-                            ///< held keys after a hook reinstall
+    bool snapshot_pending_ = false;  ///< re-read held keys after a hook reinstall
+    /// SendInput is running. Windows may call the hook re-entrantly meanwhile; such key events
+    /// are translated right away but reach the engine only after the outer call (deferred_).
+    bool injecting_ = false;
+    std::vector<tff::Event> deferred_;
     tff::TimeVal stuck_timer_{-1, 0};  ///< engine timer that stayed due after firing
     tff::TimeVal stuck_since_{};
 
