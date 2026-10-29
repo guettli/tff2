@@ -22,6 +22,7 @@
 #include <timeapi.h>
 #include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -232,8 +233,16 @@ int runTests(const std::wstring& tff_exe, const std::wstring& config, bool calib
     } else {
         progress("tff.exe is ready");
         Sleep(200);
+        // TFF_E2E_ONLY=<n>: run only scenario n (bisecting problems on CI)
+        const char* only_env = std::getenv("TFF_E2E_ONLY");
+        const int only = only_env != nullptr ? std::atoi(only_env) : -1;
+        int index = -1;
         for (const auto& sc : scenarios()) {
+            if (++index != only && only >= 0) {
+                continue;
+            }
             g_phase = sc.name;
+            progress(sc.name);
             {
                 std::lock_guard<std::mutex> lock(g_mutex);
                 g_output.clear();
