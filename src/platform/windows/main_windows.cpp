@@ -181,7 +181,7 @@ int runList() {
     return 0;
 }
 
-int runAutostart(const std::string& action, bool elevated) {
+int runAutostart(const std::string& action, bool elevated, bool this_install) {
     std::string err;
     if (action == "enable") {
         if (!tff::win::autostartEnable(elevated, err)) {
@@ -193,7 +193,7 @@ int runAutostart(const std::string& action, bool elevated) {
         return 0;
     }
     if (action == "disable") {
-        if (!tff::win::autostartDisable(err)) {
+        if (!tff::win::autostartDisable(err, this_install)) {
             std::cerr << "Error: " << err << "\n";
             return 1;
         }
@@ -247,6 +247,7 @@ int main(int argc, char* argv[]) {
     bool list_only = false;
     bool autostart_mode = false;
     bool autostart_elevated = false;
+    bool autostart_this_install = false;  // used by the MSI uninstall, not in --help
     std::string autostart_action;
     tff::wizard::WizardOptions wizard_opts;
     bool monitor_show_deltas = true;
@@ -307,6 +308,8 @@ int main(int argc, char* argv[]) {
             }
         } else if (arg == "--elevated") {
             autostart_elevated = true;
+        } else if (arg == "--this-install") {
+            autostart_this_install = true;
         } else if (arg == "--markdown" || arg == "--md") {
             cheatsheet_markdown = true;
         } else if (arg == "--plain" || arg == "--no-color") {
@@ -371,7 +374,7 @@ int main(int argc, char* argv[]) {
         return runList();
     }
     if (autostart_mode) {
-        return runAutostart(autostart_action, autostart_elevated);
+        return runAutostart(autostart_action, autostart_elevated, autostart_this_install);
     }
     if (!config_explicit) {
         config_file = tff::win::resolveConfigFile();

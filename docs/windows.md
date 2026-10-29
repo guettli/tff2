@@ -78,7 +78,11 @@ this once from an administrator terminal:
 tff autostart enable --elevated  # logon task with highest privileges, replaces the Run key
 ```
 
-Uninstalling the MSI removes the Run key entry of the user who uninstalls and the logon task.
+To go back to the Run key, run `tff autostart disable` from an administrator terminal first
+(removing the logon task needs administrator rights), then `tff autostart enable`.
+
+Uninstalling the MSI removes the Run key entry of the user who uninstalls and the logon task,
+if they start the installed `tffw.exe` (not a portable copy).
 
 ## Layer notifications
 

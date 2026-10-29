@@ -11,9 +11,12 @@
 #include <io.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 namespace tff {
@@ -83,6 +86,60 @@ std::wstring xmlEscape(const std::wstring& s) {
 
 std::wstring trayExePath() {
     return widen(exeDir()) + L"\\tffw.exe";
+}
+
+/// Whether two paths name the same file, ignoring case and short (8.3) path forms.
+bool samePath(const std::wstring& a, const std::wstring& b) {
+    auto longPath = [](const std::wstring& p) {
+        wchar_t buf[MAX_PATH * 2];
+        const DWORD n = GetLongPathNameW(p.c_str(), buf, MAX_PATH * 2);
+        return (n > 0 && n < MAX_PATH * 2) ? std::wstring(buf, n) : p;
+    };
+    const std::wstring la = longPath(a);
+    const std::wstring lb = longPath(b);
+    return CompareStringOrdinal(la.c_str(), static_cast<int>(la.size()), lb.c_str(),
+                                static_cast<int>(lb.size()), TRUE) == CSTR_EQUAL;
+}
+
+std::wstring xmlUnescape(std::wstring s) {
+    const std::pair<const wchar_t*, wchar_t> entities[] = {
+        {L"&lt;", L'<'}, {L"&gt;", L'>'}, {L"&quot;", L'"'}, {L"&apos;", L'\''}, {L"&amp;", L'&'}};
+    for (const auto& [entity, c] : entities) {
+        const std::wstring e(entity);
+        for (size_t pos = s.find(e); pos != std::wstring::npos; pos = s.find(e, pos + 1)) {
+            s.replace(pos, e.size(), 1, c);
+        }
+    }
+    return s;
+}
+
+/// Whether the logon task runs this installation's tffw.exe. Reads the task file (UTF-16),
+/// which only administrators can: false if it can't be read, true if it has no command we
+/// understand (an elevated caller then removes it, as before).
+bool taskStartsThisInstall() {
+    wchar_t sys_dir[MAX_PATH];
+    if (GetSystemDirectoryW(sys_dir, MAX_PATH) == 0) {
+        return false;
+    }
+    std::ifstream f(std::filesystem::path(std::wstring(sys_dir) + L"\\Tasks\\" + kTaskName),
+                    std::ios::binary);
+    if (!f.is_open()) {
+        return false;
+    }
+    std::string bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    std::wstring xml(bytes.size() / sizeof(wchar_t), L'\0');
+    std::memcpy(xml.data(), bytes.data(), xml.size() * sizeof(wchar_t));
+    const std::wstring tag = L"<Command>";
+    const size_t begin = xml.find(tag);
+    const size_t end = xml.find(L"</Command>", begin);
+    if (begin == std::wstring::npos || end == std::wstring::npos) {
+        return true;
+    }
+    std::wstring command = xmlUnescape(xml.substr(begin + tag.size(), end - begin - tag.size()));
+    if (command.size() >= 2 && command.front() == L'"' && command.back() == L'"') {
+        command = command.substr(1, command.size() - 2);
+    }
+    return samePath(command, trayExePath());
 }
 
 }  // namespace
@@ -268,6 +325,14 @@ bool autostartEnable(bool elevated, std::string& err_msg) {
         return false;
     }
     if (!elevated) {
+        // With both, two instances start at sign-in; if the Run key one wins, the elevated
+        // one exits (single instance) and elevated windows silently stop being remapped.
+        if (autostartStatus().task) {
+            err_msg =
+                "The elevated logon task already starts TFF at sign-in. To use the Run key "
+                "instead, run 'tff autostart disable' from an administrator prompt first.";
+            return false;
+        }
         const std::wstring value = L"\"" + exe + L"\"";
         LSTATUS st = RegSetKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue, REG_SZ, value.c_str(),
                                      static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
@@ -339,15 +404,23 @@ bool autostartEnable(bool elevated, std::string& err_msg) {
     return true;
 }
 
-bool autostartDisable(std::string& err_msg) {
-    LSTATUS st = RegDeleteKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue);
-    if (st != ERROR_SUCCESS && st != ERROR_FILE_NOT_FOUND) {
-        err_msg = "Cannot remove HKCU\\...\\Run entry (error " + std::to_string(st) + ")";
-        return false;
-    }
-    if (autostartStatus().task) {
+bool autostartDisable(std::string& err_msg, bool this_install_only) {
+    const auto status = autostartStatus();
+    // The task first: if that needs an administrator, nothing is changed.
+    if (status.task && (!this_install_only || taskStartsThisInstall())) {
         if (runHidden(L"schtasks.exe /Delete /F /TN " + std::wstring(kTaskName)) != 0) {
             err_msg = "Removing the elevated logon task needs an administrator prompt";
+            return false;
+        }
+    }
+    std::wstring run_exe = widen(status.run_command);
+    if (run_exe.size() >= 2 && run_exe.front() == L'"' && run_exe.back() == L'"') {
+        run_exe = run_exe.substr(1, run_exe.size() - 2);
+    }
+    if (status.run_key && (!this_install_only || samePath(run_exe, trayExePath()))) {
+        LSTATUS st = RegDeleteKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue);
+        if (st != ERROR_SUCCESS && st != ERROR_FILE_NOT_FOUND) {
+            err_msg = "Cannot remove HKCU\\...\\Run entry (error " + std::to_string(st) + ")";
             return false;
         }
     }
