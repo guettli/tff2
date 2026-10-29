@@ -115,6 +115,16 @@ jobs:
           cmake -B build -A x64
           cmake --build build --config Release --parallel --target tff tffw
 
+      - name: Check executables need no Visual C++ Redistributable
+        shell: pwsh
+        run: |
+          $bad = Select-String -Path build/Release/tff.exe, build/Release/tffw.exe `
+            -Pattern 'VCRUNTIME\d+(_\d)?\.dll|MSVCP\d+\.dll|ucrtbase\.dll|api-ms-win-crt-' -Encoding ascii
+          if ($bad) {
+            $bad | ForEach-Object { Write-Output "::error::$($_.Path) imports $($_.Matches[0].Value)" }
+            exit 1
+          }
+
       - name: Install WiX Toolset
         run: |
           dotnet tool install --global wix --version 5.0.2

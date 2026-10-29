@@ -158,7 +158,7 @@ jobs:
         run: |
           # A clean Windows has no VCRUNTIME140.dll / MSVCP140.dll: the CRT must be static.
           $bad = Select-String -Path build/Release/tff.exe, build/Release/tffw.exe `
-            -Pattern 'VCRUNTIME\d+(_\d)?\.dll|MSVCP\d+\.dll' -Encoding ascii
+            -Pattern 'VCRUNTIME\d+(_\d)?\.dll|MSVCP\d+\.dll|ucrtbase\.dll|api-ms-win-crt-' -Encoding ascii
           if ($bad) {
             $bad | ForEach-Object { Write-Output "::error::$($_.Path) imports $($_.Matches[0].Value)" }
             exit 1
