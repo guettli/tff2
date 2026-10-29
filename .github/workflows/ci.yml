@@ -235,6 +235,21 @@ jobs:
             Select-String -Path msi-x.log -Pattern "TffAutostartOff|WixQuietExec" | Select-Object -First 20
             exit 1
           }
+          # Same for the elevated logon task
+          $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit 1 }
+          & (Join-Path $dir "tff.exe") autostart enable --elevated
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          schtasks /Query /TN TFF2 | Out-Null
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error::autostart enable --elevated created no task"; exit 1 }
+          $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /l*v msi-x2.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content msi-x2.log -Tail 60; exit 1 }
+          schtasks /Query /TN TFF2 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Output "::error::uninstall left the logon task TFF2"
+            Select-String -Path msi-x2.log -Pattern "TffLogonTaskOff|WixQuietExec" | Select-Object -First 20
+            exit 1
+          }
           exit 0
 
       - name: Upload Windows packages

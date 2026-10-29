@@ -76,6 +76,8 @@ this once from an administrator terminal:
 tff autostart enable --elevated  # logon task with highest privileges, replaces the Run key
 ```
 
+Uninstalling the MSI removes the Run key entry of the user who uninstalls and the logon task.
+
 ## Layer notifications
 
 When a layer is toggled on or off (`toggle_layer(...)`), TFF can show it. Layers that are only
