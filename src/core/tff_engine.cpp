@@ -570,6 +570,7 @@ void TFFEngine::reset() {
         }
     }
     active_tap_holds_.clear();
+    deferred_events_.clear();
     disengageOneShots(TimeVal{});
     for (const auto& armed : armed_one_shot_layers_) {
         deactivateLayer(armed.layer);
@@ -609,6 +610,68 @@ void TFFEngine::reset() {
 }
 
 bool TFFEngine::processEvent(const Event& ev) {
+    const bool result = processEventNow(ev);
+    replayDeferredIfResolved();
+    return result;
+}
+
+bool TFFEngine::hasPendingTapHold() const {
+    return std::any_of(active_tap_holds_.begin(), active_tap_holds_.end(),
+                       [](const ActiveTapHold& a) { return !a.hold_emitted; });
+}
+
+bool TFFEngine::deferForPendingTapHold(const Event& ev) {
+    if (!hasPendingTapHold()) {
+        return false;
+    }
+    for (const auto& ath : active_tap_holds_) {
+        if (!ath.hold_emitted && ath.config.key == ev.code) {
+            return false;  // the undecided key itself decides on its release
+        }
+    }
+    const bool pressed_meanwhile =
+        ev.value == KEY_VAL_UP &&
+        std::any_of(deferred_events_.begin(), deferred_events_.end(),
+                    [&](const Event& d) { return d.code == ev.code && d.value == KEY_VAL_DOWN; });
+    deferred_events_.push_back(ev);
+    if (pressed_meanwhile) {
+        promotePendingTapHolds(ev.time);
+        replayDeferredIfResolved();
+    }
+    return true;
+}
+
+void TFFEngine::promotePendingTapHolds(TimeVal time) {
+    for (auto& ath : active_tap_holds_) {
+        if (ath.hold_emitted) {
+            continue;
+        }
+        std::string hold_desc = !ath.config.hold_layer.empty()
+                                    ? ("layer(" + ath.config.hold_layer + ")")
+                                    : keyCodeToWord(ath.config.hold_key);
+        trace(TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold '" + hold_desc + "'");
+        if (!ath.config.hold_layer.empty()) {
+            activateLayer(ath.config.hold_layer);
+        } else if (ath.config.hold_key != 0) {
+            writeKey(ath.config.hold_key, KEY_VAL_DOWN, time);
+        }
+        ath.hold_down_time = time;
+        ath.hold_emitted = true;
+    }
+}
+
+void TFFEngine::replayDeferredIfResolved() {
+    // Replayed events may start a new undecided tap-hold key; the rest waits again.
+    while (!deferred_events_.empty() && !hasPendingTapHold()) {
+        std::vector<Event> events;
+        events.swap(deferred_events_);
+        for (const auto& e : events) {
+            processEventNow(e);
+        }
+    }
+}
+
+bool TFFEngine::processEventNow(const Event& ev) {
     if (ev.code == Keys::KEY_RFKILL) {
         // Used in unit tests to stop immediately without final FlushBuffer
         return false;
@@ -628,6 +691,10 @@ bool TFFEngine::processEvent(const Event& ev) {
         if (out_dev_) {
             out_dev_->writeOne(ev);
         }
+        return true;
+    }
+
+    if (deferForPendingTapHold(ev)) {
         return true;
     }
 
@@ -965,23 +1032,6 @@ bool TFFEngine::processEvent(const Event& ev) {
                                [&](const ActiveTapHold& a) { return a.config.key == ev.code; });
 
     if (ev.value == KEY_VAL_DOWN) {
-        // Any other key going DOWN while a tap-hold key is pending immediately promotes it to HOLD
-        for (auto& ath : active_tap_holds_) {
-            if (!ath.hold_emitted && ath.config.key != ev.code) {
-                std::string hold_desc = !ath.config.hold_layer.empty()
-                                            ? ("layer(" + ath.config.hold_layer + ")")
-                                            : keyCodeToWord(ath.config.hold_key);
-                trace(TraceEvent::Kind::TapHoldHold, "TAP-HOLD: hold '" + hold_desc + "'");
-                if (!ath.config.hold_layer.empty()) {
-                    activateLayer(ath.config.hold_layer);
-                } else if (ath.config.hold_key != 0) {
-                    writeKey(ath.config.hold_key, KEY_VAL_DOWN, ev.time);
-                }
-                ath.hold_down_time = ev.time;
-                ath.hold_emitted = true;
-            }
-        }
-
         // Dedicated leader key (not configured as tap_hold)
         if (leader_config_.key != 0 && ev.code == leader_config_.key &&
             (thk == nullptr || !thk->tap_leader)) {
@@ -1081,26 +1131,7 @@ bool TFFEngine::processEvent(const Event& ev) {
                     writeKey(ath_it->config.hold_key, KEY_VAL_UP, ev.time);
                 }
             } else {
-                if (!ath_it->config.tap_toggle_layer.empty()) {
-                    toggleLayer(ath_it->config.tap_toggle_layer);
-                } else if (ath_it->config.tap_leader) {
-                    if (leader_active_) {
-                        cancelLeader(ev.time);
-                    } else {
-                        activateLeader(ev.time);
-                    }
-                } else if (ath_it->config.tap_one_shot_modifier != 0) {
-                    armOneShotModifier(ath_it->config.tap_one_shot_modifier, ev.time,
-                                       ath_it->config.tap_one_shot_timeout_us);
-                } else if (!ath_it->config.tap_one_shot_layer.empty()) {
-                    armOneShotLayer(ath_it->config.tap_one_shot_layer, ev.time,
-                                    ath_it->config.tap_one_shot_timeout_us);
-                } else if (ath_it->config.tap_key != 0) {
-                    trace(TraceEvent::Kind::TapHoldTap,
-                          "TAP-HOLD: tap '" + keyCodeToWord(ath_it->config.tap_key) + "'");
-                    writeKey(ath_it->config.tap_key, KEY_VAL_DOWN, ev.time);
-                    writeKey(ath_it->config.tap_key, KEY_VAL_UP, ev.time);
-                }
+                emitTapHoldTap(*ath_it, ev.time);
             }
             active_tap_holds_.erase(ath_it);
             return true;
@@ -1116,7 +1147,42 @@ bool TFFEngine::processEvent(const Event& ev) {
     return false;
 }
 
+void TFFEngine::emitTapHoldTap(const ActiveTapHold& ath, TimeVal time) {
+    if (!ath.config.tap_toggle_layer.empty()) {
+        toggleLayer(ath.config.tap_toggle_layer);
+    } else if (ath.config.tap_leader) {
+        if (leader_active_) {
+            cancelLeader(time);
+        } else {
+            activateLeader(time);
+        }
+    } else if (ath.config.tap_one_shot_modifier != 0) {
+        armOneShotModifier(ath.config.tap_one_shot_modifier, time,
+                           ath.config.tap_one_shot_timeout_us);
+    } else if (!ath.config.tap_one_shot_layer.empty()) {
+        armOneShotLayer(ath.config.tap_one_shot_layer, time, ath.config.tap_one_shot_timeout_us);
+    } else if (ath.config.tap_key != 0) {
+        trace(TraceEvent::Kind::TapHoldTap,
+              "TAP-HOLD: tap '" + keyCodeToWord(ath.config.tap_key) + "'");
+        writeKey(ath.config.tap_key, KEY_VAL_DOWN, time);
+        writeKey(ath.config.tap_key, KEY_VAL_UP, time);
+    }
+}
+
 void TFFEngine::finish() {
+    // Keys still waiting for an undecided tap-hold key: the tap-hold key was never released
+    // with another key tapped, so it's a tap; then the waiting keys follow.
+    while (!deferred_events_.empty()) {
+        for (auto it = active_tap_holds_.begin(); it != active_tap_holds_.end();) {
+            if (!it->hold_emitted) {
+                emitTapHoldTap(*it, it->down_time);
+                it = active_tap_holds_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        replayDeferredIfResolved();
+    }
     for (const auto& ath : active_tap_holds_) {
         if (ath.hold_emitted) {
             if (ath.config.hold_key != 0) {
@@ -1321,6 +1387,7 @@ void TFFEngine::onTimer(TimeVal time) {
             }
         }
     }
+    replayDeferredIfResolved();
 
     for (auto it = armed_one_shot_modifiers_.begin(); it != armed_one_shot_modifiers_.end();) {
         if (time >= it->expire_time) {

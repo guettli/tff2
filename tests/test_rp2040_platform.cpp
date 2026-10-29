@@ -206,19 +206,19 @@ static void test_tap_hold() {
     assert(!emitted_tap.empty());
     assert(emitted_tap.back() == tff::Keys::KEY_ESC);
 
-    // 2) Fast chording: CapsLock held while another key is pressed -> promote to Super
+    // 2) Fast chording: CapsLock held while another key is tapped -> promote to Super
     platform.clearEmittedKeys();
     platform.setTimestamp(3000);
     platform.processHostKeyEvent(0x39, true);  // USB CapsLock down
     platform.setTimestamp(3050);
-    platform.processHostKeyEvent(0x2C, true);  // USB Space down -> triggers hold promotion!
+    platform.processHostKeyEvent(0x2C, true);  // USB Space down -> waits (tap or hold?)
+    platform.setTimestamp(3080);
+    platform.processHostKeyEvent(0x2C, false);  // Space up -> tapped while held: hold!
 
     const auto& emitted_chord = platform.getEmittedKeys();
     assert(!emitted_chord.empty());
     assert(emitted_chord[0] == tff::Keys::KEY_LEFTMETA);  // Super down
 
-    platform.setTimestamp(3080);
-    platform.processHostKeyEvent(0x2C, false);
     platform.processHostKeyEvent(0x39, false);
 
     // 3) Hold timeout: CapsLock held past 200ms -> promote to Super
@@ -265,14 +265,14 @@ layers:
     platform.clearEmittedKeys();
     platform.setTimestamp(5000);
     platform.processHostKeyEvent(0x2C, true);  // USB Space down
-    platform.setTimestamp(5040);
+    platform.setTimestamp(5250);               // after the tap-hold timeout
     platform.processHostKeyEvent(0x0D, true);  // USB J down
 
     const auto& emitted = platform.getEmittedKeys();
     assert(!emitted.empty());
     assert(emitted.back() == tff::Keys::KEY_DOWN);
 
-    platform.setTimestamp(5080);
+    platform.setTimestamp(5280);
     platform.processHostKeyEvent(0x0D, false);
     platform.processHostKeyEvent(0x2C, false);
 

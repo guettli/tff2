@@ -242,15 +242,15 @@ static void test_invariant_modal_layers_race_conditions() {
     // Release Space (deactivates nav layer) BEFORE releasing 'j'!
     // When 'j' is finally released, the engine must release Down arrow, NOT leave it stuck down!
     engine.processEvent(Event{TimeVal::fromMicros(1000), EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    engine.processEvent(Event{TimeVal::fromMicros(20000), EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal::fromMicros(250000), EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
     assert(writer.hasStuckKeys());  // Down arrow should be down
     assert(writer.active_keys.count(Keys::KEY_DOWN) == 1);
 
     // Release Space (layer deactivates)
-    engine.processEvent(Event{TimeVal::fromMicros(50000), EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal::fromMicros(280000), EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
 
     // Release J after layer has already deactivated
-    engine.processEvent(Event{TimeVal::fromMicros(80000), EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal::fromMicros(310000), EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     writer.assertZeroStuckKeys("test_invariant_modal_layers_race_conditions");
 
     std::cout << "  [PASS] Modal layer race conditions invariant" << std::endl;
@@ -396,7 +396,7 @@ static void test_invariant_reset_and_finish() {
     // Scenario B: Layer held -> call finish()
     writer.clear();
     engine.processEvent(Event{TimeVal::fromMicros(20000), EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    engine.processEvent(Event{TimeVal::fromMicros(30000), EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal::fromMicros(250000), EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
     assert(writer.hasStuckKeys());
     engine.finish();
     writer.assertZeroStuckKeys("finish() with active layer keys");
