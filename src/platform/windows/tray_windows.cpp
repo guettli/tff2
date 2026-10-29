@@ -27,6 +27,9 @@ constexpr UINT WM_TFF_RELOADED = WM_APP + 12;  // wparam: ok, lparam: std::wstri
 constexpr UINT WM_TFF_ENGINE_EXIT = WM_APP + 13;
 constexpr UINT kTrayId = 1;
 constexpr UINT_PTR kOsdTimer = 1;
+constexpr UINT_PTR kTrayRetryTimer = 2;
+constexpr UINT kTrayRetryMs = 2000;
+constexpr int kTrayRetries = 90;  // 3 minutes: the taskbar may come up late after sign-in
 constexpr UINT kOsdMs = 1200;
 
 enum MenuId : UINT {
@@ -56,6 +59,7 @@ struct App {
     HICON icon_active = nullptr;
     HICON icon_paused = nullptr;
     UINT taskbar_created_msg = 0;
+    int tray_retries_left = 0;
     NotifyMode notify_mode = NotifyMode::Osd;
     std::wstring osd_text;
     std::wstring active_layer;
@@ -157,7 +161,7 @@ std::wstring tooltipText() {
     return tip.substr(0, 127);
 }
 
-void updateTrayIcon(DWORD action) {
+bool updateTrayIcon(DWORD action) {
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = g_app.tray_window;
@@ -167,11 +171,32 @@ void updateTrayIcon(DWORD action) {
     const bool paused = g_app.platform && g_app.platform->isPaused();
     nid.hIcon = paused ? g_app.icon_paused : g_app.icon_active;
     wcsncpy_s(nid.szTip, tooltipText().c_str(), _TRUNCATE);
-    Shell_NotifyIconW(action, &nid);
-    if (action == NIM_ADD) {
+    const bool ok = Shell_NotifyIconW(action, &nid) != FALSE;
+    if (ok && action == NIM_ADD) {
         nid.uVersion = NOTIFYICON_VERSION_4;
         Shell_NotifyIconW(NIM_SETVERSION, &nid);
     }
+    return ok;
+}
+
+/// Adds the tray icon; if the taskbar isn't there yet (TFF started at sign-in before
+/// Explorer), retries with a timer.
+void addTrayIcon() {
+    KillTimer(g_app.tray_window, kTrayRetryTimer);
+    if (updateTrayIcon(NIM_ADD)) {
+        return;
+    }
+    // An icon left over from before an Explorer restart makes NIM_ADD fail: replace it
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = g_app.tray_window;
+    nid.uID = kTrayId;
+    Shell_NotifyIconW(NIM_DELETE, &nid);
+    if (updateTrayIcon(NIM_ADD)) {
+        return;
+    }
+    g_app.tray_retries_left = kTrayRetries;
+    SetTimer(g_app.tray_window, kTrayRetryTimer, kTrayRetryMs, nullptr);
 }
 
 void showBalloon(const std::wstring& title, const std::wstring& text, DWORD icon_flags) {
@@ -404,10 +429,16 @@ void showMenu(HWND hwnd) {
 
 LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     if (msg == g_app.taskbar_created_msg && msg != 0) {
-        updateTrayIcon(NIM_ADD);  // Explorer restarted
+        addTrayIcon();  // Explorer (re)started
         return 0;
     }
     switch (msg) {
+        case WM_TIMER:
+            if (wparam == kTrayRetryTimer &&
+                (updateTrayIcon(NIM_ADD) || --g_app.tray_retries_left <= 0)) {
+                KillTimer(hwnd, kTrayRetryTimer);
+            }
+            return 0;
         case WM_TFF_TRAY:
             switch (LOWORD(lparam)) {
                 case WM_CONTEXTMENU:
@@ -577,6 +608,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     if (g_app.tray_window == nullptr) {
         return 1;
     }
+    // Explorer announces a new taskbar with TaskbarCreated. When TFF runs elevated (logon task
+    // with highest privileges), UIPI drops that message from the non-elevated Explorer unless
+    // it is allowed explicitly.
+    ChangeWindowMessageFilterEx(g_app.tray_window, g_app.taskbar_created_msg, MSGFLT_ALLOW,
+                                nullptr);
 
     // Callbacks run on the engine thread: hand the data to the UI thread.
     HWND tray = g_app.tray_window;
@@ -596,7 +632,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
     g_app.task_query_thread =
         std::thread([] { g_app.autostart_task = tff::win::autostartStatus().task; });
-    updateTrayIcon(NIM_ADD);
+    addTrayIcon();
     firstRun();
 
     MSG msg;
