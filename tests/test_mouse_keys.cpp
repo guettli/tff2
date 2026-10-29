@@ -322,8 +322,8 @@ static void test_modal_layer_home_row_mouse_keys() {
     engine.processEvent(Event{TimeVal{1, 0}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
     assert(engine.getActiveLayers().empty());  // buffered
 
-    // Press H -> permissive hold activates mouse layer, H emits MoveLeft
-    engine.processEvent(Event{TimeVal{1, 50000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
+    // Press H after the tap-hold timeout -> mouse layer is active, H emits MoveLeft
+    engine.processEvent(Event{TimeVal{1, 250000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
     assert(!engine.getActiveLayers().empty());
     assert(engine.getActiveLayers().back() == "mouse");
 

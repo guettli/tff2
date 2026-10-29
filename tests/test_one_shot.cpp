@@ -170,18 +170,16 @@ static void test_osm_held_normal_modifier() {
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN});
     assert(writer.keyEvents().empty());
 
-    // Fast chord: press Key A down at t=30ms while LeftShift is still held
-    // LeftShift promotes to hold immediately and emits LeftShift DOWN, then Key A DOWN
+    // Fast chord: press Key A down at t=30ms while LeftShift is still held: waits
     engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_A, KEY_VAL_DOWN});
-    auto keys1 = writer.keyEvents();
-    assert(keys1.size() == 2);
-    assert(keys1[0].code == Keys::KEY_LEFTSHIFT && keys1[0].value == KEY_VAL_DOWN);
-    assert(keys1[1].code == Keys::KEY_A && keys1[1].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents().empty());
 
-    // Release Key A up
+    // Release Key A up: A was tapped while LeftShift is held, so LeftShift is a hold
     engine.processEvent(Event{TimeVal{0, 60000}, EV_KEY, Keys::KEY_A, KEY_VAL_UP});
     auto keys2 = writer.keyEvents();
     assert(keys2.size() == 3);
+    assert(keys2[0].code == Keys::KEY_LEFTSHIFT && keys2[0].value == KEY_VAL_DOWN);
+    assert(keys2[1].code == Keys::KEY_A && keys2[1].value == KEY_VAL_DOWN);
     assert(keys2[2].code == Keys::KEY_A && keys2[2].value == KEY_VAL_UP);
 
     // Release LeftShift up

@@ -450,6 +450,230 @@ combos:
     std::cout << "test_parser_combined_config: PASSED\n";
 }
 
+// Permissive hold (home-row mods): another key pressed AND released while a tap-hold key is
+// held makes it a hold; releasing the tap-hold key first (a roll) makes it a tap.
+static const char* const kHomeRowMods = R"(
+tap_hold:
+  a:
+    tap: a
+    hold: super
+    timeout_ms: 180
+  s:
+    tap: s
+    hold: alt
+    timeout_ms: 180
+  d:
+    tap: d
+    hold: ctrl
+    timeout_ms: 180
+  space:
+    tap: space
+    layer: nav
+    timeout_ms: 200
+layers:
+  nav:
+    h: left
+)";
+
+static std::string typed(const MockWriter& writer) {
+    std::string out;
+    for (const auto& ev : writer.keyEvents()) {
+        out += (out.empty() ? "" : " ") + std::string(ev.value == KEY_VAL_DOWN ? "+" : "-") +
+               keyCodeToWord(ev.code);
+    }
+    return out;
+}
+
+static void key(TFFEngine& engine, KeyCode code, int32_t value, int64_t ms) {
+    engine.processEvent(Event{TimeVal::fromMicros(ms * 1000), EV_KEY, code, value});
+}
+
+static void loadHomeRowMods(TFFEngine& engine) {
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(kHomeRowMods, config, err));
+    engine.setConfig(config);
+}
+
+static void test_permissive_hold_roll_is_tap() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+    loadHomeRowMods(engine);
+
+    // Typing "as" fast: s goes down before a is released
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 10);
+    key(engine, Keys::KEY_S, KEY_VAL_DOWN, 30);
+    assert(writer.keyEvents().empty());
+    key(engine, Keys::KEY_A, KEY_VAL_UP, 60);
+    key(engine, Keys::KEY_S, KEY_VAL_UP, 80);
+    assert(typed(writer) == "+a -a +s -s");
+
+    // Three keys rolled: "asd"
+    writer.clear();
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 1000);
+    key(engine, Keys::KEY_S, KEY_VAL_DOWN, 1020);
+    key(engine, Keys::KEY_D, KEY_VAL_DOWN, 1040);
+    key(engine, Keys::KEY_A, KEY_VAL_UP, 1050);
+    key(engine, Keys::KEY_S, KEY_VAL_UP, 1070);
+    key(engine, Keys::KEY_D, KEY_VAL_UP, 1090);
+    assert(typed(writer) == "+a -a +s -s +d -d");
+
+    // Space rolled into h: space, then h (not Left)
+    writer.clear();
+    key(engine, Keys::KEY_SPACE, KEY_VAL_DOWN, 2000);
+    key(engine, Keys::KEY_H, KEY_VAL_DOWN, 2030);
+    key(engine, Keys::KEY_SPACE, KEY_VAL_UP, 2050);
+    key(engine, Keys::KEY_H, KEY_VAL_UP, 2070);
+    assert(typed(writer) == "+space -space +h -h");
+    assert(engine.getActiveLayers().empty());
+    std::cout << "test_permissive_hold_roll_is_tap: PASSED\n";
+}
+
+static void test_permissive_hold_tap_inside_is_hold() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+    loadHomeRowMods(engine);
+
+    // a held, x tapped inside: Super+x
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 10);
+    key(engine, Keys::KEY_X, KEY_VAL_DOWN, 30);
+    key(engine, Keys::KEY_X, KEY_VAL_UP, 60);
+    key(engine, Keys::KEY_A, KEY_VAL_UP, 90);
+    assert(typed(writer) == "+leftmeta +x -x -leftmeta");
+
+    // a held, s (another home-row mod) tapped inside: Super+s
+    writer.clear();
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 1000);
+    key(engine, Keys::KEY_S, KEY_VAL_DOWN, 1020);
+    key(engine, Keys::KEY_S, KEY_VAL_UP, 1050);
+    key(engine, Keys::KEY_A, KEY_VAL_UP, 1080);
+    assert(typed(writer) == "+leftmeta +s -s -leftmeta");
+
+    // Space held, h tapped inside: Left
+    writer.clear();
+    key(engine, Keys::KEY_SPACE, KEY_VAL_DOWN, 2000);
+    key(engine, Keys::KEY_H, KEY_VAL_DOWN, 2030);
+    key(engine, Keys::KEY_H, KEY_VAL_UP, 2060);
+    key(engine, Keys::KEY_SPACE, KEY_VAL_UP, 2090);
+    assert(typed(writer) == "+left -left");
+    std::cout << "test_permissive_hold_tap_inside_is_hold: PASSED\n";
+}
+
+static void test_permissive_hold_timeout_replays_waiting_keys() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+    loadHomeRowMods(engine);
+
+    // a held, x pressed and kept down: after the timeout Super goes down, then x
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 10);
+    key(engine, Keys::KEY_X, KEY_VAL_DOWN, 30);
+    assert(writer.keyEvents().empty());
+    engine.onTimer(TimeVal::fromMicros(190000));
+    assert(typed(writer) == "+leftmeta +x");
+    key(engine, Keys::KEY_X, KEY_VAL_UP, 250);
+    key(engine, Keys::KEY_A, KEY_VAL_UP, 300);
+    assert(typed(writer) == "+leftmeta +x -x -leftmeta");
+
+    // The same, with the timeout noticed by the next event (fake timer)
+    writer.clear();
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 1000);
+    key(engine, Keys::KEY_X, KEY_VAL_DOWN, 1030);
+    key(engine, Keys::KEY_X, KEY_VAL_UP, 1300);
+    key(engine, Keys::KEY_A, KEY_VAL_UP, 1350);
+    assert(typed(writer) == "+leftmeta +x -x -leftmeta");
+    std::cout << "test_permissive_hold_timeout_replays_waiting_keys: PASSED\n";
+}
+
+static void test_permissive_hold_finish_and_reset() {
+    MockWriter writer;
+    TFFEngine engine(&writer);
+    loadHomeRowMods(engine);
+
+    // Input ends while keys wait: a tap, then s (itself undecided, so a tap too)
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 10);
+    key(engine, Keys::KEY_S, KEY_VAL_DOWN, 30);
+    engine.finish();
+    assert(typed(writer) == "+a -a +s -s");
+
+    // reset() drops waiting keys
+    writer.clear();
+    key(engine, Keys::KEY_A, KEY_VAL_DOWN, 1000);
+    key(engine, Keys::KEY_X, KEY_VAL_DOWN, 1030);
+    engine.reset();
+    key(engine, Keys::KEY_B, KEY_VAL_DOWN, 1100);
+    key(engine, Keys::KEY_B, KEY_VAL_UP, 1120);
+    assert(typed(writer) == "+b -b");
+    std::cout << "test_permissive_hold_finish_and_reset: PASSED\n";
+}
+
+static void test_permissive_hold_keys_pressed_before_go_through() {
+    // Release of a key pressed before the tap-hold key isn't held back: "ja" stays "ja"
+    // even with j an auto-shift key whose decision is still open.
+    {
+        MockWriter writer;
+        TFFEngine engine(&writer);
+        Config config;
+        std::string err;
+        assert(loadYamlConfig(R"(
+tap_hold:
+  a:
+    tap: a
+    hold: ctrl
+    timeout_ms: 180
+auto_shift:
+  enabled: true
+  timeout_ms: 175
+  keys: [j]
+)",
+                              config, err));
+        engine.setConfig(config);
+        key(engine, Keys::KEY_J, KEY_VAL_DOWN, 0);
+        key(engine, Keys::KEY_A, KEY_VAL_DOWN, 50);
+        key(engine, Keys::KEY_J, KEY_VAL_UP, 100);
+        engine.onTimer(TimeVal::fromMicros(175000));
+        key(engine, Keys::KEY_A, KEY_VAL_UP, 178);
+        assert(typed(writer) == "+j -j +a -a");
+    }
+    // A key pressed before the tap-hold key is released even if reset() comes in between
+    {
+        MockWriter writer;
+        TFFEngine engine(&writer);
+        loadHomeRowMods(engine);
+        key(engine, Keys::KEY_X, KEY_VAL_DOWN, 0);
+        key(engine, Keys::KEY_A, KEY_VAL_DOWN, 20);
+        key(engine, Keys::KEY_X, KEY_VAL_UP, 40);
+        engine.reset();
+        assert(typed(writer) == "+x -x");
+    }
+    // Other timers wait for the waiting keys: j (pressed at 280ms, inside the one-shot
+    // window that ends at 300ms) still gets the one-shot Shift
+    {
+        MockWriter writer;
+        TFFEngine engine(&writer);
+        Config config;
+        std::string err;
+        assert(loadYamlConfig(R"(
+tap_hold:
+  a:
+    tap: a
+    hold: ctrl
+    timeout_ms: 180
+one_shot:
+  leftshift: 300
+)",
+                              config, err));
+        engine.setConfig(config);
+        key(engine, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN, 0);
+        key(engine, Keys::KEY_LEFTSHIFT, KEY_VAL_UP, 20);
+        key(engine, Keys::KEY_A, KEY_VAL_DOWN, 250);
+        key(engine, Keys::KEY_J, KEY_VAL_DOWN, 280);
+        key(engine, Keys::KEY_A, KEY_VAL_UP, 320);
+        key(engine, Keys::KEY_J, KEY_VAL_UP, 340);
+        assert(typed(writer) == "+a -a +leftshift +j -j -leftshift");
+    }
+    std::cout << "test_permissive_hold_keys_pressed_before_go_through: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Tap-vs-Hold tests...\n";
     test_tap_capslock_emits_esc();
@@ -463,6 +687,11 @@ int main() {
     test_parser_inline_bracket();
     test_parser_validation_errors();
     test_parser_combined_config();
-    std::cout << "All 11 Tap-vs-Hold tests passed successfully!\n";
+    test_permissive_hold_roll_is_tap();
+    test_permissive_hold_tap_inside_is_hold();
+    test_permissive_hold_timeout_replays_waiting_keys();
+    test_permissive_hold_finish_and_reset();
+    test_permissive_hold_keys_pressed_before_go_through();
+    std::cout << "All 16 Tap-vs-Hold tests passed successfully!\n";
     return 0;
 }

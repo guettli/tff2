@@ -301,22 +301,22 @@ auto_shift:
     engine.setConfig(config);
 
     // 1. Dual-role Tap-Hold modifier coexistence:
-    // Hold CapsLock down, then press 'c'. Chording promotes CapsLock to LeftCtrl DOWN,
-    // and 'c' MUST emit DOWN immediately without auto-shift buffering/delay!
+    // Hold CapsLock down, then tap 'c'. Tapping 'c' while CapsLock is held promotes CapsLock
+    // to LeftCtrl DOWN, and 'c' MUST be emitted without auto-shift buffering/delay!
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
-    // Fast chord: 'c' goes down
+    // Fast chord: 'c' goes down (waits until CapsLock is decided)
     engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_C, KEY_VAL_DOWN});
-    assert(writer.keyEvents().size() == 2);
-    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL &&
-           writer.keyEvents()[0].value == KEY_VAL_DOWN);
-    assert(writer.keyEvents()[1].code == Keys::KEY_C &&
-           writer.keyEvents()[1].value == KEY_VAL_DOWN);
-    assert(engine.isModifierActive());
+    assert(writer.keyEvents().empty());
 
     // Release 'c'
     engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_C, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 3);
+    assert(writer.keyEvents()[0].code == Keys::KEY_LEFTCTRL &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents()[1].code == Keys::KEY_C &&
+           writer.keyEvents()[1].value == KEY_VAL_DOWN);
     assert(writer.keyEvents()[2].code == Keys::KEY_C && writer.keyEvents()[2].value == KEY_VAL_UP);
+    assert(engine.isModifierActive());
 
     // Release CapsLock
     engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
@@ -421,25 +421,25 @@ auto_shift:
     assert(loadYamlConfig(yaml, config, err));
     engine.setConfig(config);
 
-    // 1. Hold Space (activates nav layer via chord with 'j')
+    // 1. Hold Space (activates nav layer after the tap-hold timeout)
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    // Chord 'j' -> remapped to 'down' arrow immediately
-    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    // 'j' -> remapped to 'down' arrow immediately
+    engine.processEvent(Event{TimeVal{0, 230000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
     assert(writer.keyEvents()[0].code == Keys::KEY_DOWN &&
            writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
-    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
     assert(writer.keyEvents()[1].code == Keys::KEY_DOWN &&
            writer.keyEvents()[1].value == KEY_VAL_UP);
 
-    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 270000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
     writer.clear();
 
     // 2. Now tap 'j' normally -> lowercase 'j'
-    engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
-    engine.processEvent(Event{TimeVal{0, 150000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 300000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 350000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
     assert(writer.keyEvents()[0].code == Keys::KEY_J &&
            writer.keyEvents()[0].value == KEY_VAL_DOWN);

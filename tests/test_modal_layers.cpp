@@ -50,16 +50,16 @@ static void test_momentary_layer_activation() {
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
     assert(writer.keyEvents().empty());
 
-    // H down at t=30ms -> immediately promotes Space to hold (activates nav) and emits Left Down
+    // H down at t=30ms -> waits: Space is still undecided (tap or hold)
     engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
-    auto keys1 = writer.keyEvents();
-    assert(keys1.size() == 1);
-    assert(keys1[0].code == Keys::KEY_LEFT && keys1[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents().empty());
 
-    // H up at t=50ms -> emits Left Up
+    // H up at t=50ms -> H was tapped while Space is held (permissive hold): nav activates
+    // and H emits Left Down + Left Up
     engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_H, KEY_VAL_UP});
     auto keys2 = writer.keyEvents();
     assert(keys2.size() == 2);
+    assert(keys2[0].code == Keys::KEY_LEFT && keys2[0].value == KEY_VAL_DOWN);
     assert(keys2[1].code == Keys::KEY_LEFT && keys2[1].value == KEY_VAL_UP);
 
     // Space up at t=70ms -> deactivates nav layer, no Space key emitted
@@ -181,18 +181,18 @@ static void test_key_release_after_layer_deactivation() {
     // Space down at t=10ms
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
 
-    // H down at t=30ms (remapped to Left Down)
-    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
+    // H down at t=230ms, after the tap-hold timeout (remapped to Left Down)
+    engine.processEvent(Event{TimeVal{0, 230000}, EV_KEY, Keys::KEY_H, KEY_VAL_DOWN});
     assert(writer.keyEvents().size() == 1);
     assert(writer.keyEvents()[0].code == Keys::KEY_LEFT &&
            writer.keyEvents()[0].value == KEY_VAL_DOWN);
 
-    // Space up at t=50ms (layer deactivates, but H is still physically held down!)
-    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    // Space up at t=250ms (layer deactivates, but H is still physically held down!)
+    engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
     assert(engine.getActiveLayers().empty());
 
-    // H up at t=70ms -> must emit Left UP, not H UP! Prevents stuck keys.
-    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_H, KEY_VAL_UP});
+    // H up at t=270ms -> must emit Left UP, not H UP! Prevents stuck keys.
+    engine.processEvent(Event{TimeVal{0, 270000}, EV_KEY, Keys::KEY_H, KEY_VAL_UP});
     auto key_evs = writer.keyEvents();
     assert(key_evs.size() == 2);
     assert(key_evs[1].code == Keys::KEY_LEFT && key_evs[1].value == KEY_VAL_UP);
@@ -216,9 +216,9 @@ static void test_multi_key_chord_in_layer() {
     nav_layer.mappings[Keys::KEY_W] = LayerAction({Keys::KEY_LEFTCTRL, Keys::KEY_RIGHT});
     engine.setLayers({nav_layer});
 
-    // Space down, W down
+    // Space down, W down after the tap-hold timeout
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    engine.processEvent(Event{TimeVal{0, 30000}, EV_KEY, Keys::KEY_W, KEY_VAL_DOWN});
+    engine.processEvent(Event{TimeVal{0, 230000}, EV_KEY, Keys::KEY_W, KEY_VAL_DOWN});
 
     auto key_evs = writer.keyEvents();
     assert(key_evs.size() == 2);
@@ -226,14 +226,14 @@ static void test_multi_key_chord_in_layer() {
     assert(key_evs[1].code == Keys::KEY_RIGHT && key_evs[1].value == KEY_VAL_DOWN);
 
     // W up -> releases in reverse order (Right Up, then LeftCtrl Up)
-    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_W, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 250000}, EV_KEY, Keys::KEY_W, KEY_VAL_UP});
     key_evs = writer.keyEvents();
     assert(key_evs.size() == 4);
     assert(key_evs[2].code == Keys::KEY_RIGHT && key_evs[2].value == KEY_VAL_UP);
     assert(key_evs[3].code == Keys::KEY_LEFTCTRL && key_evs[3].value == KEY_VAL_UP);
 
     // Space up
-    engine.processEvent(Event{TimeVal{0, 70000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 270000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 4);
 
     std::cout << "test_multi_key_chord_in_layer: PASSED\n";
@@ -866,14 +866,15 @@ layers:
 
     // Now momentarily hold Space (nav layer) while numpad is locked on
     engine.processEvent(Event{TimeVal{0, 100000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    // Fast chord 'j' -> nav layer has 'j: down', taking LIFO precedence over numpad!
+    // Fast chord 'j' (tapped while Space is held) -> nav layer has 'j: down', taking LIFO
+    // precedence over numpad!
     engine.processEvent(Event{TimeVal{0, 120000}, EV_KEY, Keys::KEY_J, KEY_VAL_DOWN});
-    assert(writer.keyEvents().size() == 1);
-    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN &&
-           writer.keyEvents()[0].value == KEY_VAL_DOWN);
+    assert(writer.keyEvents().empty());
 
     engine.processEvent(Event{TimeVal{0, 140000}, EV_KEY, Keys::KEY_J, KEY_VAL_UP});
     assert(writer.keyEvents().size() == 2);
+    assert(writer.keyEvents()[0].code == Keys::KEY_DOWN &&
+           writer.keyEvents()[0].value == KEY_VAL_DOWN);
     assert(writer.keyEvents()[1].code == Keys::KEY_DOWN &&
            writer.keyEvents()[1].value == KEY_VAL_UP);
     writer.clear();

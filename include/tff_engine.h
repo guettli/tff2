@@ -269,6 +269,18 @@ private:
     bool fake_active_timer_ = true;
     TimeVal fake_active_timer_next_time_;
 
+    // Permissive hold: while a tap-hold key is undecided, other key events wait here. Another
+    // key pressed and released meanwhile makes it a hold; releasing the tap-hold key first (a
+    // roll, e.g. typing "as" fast with home-row mods) makes it a tap. Then the events replay.
+    std::vector<Event> deferred_events_;
+    bool hasPendingTapHold() const;
+    bool deferForPendingTapHold(const Event& ev);
+    void promotePendingTapHolds(TimeVal time);
+    void promoteExpiredTapHolds(TimeVal time);
+    void emitTapHoldTap(const ActiveTapHold& ath, TimeVal time);
+    void replayDeferredIfResolved();
+    bool processEventNow(const Event& ev);
+
     bool handleDownChar(const Event& ev);
     bool handleUpChar(const Event& ev);
 

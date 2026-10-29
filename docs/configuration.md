@@ -179,7 +179,7 @@ TFF translates text strings directly into synthesized keystrokes and shift combi
 
 Tap-vs-Hold allows a physical key to perform two completely different functions based on how it is pressed:
 - **Tap**: Pressing and quickly releasing the key sends a tap key (e.g., `esc`).
-- **Hold**: Holding the key down longer than the timeout (default: 200ms), or pressing any other key while holding it, emits a hold modifier (e.g., `super` / Windows key).
+- **Hold**: Holding the key down longer than the timeout (default: 200ms), or pressing *and releasing* another key while holding it, emits a hold modifier (e.g., `super` / Windows key).
 
 ### Configuration Syntax
 
@@ -192,10 +192,13 @@ tap_hold:
 ```
 
 ### Chording and Permissive Hold
-When a tap-hold key is pressed and another key is tapped (e.g., CapsLock + `c`), TFF immediately promotes CapsLock to Super/Windows key without waiting for the timeout to elapse. This ensures instantaneous responsiveness for modifier combinations like Win+D, Win+Tab, or Win+Arrow.
+While a tap-hold key is undecided, the keys pressed after it wait:
 
-> [!NOTE]
-> **Key Rollover**: Because chords immediately promote to hold, typists rolling keys very rapidly when tapping Escape in modal editors (e.g. Vim) should release CapsLock before pressing the next key to ensure it registers as a tap rather than a chord modifier.
+- If another key is pressed **and released** while the tap-hold key is held (e.g. CapsLock + tap `c`), the tap-hold key becomes the hold at once, without waiting for the timeout: Win+C.
+- If the tap-hold key is released first, it was a **roll** (fast typing): it's a tap, and the waiting keys follow. Typing `a` `s` quickly with home-row mods gives `as`, not Win+S.
+- If the timeout passes, it's a hold, and the waiting keys follow with the modifier or layer active.
+
+So a key that you keep holding together with a tap-hold key (e.g. Space + `h` to repeat Left) comes out after the tap-hold timeout.
 
 ### Validation Rules
 - `tap_hold` definitions require both `tap` and `hold` (or `layer`) targets.
@@ -259,7 +262,7 @@ tap_hold:
 
 ### Key Behaviors
 
-- **Instant Permissive Chording**: When a tap-hold layer key (like Space) goes down and another key is tapped, the layer activates immediately with zero latency.
+- **Permissive Chording**: When another key is tapped while a tap-hold layer key (like Space) is held, the layer activates immediately. Rolling from Space into the next letter (Space released first) types a space and the letter.
 - **Key Passthrough**: Any key not explicitly mapped within an active layer passes through transparently to base typing and combos.
 - **Stuck-Key Prevention**: If you press a key while a layer is active (e.g. holding Space and pressing `h` to send Left Arrow) and release Space before releasing `h`, TFF guarantees that Left Arrow UP is synthesized upon releasing `h`, preventing any stuck or hanging keys.
 - **Layer Stacking (LIFO)**: If multiple layers are active simultaneously, key lookup resolves from the top of the stack downwards (most recently activated layer has priority).

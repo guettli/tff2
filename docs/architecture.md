@@ -189,14 +189,26 @@ sequenceDiagram
     Note over User,Virtual: Scenario C: Permissive Hold (Fast Chording)
     User->>Engine: Press CapsLock (Down) at t=700ms
     User->>Engine: Press Key 'A' (Down) at t=730ms (< 200ms)
-    Note over Engine: Immediate promotion: another key pressed while CapsLock held!
+    Note over Engine: CapsLock undecided: 'A' waits in deferred_events_
+    User->>Engine: Release Key 'A' (Up) at t=760ms
+    Note over Engine: 'A' tapped while CapsLock held: hold! Replay waiting events
     Engine->>Virtual: writeKey(KEY_LEFTMETA, DOWN)
     Engine->>Virtual: writeKey(KEY_A, DOWN)
-    User->>Engine: Release Key 'A' (Up) at t=760ms
     Engine->>Virtual: writeKey(KEY_A, UP)
     User->>Engine: Release CapsLock (Up) at t=780ms
     Engine->>Virtual: writeKey(KEY_LEFTMETA, UP)
     Virtual-->>User: Result: Super+A shortcut emitted cleanly!
+
+    Note over User,Virtual: Scenario D: Roll (fast typing) -> Tap
+    User->>Engine: Press CapsLock (Down) at t=900ms
+    User->>Engine: Press Key 'A' (Down) at t=930ms ('A' waits)
+    User->>Engine: Release CapsLock (Up) at t=950ms
+    Note over Engine: Released first: tap! Replay waiting events
+    Engine->>Virtual: writeKey(KEY_ESC, DOWN)
+    Engine->>Virtual: writeKey(KEY_ESC, UP)
+    Engine->>Virtual: writeKey(KEY_A, DOWN)
+    User->>Engine: Release Key 'A' (Up) at t=970ms
+    Engine->>Virtual: writeKey(KEY_A, UP)
 ```
 
 ---
