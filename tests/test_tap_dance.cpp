@@ -805,6 +805,9 @@ static void test_tap_dance_hold_without_hold_action_disarms_timer() {
     engine2.onTimer(TimeVal{0, 300000});
     assert(writer2.keyEvents().empty());
     assert(!engine2.hasActiveTimer());
+    assert(engine2.getActiveTimerTime() == TimeVal::maxTime());
+    engine2.onTimer(TimeVal{0, 350000});  // firing again must stay a no-op
+    assert(writer2.keyEvents().empty());
     engine2.processEvent(Event{TimeVal{0, 400000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});
     engine2.processEvent(Event{TimeVal{0, 450000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN});
     engine2.processEvent(Event{TimeVal{0, 500000}, EV_KEY, Keys::KEY_CAPSLOCK, KEY_VAL_UP});

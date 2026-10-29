@@ -1273,6 +1273,7 @@ void TFFEngine::onTimer(TimeVal time) {
             if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_RELEASE) {
                 // No hold action for this tap count: keep waiting for the release, but
                 // disarm the deadline so the timer doesn't stay due (busy loop).
+                // maxTime means "disarmed": compare only, never call toMicros() on it.
                 active_tap_dance_.expire_time = TimeVal::maxTime();
             }
         } else if (active_tap_dance_.stage == TapDanceStage::WAITING_FOR_NEXT_TAP) {
