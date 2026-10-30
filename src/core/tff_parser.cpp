@@ -153,6 +153,34 @@ std::string unquoteAndUnescape(const std::string& s) {
     return str;
 }
 
+// Checks that every character of a snippet can be typed. A non-ASCII character is reported
+// whole (all bytes of its UTF-8 sequence), not as a broken single byte.
+bool checkSnippetChars(const std::string& text, const std::string& layout, const std::string& what,
+                       std::string& err_msg) {
+    for (size_t i = 0; i < text.size(); ++i) {
+        char ch = text[i];
+        KeyCode kc = 0;
+        bool shift = false;
+        if (asciiToKeyStroke(ch, kc, shift, layout) || asciiToKeyStroke(ch, kc, shift, "us")) {
+            continue;
+        }
+        auto byte = static_cast<unsigned char>(ch);
+        if (byte < 0x80) {
+            err_msg = "unsupported character in " + what + ": '" + std::string(1, ch) + "'";
+            return false;
+        }
+        size_t len = 1;
+        while (i + len < text.size() &&
+               (static_cast<unsigned char>(text[i + len]) & 0xC0) == 0x80) {
+            ++len;
+        }
+        err_msg = "unsupported character in " + what + ": '" + text.substr(i, len) +
+                  "' (only ASCII characters can be typed)";
+        return false;
+    }
+    return true;
+}
+
 bool isTextSnippet(const std::string& val, std::string& text) {
     std::string s = trim(val);
     if (s.empty())
@@ -1607,15 +1635,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         err_msg = "empty text snippet is not allowed";
                         return false;
                     }
-                    for (char ch : snippet) {
-                        KeyCode kc = 0;
-                        bool shift = false;
-                        if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
-                            !asciiToKeyStroke(ch, kc, shift, "us")) {
-                            err_msg = "unsupported character in text snippet: '" +
-                                      std::string(1, ch) + "'";
-                            return false;
-                        }
+                    if (!checkSnippetChars(snippet, config.settings.layout, "text snippet",
+                                           err_msg)) {
+                        return false;
                     }
                 } else if (!is_toggle && !is_mouse) {
                     auto out_words = parseOutputWords(val_part);
@@ -1707,15 +1729,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     err_msg = "empty text snippet is not allowed";
                     return false;
                 }
-                for (char ch : snippet) {
-                    KeyCode kc = 0;
-                    bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
-                        !asciiToKeyStroke(ch, kc, shift, "us")) {
-                        err_msg =
-                            "unsupported character in text snippet: '" + std::string(1, ch) + "'";
-                        return false;
-                    }
+                if (!checkSnippetChars(snippet, config.settings.layout, "text snippet", err_msg)) {
+                    return false;
                 }
                 LayerAction act;
                 act.text = snippet;
@@ -2713,15 +2728,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (has_toggle_layer || has_mouse) {
                 // No out codes needed
             } else if (has_text) {
-                for (char ch : current_text) {
-                    KeyCode kc = 0;
-                    bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
-                        !asciiToKeyStroke(ch, kc, shift, "us")) {
-                        err_msg =
-                            "unsupported character in text snippet: '" + std::string(1, ch) + "'";
-                        return false;
-                    }
+                if (!checkSnippetChars(current_text, config.settings.layout, "text snippet",
+                                       err_msg)) {
+                    return false;
                 }
             } else {
                 auto out_words = parseOutputWords(current_outkeys);
@@ -2943,15 +2952,8 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (toggle_mode || mouse_mode) {
                 // No out codes needed
             } else if (snippet_mode) {
-                for (char ch : snippet) {
-                    KeyCode kc = 0;
-                    bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
-                        !asciiToKeyStroke(ch, kc, shift, "us")) {
-                        err_msg =
-                            "unsupported character in text snippet: '" + std::string(1, ch) + "'";
-                        return false;
-                    }
+                if (!checkSnippetChars(snippet, config.settings.layout, "text snippet", err_msg)) {
+                    return false;
                 }
             } else {
                 auto out_words = parseOutputWords(val_part);
@@ -3239,15 +3241,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
             if (!seq.text.empty()) {
-                for (char ch : seq.text) {
-                    KeyCode kc = 0;
-                    bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
-                        !asciiToKeyStroke(ch, kc, shift, "us")) {
-                        err_msg = "unsupported character in leader text snippet: '" +
-                                  std::string(1, ch) + "'";
-                        return false;
-                    }
+                if (!checkSnippetChars(seq.text, config.settings.layout, "leader text snippet",
+                                       err_msg)) {
+                    return false;
                 }
             }
             for (const auto& prev : seen_seqs) {
@@ -3385,15 +3381,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 }
             }
             if (!act.text.empty()) {
-                for (char ch : act.text) {
-                    KeyCode kc = 0;
-                    bool shift = false;
-                    if (!asciiToKeyStroke(ch, kc, shift, config.settings.layout) &&
-                        !asciiToKeyStroke(ch, kc, shift, "us")) {
-                        err_msg = "unsupported character in tap_dance text snippet: '" +
-                                  std::string(1, ch) + "'";
-                        return false;
-                    }
+                if (!checkSnippetChars(act.text, config.settings.layout, "tap_dance text snippet",
+                                       err_msg)) {
+                    return false;
                 }
             }
             return true;

@@ -430,7 +430,16 @@ void test_parser_validation_errors() {
 
     // Unsupported non-ASCII character (accented e)
     assert(!loadYamlConfig("combos:\n  f n: \"caf\xC3\xA9\"\n", cfg, err));
-    assert(err.find("unsupported character in text snippet") != std::string::npos);
+    assert(err.find("unsupported character in text snippet: '\xC3\xA9' (only ASCII") !=
+           std::string::npos);
+
+    // ... also in a leader sequence (the error used to show a broken single byte)
+    assert(!loadYamlConfig(
+        "leader:\n  key: rightctrl\n  sequences:\n    g g: text \"Gr\xC3\xBC\xC3\x9F"
+        "e\"\n",
+        cfg, err));
+    assert(err.find("unsupported character in leader text snippet: '\xC3\xBC'") !=
+           std::string::npos);
 
     // Classic format empty text
     assert(!loadYamlConfig("combos:\n  - keys: f n\n    text: \"\"\n", cfg, err));
