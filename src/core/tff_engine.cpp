@@ -65,6 +65,22 @@ bool TFFEngine::isModifierActive() const {
             }
         }
     }
+    // Check held combos whose output is a modifier (d + f: leftctrl), also while their release
+    // is pending
+    for (const auto& combo : down_keys_written_) {
+        for (KeyCode k : combo.out_keys) {
+            if (isModifier(k)) {
+                return true;
+            }
+        }
+    }
+    for (const auto& pending : pending_combo_releases_) {
+        for (KeyCode k : pending.combo.out_keys) {
+            if (isModifier(k)) {
+                return true;
+            }
+        }
+    }
     if (pending_auto_shift_.shifted_emitted) {
         return true;
     }
@@ -1305,11 +1321,34 @@ void TFFEngine::evictOldestBufferedEvent() {
     }
     Event oldest = buf_.front();
     buf_.erase(buf_.begin());
+    if (keepSwallowedKeyHeld(oldest)) {
+        return;
+    }
+    if (!pending_combo_releases_.empty()) {
+        releasePendingCombos(oldest.time, &oldest.time);
+    }
     emitBufferedEvent(oldest, "BufferOverflow>EvictOldest");
     auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), oldest.code);
     if (it != swallow_keys_.end()) {
         swallow_keys_.erase(it);
     }
+}
+
+// The buffered DOWN of a key that is still held from a finished combo was consumed by that
+// combo. It is not output as a plain key (hold v after "c + v", type x: no stray v); the key
+// stays held and its release is swallowed.
+bool TFFEngine::keepSwallowedKeyHeld(const Event& ev) {
+    if (ev.value != KEY_VAL_DOWN) {
+        return false;
+    }
+    auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code);
+    if (it == swallow_keys_.end()) {
+        return false;
+    }
+    swallow_keys_.erase(it);
+    held_combo_keys_.insert(ev.code);
+    trace(TraceEvent::Kind::KeySwallowed, "(swallowed)");
+    return true;
 }
 
 bool TFFEngine::handleDownChar(const Event& ev) {
@@ -2309,6 +2348,9 @@ void TFFEngine::flushBuffer(const std::string& reason) {
     for (const auto& ev : buf_) {
         if (!pending_combo_releases_.empty()) {
             releasePendingCombos(ev.time, &ev.time);
+        }
+        if (keepSwallowedKeyHeld(ev)) {
+            continue;
         }
         emitBufferedEvent(ev, reason + ">FlushBuffer");
         auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code);

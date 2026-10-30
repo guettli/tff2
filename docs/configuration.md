@@ -123,7 +123,11 @@ If you keep the combo keys held, the output key stays held too. While it is held
 - Releasing any key of the combo releases the output; the releases of the other combo keys are
   swallowed.
 - Keeping one combo key held and tapping the other one again triggers the combo again (hold
-  `f`, tap `j` twice with `f + j: esc` gives two Esc presses).
+  `f`, tap `j` twice with `f + j: esc` gives two Esc presses). For an ordered combo
+  (`keys: c v`) this works only in the configured order.
+
+A combo key that is still held after the combo ended is never typed as a plain letter. With
+`c + v: tab`, releasing `c` and typing `x` while `v` is still down gives Tab, x (no stray `v`).
 
 If the same output key is pressed from two places at once (a combo holds `esc` and a CapsLock
 tap also sends `esc`), the second press is sent as a new press (Esc up, Esc down), and the key
@@ -614,7 +618,7 @@ Auto-Shift allows typing capitalized letters or shifted punctuation by holding a
 - **Tap (< `timeout_ms`)**: Emits the unshifted character/symbol (e.g., `a`, `,`).
 - **Hold (>= `timeout_ms`)**: Emits the shifted character/symbol (e.g., `A`, `<`).
 - **Fast Typing Rollover**: If you press another key before the timeout expires (e.g. typing "the" quickly), the preceding key is immediately committed as an unshifted tap without waiting. Typing flow has zero lag.
-- **Modifier Hotkey Coexistence**: If physical or one-shot modifiers (Ctrl, Alt, Super) are active, Auto-Shift is bypassed so desktop shortcuts (e.g. `Ctrl+C`, `Alt+Tab`) trigger instantly.
+- **Modifier Hotkey Coexistence**: If modifiers (Ctrl, Alt, Super) are active, whether physical, one-shot, or held by a tap-hold key, layer, or combo, Auto-Shift is bypassed so desktop shortcuts (e.g. `Ctrl+C`, `Alt+Tab`) trigger instantly.
 
 ### Configuration Syntax
 
