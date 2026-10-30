@@ -498,7 +498,7 @@ static void test_invariant_bounded_buffer() {
 }
 
 // 10. Randomized property-based fuzz test across all features (5,000 cycles)
-static void test_invariant_randomized_fuzzing() {
+static void run_randomized_fuzzing(unsigned seed) {
     TrackingEventWriter writer;
     TFFEngine engine(&writer);
 
@@ -529,7 +529,7 @@ static void test_invariant_randomized_fuzzing() {
     assert(ok);
     engine.setConfig(cfg);
 
-    std::mt19937 rng(1337);
+    std::mt19937 rng(seed);
     std::vector<KeyCode> pool = {Keys::KEY_D, Keys::KEY_F, Keys::KEY_J,        Keys::KEY_K,
                                  Keys::KEY_C, Keys::KEY_V, Keys::KEY_CAPSLOCK, Keys::KEY_SPACE,
                                  Keys::KEY_H, Keys::KEY_L, Keys::KEY_A,        Keys::KEY_B};
@@ -589,8 +589,138 @@ static void test_invariant_randomized_fuzzing() {
 
     // The core invariant: after all physical keys are released and stream finished, ZERO STUCK
     // KEYS!
-    writer.assertZeroStuckKeys("randomized fuzz test");
-    std::cout << "  [PASS] Randomized property-based fuzzing (5,000 cycles, 0 stuck keys)"
+    writer.assertZeroStuckKeys("randomized fuzz test, seed " + std::to_string(seed));
+}
+
+static void test_invariant_randomized_fuzzing() {
+    run_randomized_fuzzing(1337);
+    for (unsigned seed = 1; seed <= 100; ++seed) {
+        run_randomized_fuzzing(seed);
+    }
+    std::cout
+        << "  [PASS] Randomized property-based fuzzing (101 seeds x 5,000 cycles, 0 stuck keys)"
+        << std::endl;
+}
+
+// 10b. The same output key from two sources (combo f+j holds Esc, CapsLock tap sends Esc):
+// the second press is a new press, not a second DOWN, and Esc goes up only once.
+static void test_invariant_same_output_key_twice() {
+    TrackingEventWriter writer;
+    TFFEngine engine(&writer);
+    Config cfg;
+    std::string err;
+    bool ok = loadYamlConfig(
+        "combos:\n"
+        "  f + j: esc\n"
+        "tap_hold:\n"
+        "  capslock:\n"
+        "    tap: esc\n"
+        "    hold: super\n"
+        "    timeout: 150ms\n",
+        cfg, err);
+    assert(ok);
+    engine.setConfig(cfg);
+
+    auto press = [&](int64_t ms, KeyCode k, int32_t v) {
+        engine.processEvent(Event{TimeVal::fromMicros(ms * 1000), EV_KEY, k, v});
+    };
+    press(1000, Keys::KEY_F, KEY_VAL_DOWN);
+    press(1010, Keys::KEY_J, KEY_VAL_DOWN);
+    engine.onTimer(engine.getActiveTimerTime());  // combo: Esc down
+    press(1200, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN);
+    press(1250, Keys::KEY_CAPSLOCK, KEY_VAL_UP);  // tap: Esc again while the combo holds it
+    press(1300, Keys::KEY_F, KEY_VAL_UP);
+    press(1310, Keys::KEY_J, KEY_VAL_UP);
+    engine.finish();
+    writer.assertZeroStuckKeys("same output key twice");
+
+    // Esc down (combo), up + down (tap, a new press), up when the combo is released
+    std::vector<int32_t> esc;
+    for (const auto& ev : writer.key_events) {
+        if (ev.code == Keys::KEY_ESC) {
+            esc.push_back(ev.value);
+        }
+    }
+    assert((esc == std::vector<int32_t>{KEY_VAL_DOWN, KEY_VAL_UP, KEY_VAL_DOWN, KEY_VAL_UP}));
+
+    // reset() releases a key held by two sources
+    writer.clear();
+    press(2000, Keys::KEY_F, KEY_VAL_DOWN);
+    press(2010, Keys::KEY_J, KEY_VAL_DOWN);
+    engine.onTimer(engine.getActiveTimerTime());
+    press(2200, Keys::KEY_CAPSLOCK, KEY_VAL_DOWN);
+    press(2250, Keys::KEY_CAPSLOCK, KEY_VAL_UP);
+    engine.reset();
+    assert(!writer.hasStuckKeys());
+    std::cout << "  [PASS] Same output key from two sources (no double DOWN, released once)"
+              << std::endl;
+}
+
+// 10c. A held combo stays down while other keys are pressed or released, and is released
+// with its keys (it used to be flushed as plain keys, leaving its output stuck).
+static std::string keyLog(const TrackingEventWriter& writer) {
+    std::string out;
+    for (const auto& ev : writer.key_events) {
+        out += keyCodeToWord(ev.code) + (ev.value == KEY_VAL_DOWN ? "_ " : "/ ");
+    }
+    return out;
+}
+
+static void test_invariant_held_combo_and_other_keys() {
+    TrackingEventWriter writer;
+    TFFEngine engine(&writer);
+    Config cfg;
+    std::string err;
+    bool ok = loadYamlConfig(
+        "combos:\n"
+        "  d + f: backspace\n"
+        "  c + v: tab\n",
+        cfg, err);
+    assert(ok);
+    engine.setConfig(cfg);
+    auto press = [&](int64_t ms, KeyCode k, int32_t v) {
+        engine.processEvent(Event{TimeVal::fromMicros(ms * 1000), EV_KEY, k, v});
+    };
+    auto expect = [&](const std::string& expected, const std::string& context) {
+        engine.finish();
+        if (keyLog(writer) != expected) {
+            std::cerr << "FAILED " << context << ": got '" << keyLog(writer) << "', expected '"
+                      << expected << "'" << std::endl;
+            assert(false);
+        }
+        writer.assertZeroStuckKeys(context);
+        writer.clear();
+    };
+
+    // Another key pressed and released while the combo is held
+    press(1000, Keys::KEY_D, KEY_VAL_DOWN);
+    press(1010, Keys::KEY_F, KEY_VAL_DOWN);
+    engine.onTimer(engine.getActiveTimerTime());
+    press(1200, Keys::KEY_X, KEY_VAL_DOWN);
+    press(1250, Keys::KEY_X, KEY_VAL_UP);
+    press(1300, Keys::KEY_D, KEY_VAL_UP);
+    press(1310, Keys::KEY_F, KEY_VAL_UP);
+    expect("backspace_ x_ x/ backspace/ ", "other key while combo held");
+
+    // A key pressed before the combo is released while the combo is held
+    press(2000, Keys::KEY_S, KEY_VAL_DOWN);
+    press(2100, Keys::KEY_D, KEY_VAL_DOWN);
+    press(2110, Keys::KEY_F, KEY_VAL_DOWN);
+    engine.onTimer(engine.getActiveTimerTime());
+    press(2300, Keys::KEY_S, KEY_VAL_UP);
+    press(2400, Keys::KEY_D, KEY_VAL_UP);
+    press(2410, Keys::KEY_F, KEY_VAL_UP);
+    expect("s_ backspace_ s/ backspace/ ", "earlier key released while combo held");
+
+    // Hold v, tap c twice: two tabs, the second one ends when v is released
+    press(3000, Keys::KEY_C, KEY_VAL_DOWN);
+    press(3060, Keys::KEY_V, KEY_VAL_DOWN);
+    press(3150, Keys::KEY_C, KEY_VAL_UP);
+    press(3210, Keys::KEY_C, KEY_VAL_DOWN);
+    press(3530, Keys::KEY_V, KEY_VAL_UP);
+    press(3700, Keys::KEY_C, KEY_VAL_UP);
+    expect("tab_ tab/ tab_ tab/ c_ c/ ", "combo key held, other combo key tapped twice");
+    std::cout << "  [PASS] Held combo with other keys (combo output released with its keys)"
               << std::endl;
 }
 
@@ -723,6 +853,8 @@ int main() {
     test_invariant_reset_and_finish();
     test_invariant_bounded_buffer();
     test_invariant_randomized_fuzzing();
+    test_invariant_same_output_key_twice();
+    test_invariant_held_combo_and_other_keys();
     test_invariant_corrupted_and_extreme_inputs();
     test_invariant_esc_emergency_reset();
 

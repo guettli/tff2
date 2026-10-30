@@ -212,8 +212,17 @@ private:
     std::vector<KeyCode> leader_pending_releases_;
     std::vector<Event> buf_;
     std::vector<Combo> down_keys_written_;
+    // Keys of held combos (in down_keys_written_) that were taken out of buf_ because another
+    // key was pressed or released meanwhile. Releasing one releases the combo output; the
+    // releases of the other keys are swallowed.
+    std::unordered_set<KeyCode> held_combo_keys_;
     std::vector<KeyCode> swallow_keys_;
     std::unordered_set<KeyCode> physical_keys_down_;
+    // How often each output key is pressed by different sources (a combo, a tap-hold, a passed
+    // through key). A key that is already down is released and pressed again instead of getting
+    // a second DOWN; it goes up only when its last source releases it.
+    std::unordered_map<KeyCode, int> output_press_count_;
+    bool releasing_all_outputs_ = false;
 
     struct PendingAutoShift {
         KeyCode key = 0;
@@ -290,11 +299,16 @@ private:
 
     void writeComboDownKeys(const Combo& combo);
     void writeComboUpKeys(const Combo& combo);
+    void writeComboOutputUp(const Combo& combo, TimeVal time);
+    void releaseCombosWithKey(KeyCode key, TimeVal time);
+    void detachHeldCombos();
+    bool releaseHeldComboKey(const Event& ev);
     void writeCombo(const Combo& combo, TimeVal time, int32_t value);
     void emitText(const std::string& text, TimeVal base_time);
     void writeKey(KeyCode code, int32_t value, TimeVal time);
     void writeEvent(const Event& ev, const std::string& reason);
     void writeEventDirect(const Event& ev, const std::string& reason);
+    void writeKeyEvent(const Event& ev, const std::string& reason);
 
     void handleAutoShiftOrWrite(const Event& ev, const std::string& reason);
     void commitPendingAutoShiftUnshifted(TimeVal time);
