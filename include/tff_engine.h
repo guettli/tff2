@@ -310,6 +310,7 @@ private:
     std::vector<Combo> releaseCombosWithKey(KeyCode key, TimeVal time);
     void detachHeldCombos();
     bool releaseHeldComboKey(const Event& ev);
+    bool keepSwallowedKeyHeld(const Event& ev);
     bool bufferHasOutputUntil(TimeVal time) const;
     void releasePendingCombos(TimeVal time, const TimeVal* before = nullptr);
     void onTimerNow(TimeVal time);

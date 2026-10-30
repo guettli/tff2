@@ -171,6 +171,9 @@ Ctrl+Esc) and keys pressed after the release don't. Releasing a modifier combo c
 still deciding. `finish()` releases held combos instead of flushing their keys. If a key in `swallow_keys_` (still held after
 its combo was released) starts the same combo again, its release ends that combo too
 (`releaseCombosWithKey()`), and the combo's other still held keys move to `held_combo_keys_`.
+When `buf_` is flushed or evicted, the buffered DOWN of a key in `swallow_keys_` is not emitted:
+the combo consumed it, so `keepSwallowedKeyHeld()` moves the key to `held_combo_keys_` and its
+release is swallowed (`c + v`, release `c`, type `x` while `v` is held: no stray `v`).
 
 **Output press count**: `writeEventDirect()` counts the DOWNs of each output key
 (`output_press_count_`), because different sources can press the same key (a combo holding Esc

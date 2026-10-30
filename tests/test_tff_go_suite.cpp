@@ -396,12 +396,12 @@ void test_manInTheMiddle_ComboWithMatch_NoPanic() {
         "1712500000;144000;EV_KEY;KEY_J;down\n"
         "1712500000;208000;EV_KEY;KEY_K;up\n"
         "1712500000;224000;EV_KEY;KEY_F;down\n";
+    // K was consumed by the "f k" combo; it is not typed when J is pressed while K is still
+    // held, and its release is swallowed (the Go version typed a stray K here).
     std::string expected =
         "Y-down\n"
         "Y-up\n"
-        "K-down\n"
         "J-down\n"
-        "K-up\n"
         "F-down\n";
     assertComboCSVInputOutput(in, expected, fjkCombos, "ComboWithMatch_NoPanic");
     std::cout << "PASS\n";

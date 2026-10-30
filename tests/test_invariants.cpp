@@ -720,6 +720,16 @@ static void test_invariant_held_combo_and_other_keys() {
     press(3530, Keys::KEY_V, KEY_VAL_UP);
     press(3700, Keys::KEY_C, KEY_VAL_UP);
     expect("tab_ tab/ tab_ tab/ ", "combo key held, other combo key tapped twice");
+
+    // Rolling release: c released, x typed while v is still held. v was consumed by the
+    // combo and is not typed.
+    press(4000, Keys::KEY_C, KEY_VAL_DOWN);
+    press(4020, Keys::KEY_V, KEY_VAL_DOWN);
+    press(4100, Keys::KEY_C, KEY_VAL_UP);
+    press(4320, Keys::KEY_X, KEY_VAL_DOWN);
+    press(4360, Keys::KEY_X, KEY_VAL_UP);
+    press(4700, Keys::KEY_V, KEY_VAL_UP);
+    expect("tab_ tab/ x_ x/ ", "other key typed while one combo key is still held");
     std::cout << "  [PASS] Held combo with other keys (combo output released with its keys)"
               << std::endl;
 }
@@ -805,6 +815,17 @@ static void test_invariant_held_combo_review_cases() {
                                                    {'u', 1650, K::KEY_J},
                                                    {'f', 1700, 0}}),
               "esc_ esc/ esc_ esc/ ", "re-triggered combo, rolling release");
+    // Ordered combo: holding v and pressing c again is the wrong order, so c is typed, but the
+    // v the combo consumed is not
+    expectLog(runSteps("combos:\n  - keys: c v\n    outKeys: tab\n", {{'d', 1000, K::KEY_C},
+                                                                      {'d', 1020, K::KEY_V},
+                                                                      {'u', 1100, K::KEY_C},
+                                                                      {'d', 1320, K::KEY_C},
+                                                                      {'u', 1360, K::KEY_C},
+                                                                      {'t', 1600, 0},
+                                                                      {'u', 1700, K::KEY_V},
+                                                                      {'f', 1800, 0}}),
+              "tab_ tab/ c_ c/ ", "ordered combo, first key pressed again");
     // A held Super is not released and pressed again by a combo that also sends Super
     expectLog(runSteps("combos:\n  d + f: super+e\ntap_hold:\n  capslock:\n    tap: esc\n"
                        "    hold: super\n    timeout: 150ms\n",

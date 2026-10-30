@@ -123,7 +123,11 @@ If you keep the combo keys held, the output key stays held too. While it is held
 - Releasing any key of the combo releases the output; the releases of the other combo keys are
   swallowed.
 - Keeping one combo key held and tapping the other one again triggers the combo again (hold
-  `f`, tap `j` twice with `f + j: esc` gives two Esc presses).
+  `f`, tap `j` twice with `f + j: esc` gives two Esc presses). For an ordered combo
+  (`keys: c v`) this works only in the configured order.
+
+A combo key that is still held after the combo ended is never typed as a plain letter. With
+`c + v: tab`, releasing `c` and typing `x` while `v` is still down gives Tab, x (no stray `v`).
 
 If the same output key is pressed from two places at once (a combo holds `esc` and a CapsLock
 tap also sends `esc`), the second press is sent as a new press (Esc up, Esc down), and the key
