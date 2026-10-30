@@ -115,6 +115,21 @@ combos:
     timeout_ms: 60
 ```
 
+#### Holding a Combo
+If you keep the combo keys held, the output key stays held too. While it is held:
+
+- Other keys you press or release come out normally, together with the held output. With
+  `d + f: leftctrl`, holding `d` and `f` and tapping `c` gives Ctrl+C.
+- Releasing any key of the combo releases the output; the releases of the other combo keys are
+  swallowed.
+- Keeping one combo key held and tapping the other one again triggers the combo again (hold
+  `f`, tap `j` twice with `f + j: esc` gives two Esc presses).
+
+If the same output key is pressed from two places at once (a combo holds `esc` and a CapsLock
+tap also sends `esc`), the second press is sent as a new press (Esc up, Esc down), and the key
+goes up when the last of them is released. A modifier (Shift, Ctrl, Alt, Super) that is already
+down just stays down, so it never looks like a lone tap of Super or Alt.
+
 ## Text Snippets & Multi-Character Macro Expansion
 
 TFF supports expanding multi-character text strings and code snippets directly from chords without needing external clipboard tools or third-party macro software.

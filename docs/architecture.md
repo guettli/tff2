@@ -156,6 +156,30 @@ sequenceDiagram
     Virtual-->>User: OS received pure Esc press and release
 ```
 
+**Other keys while a combo is held**: once a combo's output is down (it is in
+`down_keys_written_`), a key event that doesn't belong to the combo (another key pressed, or a
+key pressed before the combo released) makes `detachHeldCombos()` take the combo keys out of
+`buf_` into `held_combo_keys_`. The other key is then processed on its own and the combo output
+stays down. The first release of a key in `held_combo_keys_` releases the combo output
+(`releaseHeldComboKey()`); the releases of its other keys are swallowed. If keys pressed while
+the combo was held still wait in `buf_` (e.g. a possible chord), the output UP waits in
+`pending_combo_releases_` with the time of the release until the keys buffered before it have
+been emitted (`releasePendingCombos()`, called after each event and timer, and by
+`flushBuffer()` before the first key that came after the release). So keys pressed while the
+combo was held get its modifier (Ctrl + `c` gives Ctrl+C, Ctrl + chord `j + k: esc` gives
+Ctrl+Esc) and keys pressed after the release don't. Releasing a modifier combo commits a key that auto-shift is
+still deciding. `finish()` releases held combos instead of flushing their keys. If a key in `swallow_keys_` (still held after
+its combo was released) starts the same combo again, its release ends that combo too
+(`releaseCombosWithKey()`), and the combo's other still held keys move to `held_combo_keys_`.
+
+**Output press count**: `writeEventDirect()` counts the DOWNs of each output key
+(`output_press_count_`), because different sources can press the same key (a combo holding Esc
+and a CapsLock tap sending Esc, a tap-hold `shift` and auto-shift). A DOWN for a key that is
+already down is sent as UP + DOWN (a new press), except for modifiers, which just stay down (a
+lone Super or Alt tap would open the start menu or the menu bar). The UP is only sent when the
+last source releases the key. `reset()` and `finish()` send every release they make and drop
+the duplicates.
+
 ---
 
 ### 3.3 Tap-vs-Hold Permissive Chording & Timer Expiration
@@ -333,10 +357,11 @@ sequenceDiagram
 
 | Invariant | Implementation Mechanism | Verification Test |
 |---|---|---|
-| **Zero-Stuck-Key Invariant** | Every emitted virtual `DOWN` event is recorded. `reset()`, `finish()`, and `writeComboUpKeys()` strictly emit matching `UP` events in reverse order (`rbegin()` to `rend()`). `held_layer_remaps_` guarantees remapped releases even after layers deactivate. | `test_invariant_single_keys`, `test_invariant_combos_all_permutations`, `test_invariant_modal_layers_race_conditions`, `test_invariant_reset_and_finish` |
+| **Zero-Stuck-Key Invariant** | Every emitted virtual `DOWN` event is recorded. `reset()`, `finish()`, and `writeComboUpKeys()` strictly emit matching `UP` events in reverse order (`rbegin()` to `rend()`). `held_layer_remaps_` guarantees remapped releases even after layers deactivate. A held combo is released with its keys even when other keys are pressed meanwhile (`held_combo_keys_`). | `test_invariant_single_keys`, `test_invariant_combos_all_permutations`, `test_invariant_modal_layers_race_conditions`, `test_invariant_reset_and_finish`, `test_invariant_held_combo_and_other_keys` |
+| **No Double DOWN** | `output_press_count_` turns a second DOWN of a key that is already down into a new press (UP + DOWN) and holds back the UP until the last source releases it. | `test_invariant_same_output_key_twice`, `test_invariant_randomized_fuzzing` (101 seeds) |
 | **Bounded Buffer Invariant** | `buf_` is strictly capped at `MAX_BUFFER_SIZE = 64` events. When buffer size reaches 64, `evictOldestBufferedEvent()` evicts and emits the oldest event via FIFO order. | `test_invariant_bounded_buffer` |
 | **Switch Chatter Suppression** | `physical_keys_down_` filters out duplicate physical down events and spurious up events for keys not held down, suppressing hardware contact bounce. | `test_invariant_corrupted_and_extreme_inputs` |
-| **Zero Spurious Up Events** | No virtual `UP` event is ever emitted unless that key was previously held down in the virtual device. | `TrackingEventWriter::assertZeroStuckKeys` across all 11 invariant tests |
+| **Zero Spurious Up Events** | No virtual `UP` event is ever emitted unless that key was previously held down in the virtual device. | `TrackingEventWriter::assertZeroStuckKeys` across all invariant tests |
 | **Lock-Free Single-Threaded Pipeline** | Core engine requires zero mutexes or synchronization primitives. Platform event loop handles I/O multiplexing and dispatches events sequentially. | Complete test suite passing under ThreadSanitizer / ASan |
 | **Memory Bounds on RP2040** | Total static + dynamic engine footprint is < 16 KB RAM, easily fitting inside RP2040 SRAM (264 KB) with zero heap fragmentation during runtime event processing. | `test_rp2040_platform`, RP2040 CI cross-compilation |
 
