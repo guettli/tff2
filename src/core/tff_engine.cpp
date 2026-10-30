@@ -65,6 +65,22 @@ bool TFFEngine::isModifierActive() const {
             }
         }
     }
+    // Check held combos whose output is a modifier (d + f: leftctrl), also while their release
+    // is pending
+    for (const auto& combo : down_keys_written_) {
+        for (KeyCode k : combo.out_keys) {
+            if (isModifier(k)) {
+                return true;
+            }
+        }
+    }
+    for (const auto& pending : pending_combo_releases_) {
+        for (KeyCode k : pending.combo.out_keys) {
+            if (isModifier(k)) {
+                return true;
+            }
+        }
+    }
     if (pending_auto_shift_.shifted_emitted) {
         return true;
     }

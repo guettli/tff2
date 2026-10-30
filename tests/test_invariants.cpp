@@ -805,6 +805,19 @@ static void test_invariant_held_combo_review_cases() {
                         {'u', 1600, K::KEY_F},
                         {'f', 1700, 0}}),
               "leftctrl_ x_ leftctrl/ x/ ", "ctrl + auto-shift key");
+    // A long press under Ctrl from a combo is Ctrl+X, not Ctrl+Shift+X (as with a tap-hold Ctrl)
+    expectLog(runSteps("combos:\n  d + f: leftctrl\nauto_shift:\n  enabled: true\n"
+                       "  timeout_ms: 175\n  keys: letters\n",
+                       {{'d', 1000, K::KEY_D},
+                        {'d', 1020, K::KEY_F},
+                        {'t', 1300, 0},
+                        {'d', 1400, K::KEY_X},
+                        {'t', 1700, 0},
+                        {'u', 1750, K::KEY_X},
+                        {'u', 1800, K::KEY_F},
+                        {'u', 1810, K::KEY_D},
+                        {'f', 1900, 0}}),
+              "leftctrl_ x_ x/ leftctrl/ ", "auto-shift long press under combo ctrl");
     // Hold f, tap j twice, release f before j: two Esc, no stray j
     expectLog(runSteps("combos:\n  f + j: esc\n", {{'d', 1000, K::KEY_F},
                                                    {'d', 1020, K::KEY_J},

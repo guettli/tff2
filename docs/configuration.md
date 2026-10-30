@@ -618,7 +618,7 @@ Auto-Shift allows typing capitalized letters or shifted punctuation by holding a
 - **Tap (< `timeout_ms`)**: Emits the unshifted character/symbol (e.g., `a`, `,`).
 - **Hold (>= `timeout_ms`)**: Emits the shifted character/symbol (e.g., `A`, `<`).
 - **Fast Typing Rollover**: If you press another key before the timeout expires (e.g. typing "the" quickly), the preceding key is immediately committed as an unshifted tap without waiting. Typing flow has zero lag.
-- **Modifier Hotkey Coexistence**: If physical or one-shot modifiers (Ctrl, Alt, Super) are active, Auto-Shift is bypassed so desktop shortcuts (e.g. `Ctrl+C`, `Alt+Tab`) trigger instantly.
+- **Modifier Hotkey Coexistence**: If modifiers (Ctrl, Alt, Super) are active, whether physical, one-shot, or held by a tap-hold key, layer, or combo, Auto-Shift is bypassed so desktop shortcuts (e.g. `Ctrl+C`, `Alt+Tab`) trigger instantly.
 
 ### Configuration Syntax
 
