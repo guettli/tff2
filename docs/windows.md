@@ -60,7 +60,9 @@ tff --watch-config               # run the remapper in this console (Ctrl+C stop
 Output keys are injected by scan code, so they refer to physical key positions, like on
 Linux. Text snippets (`text "..."`) are typed as characters instead, so they come out right
 with every keyboard layout, including characters that need AltGr (`@`, `{`, `\` on a German
-keyboard). `settings: layout` isn't needed for them on Windows.
+keyboard). `settings: layout` isn't needed for them on Windows, and snippets may contain any
+character (umlauts, `€`, emoji), not only those on `settings.layout`. Some programs (games, a
+few old ones) ignore text typed as characters.
 
 ## Autostart
 

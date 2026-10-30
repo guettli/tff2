@@ -153,30 +153,67 @@ std::string unquoteAndUnescape(const std::string& s) {
     return str;
 }
 
-// Checks that every character of a snippet can be typed. A non-ASCII character is reported
-// whole (all bytes of its UTF-8 sequence), not as a broken single byte.
-bool checkSnippetChars(const std::string& text, const std::string& layout, const std::string& what,
-                       std::string& err_msg) {
-    for (size_t i = 0; i < text.size(); ++i) {
-        char ch = text[i];
-        KeyCode kc = 0;
-        bool shift = false;
-        if (asciiToKeyStroke(ch, kc, shift, layout) || asciiToKeyStroke(ch, kc, shift, "us")) {
-            continue;
-        }
-        auto byte = static_cast<unsigned char>(ch);
-        if (byte < 0x80) {
-            err_msg = "unsupported character in " + what + ": '" + std::string(1, ch) + "'";
+// Checks that every character of a snippet can be typed: on the host keyboard layout, or
+// with LoadOptions::text_any_unicode (Windows types text as characters) any character.
+bool checkSnippetChars(const std::string& text, const std::string& layout, bool any_unicode,
+                       const std::string& what, std::string& err_msg) {
+    size_t pos = 0;
+    while (pos < text.size()) {
+        size_t start = pos;
+        uint32_t cp = 0;
+        if (!decodeUtf8(text, pos, cp)) {
+            err_msg = "invalid UTF-8 in " + what;
             return false;
         }
-        size_t len = 1;
-        while (i + len < text.size() &&
-               (static_cast<unsigned char>(text[i + len]) & 0xC0) == 0x80) {
-            ++len;
+        CharKeyStrokes strokes;
+        bool control = cp < 0x20 || (cp >= 0x7F && cp < 0xA0);
+        if (any_unicode ? (!control || cp == '\t' || cp == '\n')
+                        : charToKeyStrokes(cp, layout, strokes)) {
+            continue;
         }
-        err_msg = "unsupported character in " + what + ": '" + text.substr(i, len) +
-                  "' (only ASCII characters can be typed)";
+        err_msg =
+            "unsupported character in " + what + ": '" + text.substr(start, pos - start) + "'";
+        if (!control) {
+            err_msg += " (not on keyboard layout \"" + normalizeLayout(layout) +
+                       "\", see settings.layout)";
+        }
         return false;
+    }
+    return true;
+}
+
+// Checks the characters of all snippets, after the whole file is read (settings.layout may come
+// after the snippets).
+bool validateSnippets(const Config& config, const LoadOptions& options, std::string& err_msg) {
+    const std::string& layout = config.settings.layout;
+    auto check = [&](const std::string& text, const std::string& what) {
+        return text.empty() ||
+               checkSnippetChars(text, layout, options.text_any_unicode, what, err_msg);
+    };
+    for (const auto& combo : config.combos) {
+        if (!check(combo.text, "text snippet")) {
+            return false;
+        }
+    }
+    for (const auto& layer : config.layers) {
+        for (const auto& kv : layer.mappings) {
+            if (!check(kv.second.text, "text snippet")) {
+                return false;
+            }
+        }
+    }
+    for (const auto& seq : config.leader.sequences) {
+        if (!check(seq.text, "leader text snippet")) {
+            return false;
+        }
+    }
+    for (const auto& td : config.tap_dances) {
+        for (const TapDanceAction* act :
+             {&td.tap, &td.hold, &td.double_tap, &td.double_hold, &td.triple_tap}) {
+            if (!check(act->text, "tap_dance text snippet")) {
+                return false;
+            }
+        }
     }
     return true;
 }
@@ -899,7 +936,8 @@ std::string normalizeShortCsv(const std::string& input) {
     return res;
 }
 
-bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg) {
+bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
+                    const LoadOptions& options) {
     config = Config{};
     std::istringstream iss(yaml_str);
     std::string line;
@@ -1635,10 +1673,6 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         err_msg = "empty text snippet is not allowed";
                         return false;
                     }
-                    if (!checkSnippetChars(snippet, config.settings.layout, "text snippet",
-                                           err_msg)) {
-                        return false;
-                    }
                 } else if (!is_toggle && !is_mouse) {
                     auto out_words = parseOutputWords(val_part);
                     if (out_words.empty()) {
@@ -1727,9 +1761,6 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (isTextSnippet(val_part, snippet)) {
                 if (snippet.empty()) {
                     err_msg = "empty text snippet is not allowed";
-                    return false;
-                }
-                if (!checkSnippetChars(snippet, config.settings.layout, "text snippet", err_msg)) {
                     return false;
                 }
                 LayerAction act;
@@ -2728,10 +2759,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (has_toggle_layer || has_mouse) {
                 // No out codes needed
             } else if (has_text) {
-                if (!checkSnippetChars(current_text, config.settings.layout, "text snippet",
-                                       err_msg)) {
-                    return false;
-                }
+                // Characters are checked against the layout at the end (validateSnippets())
             } else {
                 auto out_words = parseOutputWords(current_outkeys);
                 if (out_words.empty()) {
@@ -2952,9 +2980,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (toggle_mode || mouse_mode) {
                 // No out codes needed
             } else if (snippet_mode) {
-                if (!checkSnippetChars(snippet, config.settings.layout, "text snippet", err_msg)) {
-                    return false;
-                }
+                // Characters are checked against the layout at the end (validateSnippets())
             } else {
                 auto out_words = parseOutputWords(val_part);
                 if (out_words.empty()) {
@@ -3240,12 +3266,6 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     return false;
                 }
             }
-            if (!seq.text.empty()) {
-                if (!checkSnippetChars(seq.text, config.settings.layout, "leader text snippet",
-                                       err_msg)) {
-                    return false;
-                }
-            }
             for (const auto& prev : seen_seqs) {
                 if (seq.keys == prev) {
                     err_msg = "duplicate leader sequence";
@@ -3380,12 +3400,6 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     return false;
                 }
             }
-            if (!act.text.empty()) {
-                if (!checkSnippetChars(act.text, config.settings.layout, "tap_dance text snippet",
-                                       err_msg)) {
-                    return false;
-                }
-            }
             return true;
         };
 
@@ -3401,7 +3415,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             return false;
     }
 
-    return true;
+    return validateSnippets(config, options, err_msg);
 }
 
 bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg) {

@@ -461,32 +461,44 @@ void RP2040Platform::typeDumpString(const std::string& text) {
     std::string layout = engine_ ? engine_->getSettings().layout : "us";
     tff::emitKeyStrokesForText(
         text,
-        [this](tff::KeyCode code, bool shift) {
+        [this](tff::KeyCode code, bool shift, tff::KeyCode level3_key) {
 #ifdef PICO_BUILD
             uint8_t usb_code = convertKeyCodeToUsb(code);
             if (usb_code == 0) {
                 return;
             }
             if (tud_mounted()) {
+                auto send = [](uint8_t mod, uint8_t key0, uint8_t key1) {
+                    const uint8_t keys[6] = {key0, key1, 0, 0, 0, 0};
+                    while (!tud_hid_ready() && tud_mounted()) {
+                        tud_task();
+                    }
+                    if (tud_mounted()) {
+                        tud_hid_keyboard_report(0, mod, keys);
+                    }
+                };
                 uint8_t mod = shift ? 0x02 : 0;
-                const uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
-                const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
-
-                while (!tud_hid_ready() && tud_mounted()) {
-                    tud_task();
+                // The level-3 key is AltGr (Right Alt modifier bit), on Neo a normal key. That
+                // one is pressed in a report of its own first: in one report, the host may see
+                // the character key before it.
+                uint8_t level3_usb = 0;
+                if (level3_key == tff::Keys::KEY_RIGHTALT) {
+                    mod |= 0x40;
+                } else if (level3_key != 0) {
+                    level3_usb = convertKeyCodeToUsb(level3_key);
                 }
-                if (tud_mounted()) {
-                    tud_hid_keyboard_report(0, mod, report_keys);
+                if (level3_usb != 0) {
+                    send(mod, level3_usb, 0);
                 }
-                while (!tud_hid_ready() && tud_mounted()) {
-                    tud_task();
+                send(mod, usb_code, level3_usb);
+                if (level3_usb != 0) {
+                    send(mod, level3_usb, 0);
                 }
-                if (tud_mounted()) {
-                    tud_hid_keyboard_report(0, 0, empty_keys);
-                }
+                send(0, 0, 0);
             }
 #else
             (void)shift;
+            (void)level3_key;
             if (writer_) {
                 writer_->emitted_down_keys.push_back(static_cast<uint32_t>(code));
             }

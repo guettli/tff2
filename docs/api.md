@@ -308,8 +308,12 @@ public:
 ## 5. Parser API (`tff_parser.h`)
 
 ```cpp
-// Load complete configuration from YAML string (combos, tap-hold, layers, one-shots, leader, auto-shift, mouse)
-bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& error_msg);
+// Load complete configuration from YAML string (combos, tap-hold, layers, one-shots, leader, auto-shift, mouse).
+// Text snippets must only contain characters of settings.layout, unless
+// options.text_any_unicode is set (Windows, which types text as characters).
+struct LoadOptions { bool text_any_unicode = false; };
+bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& error_msg,
+                    const LoadOptions& options = {});
 
 // Load combos only from YAML string
 bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg);
@@ -320,7 +324,17 @@ bool parseDurationMicros(const std::string& str, int64_t& out_us);
 
 ### 5.1 Keycode Helper API (`tff_key_codes.h`)
 
-// Convert an ASCII character into an evdev KeyCode and Shift flag for a given host keyboard layout
+// How to type a Unicode character on a host keyboard layout: one or two key presses (a dead
+// key first), each with Shift and/or the level-3 key (AltGr; the Mod3 key on Neo).
+// The tables are generated from the xkb layouts by tools/gen_layout_tables.py.
+struct KeyStroke { KeyCode code; bool shift; bool level3; };
+struct CharKeyStrokes { KeyStroke strokes[2]; int count; };
+bool charToKeyStrokes(uint32_t code_point, const std::string& layout, CharKeyStrokes& out);
+KeyCode layoutLevel3Key(const std::string& layout);  // KEY_RIGHTALT, KEY_BACKSLASH on Neo
+bool decodeUtf8(const std::string& text, size_t& pos, uint32_t& code_point);
+
+// Convert an ASCII character into an evdev KeyCode and Shift flag, if it is typed with a single
+// key press without the level-3 key on that layout
 bool asciiToKeyStroke(char c, KeyCode& code, bool& shift, const std::string& layout = "us");
 
 // Validate and normalize layout identifiers ("us", "de", "fr", "gb", "uk", "es", "it", "neo", "dvorak", "colemak")

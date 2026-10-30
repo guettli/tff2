@@ -279,10 +279,16 @@ void test_ascii_to_keystroke_mapping_other_layouts() {
     assert(asciiToKeyStroke('a', code, shift, "neo") && !shift && code == Keys::KEY_D);
     assert(asciiToKeyStroke('e', code, shift, "neo") && !shift && code == Keys::KEY_F);
 
+    // Neo has the symbols on level 3 (the Mod3 key), not on Shift of the QWERTZ digits
+    CharKeyStrokes strokes;
+    assert(charToKeyStrokes('(', "neo", strokes) && strokes.count == 1 &&
+           strokes.strokes[0].level3 && strokes.strokes[0].code == Keys::KEY_J);
+    assert(layoutLevel3Key("neo") == Keys::KEY_BACKSLASH);
+
     std::string dump = "IN: semicolon_ a_ (250ms) a/ semicolon/\nOUT: home_ home/\n";
     for (const char* lay : {"es", "it", "dvorak", "colemak", "neo"}) {
         for (char c : dump) {
-            assert(asciiToKeyStroke(c, code, shift, lay));
+            assert(charToKeyStrokes(static_cast<unsigned char>(c), lay, strokes));
         }
     }
 
@@ -317,6 +323,104 @@ void test_engine_emission_german_layout() {
         "LEFTSHIFT-up\n";
 
     runAndCheckWithLayout(inputs, combos, "de", expected, "test_engine_emission_german_layout");
+    std::cout << "OK\n";
+}
+
+// Characters beyond one key + Shift: AltGr, dead keys, umlauts (tables generated from xkb)
+void test_char_to_keystrokes() {
+    std::cout << "[TEST] charToKeyStrokes (AltGr, dead keys, umlauts)... ";
+    CharKeyStrokes s;
+    // de: @ is AltGr+Q, ü has its own key, ^ is the dead ^ key followed by space
+    assert(charToKeyStrokes('@', "de", s) && s.count == 1 && s.strokes[0].level3 &&
+           !s.strokes[0].shift && s.strokes[0].code == Keys::KEY_Q);
+    assert(layoutLevel3Key("de") == Keys::KEY_RIGHTALT);
+    assert(charToKeyStrokes(0xFC, "de", s) && s.count == 1 && !s.strokes[0].level3 &&
+           s.strokes[0].code == Keys::KEY_LEFTBRACE);
+    assert(charToKeyStrokes(0xDC, "de", s) && s.strokes[0].shift);  // Ü
+    assert(charToKeyStrokes('^', "de", s) && s.count == 2 && s.strokes[0].code == Keys::KEY_GRAVE &&
+           s.strokes[1].code == Keys::KEY_SPACE);
+    assert(charToKeyStrokes(0x20AC, "de", s) && s.strokes[0].level3 &&
+           s.strokes[0].code == Keys::KEY_E);  // €
+    // fr: AZERTY letters (b, c, n were on wrong keys in the hand-written table), é on 2
+    assert(charToKeyStrokes('b', "fr", s) && s.strokes[0].code == Keys::KEY_B);
+    assert(charToKeyStrokes('n', "fr", s) && s.strokes[0].code == Keys::KEY_N);
+    assert(charToKeyStrokes(0xE9, "fr", s) && s.count == 1 && s.strokes[0].code == Keys::KEY_2);
+    // es/it: AltGr characters on the keys printed on the keycaps (as on Windows), not on the
+    // AltGr+digit keys that only xkb has
+    assert(charToKeyStrokes('[', "es", s) && s.strokes[0].level3 &&
+           s.strokes[0].code == Keys::KEY_LEFTBRACE);
+    assert(charToKeyStrokes('{', "it", s) && s.strokes[0].level3 && s.strokes[0].shift &&
+           s.strokes[0].code == Keys::KEY_LEFTBRACE);
+    // us: no umlauts
+    assert(!charToKeyStrokes(0xFC, "us", s));
+    assert(charToKeyStrokes('\n', "neo", s) && s.strokes[0].code == Keys::KEY_ENTER);
+
+    // UTF-8 decoding
+    size_t pos = 0;
+    uint32_t cp = 0;
+    std::string text = "a\xC3\xBC\xE2\x82\xAC\xF0\x9F\x98\x80";  // a ü € 😀
+    assert(decodeUtf8(text, pos, cp) && cp == 'a' && pos == 1);
+    assert(decodeUtf8(text, pos, cp) && cp == 0xFC && pos == 3);
+    assert(decodeUtf8(text, pos, cp) && cp == 0x20AC && pos == 6);
+    assert(decodeUtf8(text, pos, cp) && cp == 0x1F600 && pos == 10);
+    for (const char* bad : {"\xC3", "\xC3\x28", "\xC0\xAF", "\xED\xA0\x80", "\xFF"}) {
+        pos = 0;
+        assert(!decodeUtf8(bad, pos, cp) && pos == 0);
+    }
+    std::cout << "OK\n";
+}
+
+void test_engine_emission_altgr_and_dead_keys() {
+    std::cout << "[TEST] Engine text emission with AltGr and dead keys (de)... ";
+    Config cfg;
+    std::string err;
+    assert(loadYamlConfig("combos:\n  f n: \"\xC3\xBC@^\"\nsettings:\n  layout: de\n", cfg, err));
+    const std::vector<Combo>& combos = cfg.combos;
+    int64_t t = 1000000;
+    std::vector<Event> inputs = {
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 70000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
+    };
+    std::string expected =
+        "LEFTBRACE-down\n"
+        "LEFTBRACE-up\n"
+        "RIGHTALT-down\n"
+        "Q-down\n"
+        "Q-up\n"
+        "RIGHTALT-up\n"
+        "GRAVE-down\n"
+        "GRAVE-up\n"
+        "SPACE-down\n"
+        "SPACE-up\n";
+    runAndCheckWithLayout(inputs, combos, "de", expected,
+                          "test_engine_emission_altgr_and_dead_keys");
+    std::cout << "OK\n";
+}
+
+void test_parser_snippet_layout_check() {
+    std::cout << "[TEST] Parser checks snippets against settings.layout... ";
+    Config cfg;
+    std::string err;
+    // settings may come after the snippets
+    assert(
+        loadYamlConfig("combos:\n  f n: \"Gr\xC3\xBC\xC3\x9F\xE2\x82\xAC @\"\n"
+                       "settings:\n  layout: de\n",
+                       cfg, err));
+    // not on the layout
+    assert(!loadYamlConfig("combos:\n  f n: \"\xC3\xB1\"\nsettings:\n  layout: de\n", cfg, err));
+    assert(err.find("'\xC3\xB1' (not on keyboard layout \"de\"") != std::string::npos);
+    // tap dance and layer snippets are checked too
+    assert(!loadYamlConfig("tap_dance:\n  q:\n    double_tap: text \"\xC3\xBC\"\n", cfg, err));
+    assert(err.find("tap_dance text snippet") != std::string::npos);
+    assert(!loadYamlConfig("layers:\n  nav:\n    h: \"\xC3\xBC\"\n", cfg, err));
+    // Windows types text as characters: anything goes, but not invalid UTF-8
+    LoadOptions windows;
+    windows.text_any_unicode = true;
+    assert(loadYamlConfig("combos:\n  f n: \"\xC3\xB1 \xF0\x9F\x98\x80\"\n", cfg, err, windows));
+    assert(!loadYamlConfig("combos:\n  f n: \"\xC3\x28\"\n", cfg, err, windows));
+    assert(err.find("invalid UTF-8") != std::string::npos);
     std::cout << "OK\n";
 }
 
@@ -430,8 +534,8 @@ void test_parser_validation_errors() {
 
     // Unsupported non-ASCII character (accented e)
     assert(!loadYamlConfig("combos:\n  f n: \"caf\xC3\xA9\"\n", cfg, err));
-    assert(err.find("unsupported character in text snippet: '\xC3\xA9' (only ASCII") !=
-           std::string::npos);
+    assert(err.find("unsupported character in text snippet: '\xC3\xA9' (not on keyboard layout "
+                    "\"us\"") != std::string::npos);
 
     // ... also in a leader sequence (the error used to show a broken single byte)
     assert(!loadYamlConfig(
@@ -617,6 +721,9 @@ int main() {
     test_ascii_to_keystroke_mapping_gb();
     test_ascii_to_keystroke_mapping_other_layouts();
     test_engine_emission_german_layout();
+    test_char_to_keystrokes();
+    test_engine_emission_altgr_and_dead_keys();
+    test_parser_snippet_layout_check();
     test_yaml_parser_compact_syntax();
     test_yaml_parser_symmetric_and_leader();
     test_yaml_parser_classic_syntax();

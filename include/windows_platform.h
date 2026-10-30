@@ -4,6 +4,7 @@
 #include "tff_engine.h"
 #include "tff_monitor.h"
 #include "debug_buffer.h"
+#include "tff_parser.h"
 #include "win_input.h"
 #include <atomic>
 #include <cstdint>
@@ -20,6 +21,18 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+
+namespace tff {
+namespace win {
+// Windows types text snippets as characters (KEYEVENTF_UNICODE), so they may contain any
+// character, not only those on settings.layout.
+inline LoadOptions configLoadOptions() {
+    LoadOptions options;
+    options.text_any_unicode = true;
+    return options;
+}
+}  // namespace win
+}  // namespace tff
 
 /**
  * @brief Windows platform: remaps keys with a WH_KEYBOARD_LL hook and SendInput.

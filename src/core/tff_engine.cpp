@@ -2107,38 +2107,41 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
     if (out_dev_ && out_dev_->writeText(text, base_time)) {
         return;
     }
+    // Linux and the RP2040 type text as key presses on the host keyboard layout: Shift and the
+    // level-3 key (AltGr) are held as needed, a dead key is pressed before its key.
     TimeVal curr_time = base_time;
-    for (char c : text) {
-        KeyCode code = 0;
-        bool shift = false;
-        if (!asciiToKeyStroke(c, code, shift, settings_.layout)) {
+    auto write = [&](KeyCode code, int32_t value) {
+        writeEvent(Event{curr_time, EV_KEY, code, value}, "TextSnippet");
+        curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+    };
+    const KeyCode level3_key = layoutLevel3Key(settings_.layout);
+    size_t pos = 0;
+    while (pos < text.size()) {
+        uint32_t code_point = 0;
+        CharKeyStrokes strokes;
+        if (!decodeUtf8(text, pos, code_point)) {
+            ++pos;  // invalid UTF-8 (rejected when the config is loaded)
             continue;
         }
-
-        if (shift) {
-            Event s_down{curr_time, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN};
-            writeEvent(s_down, "TextSnippet");
-            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
-
-            Event k_down{curr_time, EV_KEY, code, KEY_VAL_DOWN};
-            writeEvent(k_down, "TextSnippet");
-            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
-
-            Event k_up{curr_time, EV_KEY, code, KEY_VAL_UP};
-            writeEvent(k_up, "TextSnippet");
-            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
-
-            Event s_up{curr_time, EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_UP};
-            writeEvent(s_up, "TextSnippet");
-            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
-        } else {
-            Event k_down{curr_time, EV_KEY, code, KEY_VAL_DOWN};
-            writeEvent(k_down, "TextSnippet");
-            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
-
-            Event k_up{curr_time, EV_KEY, code, KEY_VAL_UP};
-            writeEvent(k_up, "TextSnippet");
-            curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+        if (!charToKeyStrokes(code_point, settings_.layout, strokes)) {
+            continue;  // not on this layout (rejected when the config is loaded)
+        }
+        for (int i = 0; i < strokes.count; ++i) {
+            const KeyStroke& stroke = strokes.strokes[i];
+            if (stroke.shift) {
+                write(Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN);
+            }
+            if (stroke.level3) {
+                write(level3_key, KEY_VAL_DOWN);
+            }
+            write(stroke.code, KEY_VAL_DOWN);
+            write(stroke.code, KEY_VAL_UP);
+            if (stroke.level3) {
+                write(level3_key, KEY_VAL_UP);
+            }
+            if (stroke.shift) {
+                write(Keys::KEY_LEFTSHIFT, KEY_VAL_UP);
+            }
         }
     }
 }

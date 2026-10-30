@@ -108,6 +108,17 @@ cmake --build build --target format
 cmake --build build --target format-check
 ```
 
+### Keyboard Layout Tables
+
+How text snippets are typed on each `settings.layout` (key, Shift, AltGr, dead keys) comes from
+`src/core/tff_layout_tables.inc`, which is generated from the xkb layouts. To add a layout or
+update the tables, edit `LAYOUTS` in `tools/gen_layout_tables.py` and run it (needs
+`libxkbcommon` and the xkb data, e.g. `apt install libxkbcommon0 xkb-data`):
+
+```bash
+python3 tools/gen_layout_tables.py > src/core/tff_layout_tables.inc
+```
+
 ### Git Pre-Commit Hook
 
 Install the repository pre-commit hook to automatically verify staged C/C++ code and YAML configuration files:

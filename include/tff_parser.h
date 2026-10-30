@@ -48,8 +48,15 @@ bool parseDurationMicros(const std::string& str, int64_t& out_us);
 // Loads YAML combos matching Go load_yaml.go
 bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg);
 
+struct LoadOptions {
+    // Text snippets may contain any character, not only those on settings.layout (Windows types
+    // text as characters, Linux and the RP2040 as key presses on the host layout)
+    bool text_any_unicode = false;
+};
+
 // Loads complete YAML configuration including combos and tap_hold settings
-bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg);
+bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
+                    const LoadOptions& options = {});
 
 }  // namespace tff
 

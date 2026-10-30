@@ -168,7 +168,7 @@ bool WindowsPlatform::loadConfiguration(const std::string& config_file, std::str
     }
     tff::Config config;
     std::string parse_err;
-    if (!tff::loadYamlConfig(content, config, parse_err)) {
+    if (!tff::loadYamlConfig(content, config, parse_err, tff::win::configLoadOptions())) {
         err_msg = "Failed to parse YAML config (" + config_file + "): " + parse_err;
         return false;
     }

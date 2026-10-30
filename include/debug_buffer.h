@@ -27,19 +27,28 @@ inline bool isDiagnosticDumpHotkey(KeyCode code) {
 }
 
 /**
- * @brief Emits KeyCode and Shift states for each character in text using layout-aware
- * asciiToKeyStroke.
+ * @brief Calls emit(code, shift, level3_key) for each key press that types text on the host
+ * layout (see charToKeyStrokes()); level3_key is the key to hold with it (AltGr), or 0.
  */
 template <typename EmitFn>
 inline void emitKeyStrokesForText(const std::string& text, EmitFn&& emit,
                                   const std::string& layout = "us") {
-    for (char c : text) {
-        KeyCode code = 0;
-        bool shift = false;
-        if (!asciiToKeyStroke(c, code, shift, layout)) {
+    const KeyCode level3_key = layoutLevel3Key(layout);
+    size_t pos = 0;
+    while (pos < text.size()) {
+        uint32_t code_point = 0;
+        CharKeyStrokes strokes;
+        if (!decodeUtf8(text, pos, code_point)) {
+            ++pos;
             continue;
         }
-        emit(code, shift);
+        if (!charToKeyStrokes(code_point, layout, strokes)) {
+            continue;
+        }
+        for (int i = 0; i < strokes.count; ++i) {
+            const KeyStroke& stroke = strokes.strokes[i];
+            emit(stroke.code, stroke.shift, stroke.level3 ? level3_key : KeyCode{0});
+        }
     }
 }
 
