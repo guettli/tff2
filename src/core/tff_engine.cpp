@@ -612,6 +612,10 @@ void TFFEngine::reset() {
         writeComboUpKeys(combo);
     }
     down_keys_written_.clear();
+    for (const auto& combo : pending_combo_releases_) {
+        writeComboOutputUp(combo, TimeVal{});
+    }
+    pending_combo_releases_.clear();
     held_combo_keys_.clear();
     buf_.clear();
     swallow_keys_.clear();
@@ -624,6 +628,7 @@ void TFFEngine::reset() {
 bool TFFEngine::processEvent(const Event& ev) {
     const bool result = processEventNow(ev);
     replayDeferredIfResolved();
+    releasePendingCombos(ev.time);
     return result;
 }
 
@@ -1235,7 +1240,19 @@ void TFFEngine::finish() {
     leader_pending_releases_.clear();
     releaseHeldLayerRemaps(TimeVal{});
     active_layer_stack_.clear();
+    // Held combos are released, not flushed as plain keys.
+    for (const auto& combo : down_keys_written_) {
+        buf_.erase(std::remove_if(buf_.begin(), buf_.end(),
+                                  [&](const Event& e) {
+                                      return std::find(combo.keys.begin(), combo.keys.end(),
+                                                       e.code) != combo.keys.end();
+                                  }),
+                   buf_.end());
+        pending_combo_releases_.push_back(combo);
+    }
+    down_keys_written_.clear();
     flushBuffer("EOF");
+    releasePendingCombos(TimeVal{});
     if (pending_auto_shift_.key != 0) {
         if (pending_auto_shift_.shifted_emitted) {
             writeKey(pending_auto_shift_.key, KEY_VAL_UP, pending_auto_shift_.down_time);
@@ -1313,9 +1330,7 @@ bool TFFEngine::handleDownChar(const Event& ev) {
 }
 
 bool TFFEngine::handleUpChar(const Event& ev) {
-    // With other keys still buffered, the release of a held combo key waits behind them (so
-    // Ctrl from a combo is still down for a buffered C); emitBufferedEvent() releases the combo.
-    if (buf_.empty() && releaseHeldComboKey(ev)) {
+    if (releaseHeldComboKey(ev)) {
         return true;
     }
     while (buf_.size() >= MAX_BUFFER_SIZE) {
@@ -1349,6 +1364,11 @@ void TFFEngine::promoteExpiredTapHolds(TimeVal time) {
 }
 
 void TFFEngine::onTimer(TimeVal time) {
+    onTimerNow(time);
+    releasePendingCombos(time);
+}
+
+void TFFEngine::onTimerNow(TimeVal time) {
     if (!deferred_events_.empty()) {
         // Other timers (one-shot, auto-shift, leader, combos) wait until the waiting keys,
         // which happened before their deadlines, have been replayed.
@@ -1942,7 +1962,11 @@ std::vector<Combo> TFFEngine::releaseCombosWithKey(KeyCode key, TimeVal time) {
             ++it;
         }
     }
-    if (!released.empty() && pending_auto_shift_.key != 0) {
+    bool releases_modifier = std::any_of(released.begin(), released.end(), [](const Combo& c) {
+        return std::any_of(c.out_keys.begin(), c.out_keys.end(),
+                           [](KeyCode k) { return isModifier(k); });
+    });
+    if (releases_modifier && pending_auto_shift_.key != 0) {
         // A key typed while the combo (e.g. Ctrl) was held gets it, not an auto-shifted later.
         commitPendingAutoShiftUnshifted(time);
     }
@@ -1960,11 +1984,7 @@ void TFFEngine::detachHeldCombos() {
         auto in_combo = [&](KeyCode code) {
             return std::find(combo.keys.begin(), combo.keys.end(), code) != combo.keys.end();
         };
-        // A buffered release of an already detached key stays in the buffer for its turn.
-        auto detach = [&](const Event& ev) {
-            return in_combo(ev.code) &&
-                   !(ev.value == KEY_VAL_UP && held_combo_keys_.count(ev.code) > 0);
-        };
+        auto detach = [&](const Event& ev) { return in_combo(ev.code); };
         bool has_combo_key = false;
         bool has_other_key = false;
         for (const auto& ev : buf_) {
@@ -1991,14 +2011,50 @@ void TFFEngine::detachHeldCombos() {
 }
 
 // Releasing the first key of a held combo releases its output; the releases of its other keys
-// are swallowed.
+// are swallowed. While keys pressed during the combo still wait in the buffer, the output is
+// released after them (so Ctrl from a combo applies to a buffered C), see
+// releasePendingCombos().
 bool TFFEngine::releaseHeldComboKey(const Event& ev) {
     if (held_combo_keys_.erase(ev.code) == 0) {
         return false;
     }
     trace(TraceEvent::Kind::KeySwallowed, "(swallowed)");
-    releaseCombosWithKey(ev.code, ev.time);
+    for (auto it = down_keys_written_.begin(); it != down_keys_written_.end();) {
+        if (std::find(it->keys.begin(), it->keys.end(), ev.code) != it->keys.end()) {
+            pending_combo_releases_.push_back(*it);
+            it = down_keys_written_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    releasePendingCombos(ev.time);
     return true;
+}
+
+bool TFFEngine::bufferHasOutput() const {
+    // Buffered DOWNs of keys whose release is swallowed are never output.
+    return std::any_of(buf_.begin(), buf_.end(), [&](const Event& e) {
+        return std::find(swallow_keys_.begin(), swallow_keys_.end(), e.code) == swallow_keys_.end();
+    });
+}
+
+void TFFEngine::releasePendingCombos(TimeVal time) {
+    if (pending_combo_releases_.empty() || bufferHasOutput()) {
+        return;
+    }
+    auto combos = std::move(pending_combo_releases_);
+    pending_combo_releases_.clear();
+    bool releases_modifier = std::any_of(combos.begin(), combos.end(), [](const Combo& c) {
+        return std::any_of(c.out_keys.begin(), c.out_keys.end(),
+                           [](KeyCode k) { return isModifier(k); });
+    });
+    if (releases_modifier && pending_auto_shift_.key != 0) {
+        // A key typed while the combo (e.g. Ctrl) was held gets it, not an auto-shift later.
+        commitPendingAutoShiftUnshifted(time);
+    }
+    for (const auto& combo : combos) {
+        writeComboOutputUp(combo, time);
+    }
 }
 
 void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
@@ -2205,9 +2261,6 @@ void TFFEngine::handleAutoShiftOrWrite(const Event& ev, const std::string& reaso
 }
 
 void TFFEngine::emitBufferedEvent(const Event& ev, const std::string& reason) {
-    if (ev.value == KEY_VAL_UP && releaseHeldComboKey(ev)) {
-        return;
-    }
     if (ev.value == KEY_VAL_DOWN && !active_layer_stack_.empty()) {
         const LayerAction* action = findLayerAction(ev.code);
         if (action != nullptr) {

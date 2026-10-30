@@ -782,7 +782,7 @@ static void test_invariant_held_combo_review_cases() {
                                                                       {'u', 1500, K::KEY_C},
                                                                       {'u', 1600, K::KEY_F},
                                                                       {'f', 1700, 0}}),
-              "leftctrl_ c_ leftctrl/ c/ ", "ctrl + buffered combo key");
+              "leftctrl_ c_ c/ leftctrl/ ", "ctrl + buffered combo key");
     // ... and for a key that auto-shift is still deciding
     expectLog(runSteps("combos:\n  d + f: leftctrl\nauto_shift:\n  enabled: true\n"
                        "  timeout_ms: 175\n  keys: letters\n",
@@ -826,6 +826,50 @@ static void test_invariant_held_combo_review_cases() {
                         {'t', 1400, 0},
                         {'f', 1500, 0}}),
               "leftshift_ leftshift/ ", "finish with a key held twice");
+    // Ctrl held, Tab chord, Ctrl released while v still held: no stray v (Ctrl+V)
+    expectLog(runSteps("combos:\n  d + f: leftctrl\n  c + v: tab\n", {{'d', 1000, K::KEY_D},
+                                                                      {'d', 1020, K::KEY_F},
+                                                                      {'t', 1300, 0},
+                                                                      {'d', 1400, K::KEY_C},
+                                                                      {'d', 1420, K::KEY_V},
+                                                                      {'t', 1600, 0},
+                                                                      {'u', 1700, K::KEY_C},
+                                                                      {'u', 1800, K::KEY_D},
+                                                                      {'u', 1810, K::KEY_F},
+                                                                      {'u', 1900, K::KEY_V},
+                                                                      {'f', 2100, 0}}),
+              "leftctrl_ tab_ tab/ leftctrl/ ", "ctrl, tab chord, v still held");
+    // A chord pressed while Ctrl is held and still undecided when Ctrl is released: Ctrl+Esc
+    expectLog(runSteps("combos:\n  d + f: leftctrl\n  j + k: esc\n", {{'d', 1000, K::KEY_D},
+                                                                      {'d', 1020, K::KEY_F},
+                                                                      {'t', 1300, 0},
+                                                                      {'d', 1400, K::KEY_J},
+                                                                      {'d', 1410, K::KEY_K},
+                                                                      {'u', 1420, K::KEY_D},
+                                                                      {'u', 1430, K::KEY_F},
+                                                                      {'t', 1700, 0},
+                                                                      {'u', 1800, K::KEY_J},
+                                                                      {'u', 1810, K::KEY_K},
+                                                                      {'f', 1900, 0}}),
+              "leftctrl_ esc_ esc/ leftctrl/ ", "chord under ctrl");
+    // Releasing a combo that isn't a modifier doesn't end auto-shift's decision
+    expectLog(runSteps("combos:\n  f + j: esc\nauto_shift:\n  enabled: true\n"
+                       "  timeout_ms: 175\n  keys: letters\n",
+                       {{'d', 1000, K::KEY_F},
+                        {'d', 1020, K::KEY_J},
+                        {'t', 1300, 0},
+                        {'d', 1400, K::KEY_X},
+                        {'u', 1420, K::KEY_F},
+                        {'u', 1430, K::KEY_J},
+                        {'t', 1700, 0},
+                        {'u', 1800, K::KEY_X},
+                        {'f', 1900, 0}}),
+              "esc_ esc/ leftshift_ x_ x/ leftshift/ ", "auto-shift after esc combo");
+    // finish() while a combo is held releases it instead of typing its keys
+    expectLog(
+        runSteps("combos:\n  d + f: leftctrl\n",
+                 {{'d', 1000, K::KEY_D}, {'d', 1020, K::KEY_F}, {'t', 1300, 0}, {'f', 1400, 0}}),
+        "leftctrl_ leftctrl/ ", "finish with held combo");
     std::cout << "  [PASS] Held combo review cases (order, re-trigger, modifiers, finish)"
               << std::endl;
 }

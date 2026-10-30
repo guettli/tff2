@@ -216,6 +216,8 @@ private:
     // key was pressed or released meanwhile. Releasing one releases the combo output; the
     // releases of the other keys are swallowed.
     std::unordered_set<KeyCode> held_combo_keys_;
+    // Released held combos whose output UP waits until the buffered keys have been emitted.
+    std::vector<Combo> pending_combo_releases_;
     std::vector<KeyCode> swallow_keys_;
     std::unordered_set<KeyCode> physical_keys_down_;
     // How often each output key is pressed by different sources (a combo, a tap-hold, a passed
@@ -303,6 +305,9 @@ private:
     std::vector<Combo> releaseCombosWithKey(KeyCode key, TimeVal time);
     void detachHeldCombos();
     bool releaseHeldComboKey(const Event& ev);
+    bool bufferHasOutput() const;
+    void releasePendingCombos(TimeVal time);
+    void onTimerNow(TimeVal time);
     void writeCombo(const Combo& combo, TimeVal time, int32_t value);
     void emitText(const std::string& text, TimeVal base_time);
     void writeKey(KeyCode code, int32_t value, TimeVal time);
