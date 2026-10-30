@@ -185,14 +185,25 @@ combos:
 
 ### Supported Characters and Modifiers
 
-TFF translates text strings directly into synthesized keystrokes and shift combinations:
-- **Letters & Digits**: `a`-`z`, `A`-`Z` (automatically activates and releases `KEY_LEFTSHIFT`), `0`-`9`.
+A snippet can contain any character that can be typed on your keyboard layout:
+- **Letters, digits, punctuation**: everything on the layout, including characters typed with
+  Shift, AltGr (e.g. `@`, `{`, `€` on German QWERTZ) or a dead key (`^`, `` ` ``, `é` on German:
+  the dead key is pressed, then the key or Space).
+- **Umlauts and accents** that the layout has: `ä ö ü ß` on `de`, `é è à ç ù` on `fr`, `ñ` on
+  `es`, and accented letters typed with the layout's dead keys.
 - **Whitespace & Control**: Space, `\t` (Tab), `\n` (Enter).
-- **Punctuation & Symbols**: All standard ASCII symbols (`,`, `.`, `;`, `:`, `!`, `@`, `#`, `$`, `%`, `^`, `&`, `*`, `(`, `)`, `_`, `+`, `-`, `=`, `{`, `}`, `[`, `]`, `|`, `\`, `"`, `'`, `<`, `>`, `?`, `~`, `` ` ``).
 - **Clean Chord Release**: When chord keys are released after triggering a text snippet, they are swallowed cleanly so that no physical chord keys leak into your text buffer or editor.
 
 > [!NOTE]
-> **Keyboard Layout**: On Linux and the RP2040, text is typed as key presses, so TFF has to know the keyboard layout of the computer. Set [`settings.layout`](#global-settings-settings) (e.g. `de` for German QWERTZ); the default is US QWERTY. On Windows, text is typed as characters and works with any layout. Only ASCII characters are supported in snippets; a non-ASCII character such as `ü` is rejected when the config is loaded.
+> **Keyboard Layout**: On Linux and the RP2040, text is typed as key presses, so TFF has to know
+> the keyboard layout of the computer. Set [`settings.layout`](#global-settings-settings) (e.g.
+> `de` for German QWERTZ); the default is US QWERTY. A character that isn't on that layout (`ü`
+> with `us`, an emoji) is rejected when the config is loaded. The layouts are the standard xkb
+> layouts: `de` is the default German layout with dead keys (not `nodeadkeys`), `neo` uses the
+> Mod3 key (`#`/`\` key) for level 3.
+>
+> On Windows, text is typed as characters (not key presses), so it works with any layout and a
+> snippet may contain any character, e.g. `€`, `ñ` or emoji, whatever `settings.layout` is.
 
 ## Tap-vs-Hold Keys (Dual-Role Keys)
 
@@ -827,7 +838,7 @@ settings:
 | `hotplug` | boolean | `false` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. Mutually exclusive (XOR) with explicit device configurations. |
 | `devices` / `device` | array or string | (empty) | List of explicit keyboard device paths (e.g. `/dev/input/by-id/...`). Mutually exclusive (XOR) with `hotplug`. |
 | `notifications` / `notify` | boolean | `false` | When true, sends desktop notifications on Linux (via `notify-send` or DBus) whenever a persistent modal layer is toggled ON or OFF. Can also be enabled via `--notify` on the CLI. |
-| `layout` | string | `"us"` | Target host OS keyboard layout for clean diagnostic dump typing (F12/Pause) and text snippet/macro emission. Supported values: `"us"`, `"de"` (German QWERTZ), `"fr"` (French AZERTY), `"gb"` / `"uk"` (UK QWERTY), `"es"` (Spanish QWERTY), `"it"` (Italian QWERTY), `"neo"` (German Neo 2), `"dvorak"` (US Dvorak), `"colemak"` (Colemak). Prevents mangled text output (e.g. `INÖ semicolon?` on German hosts). Not needed on Windows, where text is typed as characters. |
+| `layout` | string | `"us"` | Host keyboard layout, used on Linux and the RP2040 to type text snippets, macros and the diagnostic dump (F12/Pause) as key presses. Supported values: `"us"`, `"de"` (German QWERTZ), `"fr"` (French AZERTY), `"gb"` / `"uk"` (UK QWERTY), `"es"` (Spanish QWERTY), `"it"` (Italian QWERTY), `"neo"` (German Neo 2), `"dvorak"` (US Dvorak), `"colemak"` (Colemak). Snippets may only contain characters of that layout. Prevents mangled text output (e.g. `INÖ semicolon?` on German hosts). Not needed on Windows, where text is typed as characters. |
 
 ## Configuration Wizard and Presets (`tff init`)
 

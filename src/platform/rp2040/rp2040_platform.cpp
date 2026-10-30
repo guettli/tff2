@@ -461,7 +461,7 @@ void RP2040Platform::typeDumpString(const std::string& text) {
     std::string layout = engine_ ? engine_->getSettings().layout : "us";
     tff::emitKeyStrokesForText(
         text,
-        [this](tff::KeyCode code, bool shift) {
+        [this](tff::KeyCode code, bool shift, tff::KeyCode level3_key) {
 #ifdef PICO_BUILD
             uint8_t usb_code = convertKeyCodeToUsb(code);
             if (usb_code == 0) {
@@ -469,7 +469,13 @@ void RP2040Platform::typeDumpString(const std::string& text) {
             }
             if (tud_mounted()) {
                 uint8_t mod = shift ? 0x02 : 0;
-                const uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
+                uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
+                // The level-3 key is AltGr (Right Alt modifier bit), on Neo a normal key
+                if (level3_key == tff::Keys::KEY_RIGHTALT) {
+                    mod |= 0x40;
+                } else if (level3_key != 0) {
+                    report_keys[1] = convertKeyCodeToUsb(level3_key);
+                }
                 const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
 
                 while (!tud_hid_ready() && tud_mounted()) {
@@ -487,6 +493,7 @@ void RP2040Platform::typeDumpString(const std::string& text) {
             }
 #else
             (void)shift;
+            (void)level3_key;
             if (writer_) {
                 writer_->emitted_down_keys.push_back(static_cast<uint32_t>(code));
             }

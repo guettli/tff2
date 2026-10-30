@@ -110,7 +110,7 @@ bool loadConfigFile(const std::string& config_file, tff::Config& config) {
         return false;
     }
     std::string err_msg;
-    if (!tff::loadYamlConfig(content, config, err_msg)) {
+    if (!tff::loadYamlConfig(content, config, err_msg, tff::win::configLoadOptions())) {
         std::cerr << "Validation error: " << err_msg << "\n";
         return false;
     }

@@ -317,7 +317,7 @@ void showCheatsheet() {
     tff::Config config;
     std::string err;
     if (!tff::win::readTextFile(g_app.config_file, content) ||
-        !tff::loadYamlConfig(content, config, err)) {
+        !tff::loadYamlConfig(content, config, err, tff::win::configLoadOptions())) {
         MessageBoxW(g_app.tray_window,
                     tff::win::widen("Cannot read " + g_app.config_file + "\n" + err).c_str(),
                     L"TFF cheat sheet", MB_OK | MB_ICONWARNING);

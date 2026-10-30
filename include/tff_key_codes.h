@@ -181,13 +181,48 @@ bool parseTypeName(const std::string& name, uint16_t& out_type);
 bool parseCodeName(uint16_t type, const std::string& name, uint16_t& out_code);
 
 /**
- * @brief Translates a printable ASCII character (or \t, \n) into an evdev KeyCode and Shift flag
- * for a given host keyboard layout.
- * @param c The input ASCII character.
- * @param code Output evdev keycode.
- * @param shift Output boolean set to true if LeftShift modifier is required.
+ * @brief One key press for typing a character: the key, with Shift and/or the layout's level-3
+ * key (AltGr; the Mod3 key on Neo) held.
+ */
+struct KeyStroke {
+    KeyCode code = 0;
+    bool shift = false;
+    bool level3 = false;
+};
+
+/**
+ * @brief The key presses for one character: one, or two for a character typed with a dead key
+ * (dead ^ then space for "^" on "de", dead acute then e for "é").
+ */
+struct CharKeyStrokes {
+    KeyStroke strokes[2];
+    int count = 0;
+};
+
+/**
+ * @brief Looks up how to type a Unicode code point (or \t, \n) on a host keyboard layout.
+ * The tables are generated from the xkb layouts by tools/gen_layout_tables.py.
  * @param layout Host keyboard layout ("us", "de", "fr", "gb", "uk", "es", "it", "neo", "dvorak",
- * "colemak"). Defaults to "us".
+ * "colemak").
+ * @return False if the character can't be typed on that layout.
+ */
+bool charToKeyStrokes(uint32_t code_point, const std::string& layout, CharKeyStrokes& out);
+
+/**
+ * @brief The key held for KeyStroke::level3 on a layout (KEY_RIGHTALT, KEY_BACKSLASH on Neo).
+ */
+KeyCode layoutLevel3Key(const std::string& layout);
+
+/**
+ * @brief Decodes the UTF-8 character at text[pos] and advances pos past it.
+ * @return False for invalid UTF-8 (pos is then unchanged).
+ */
+bool decodeUtf8(const std::string& text, size_t& pos, uint32_t& code_point);
+
+/**
+ * @brief Translates a printable ASCII character (or \t, \n) into an evdev KeyCode and Shift
+ * flag, if it is typed with a single key press without the level-3 key on that layout.
+ * Use charToKeyStrokes() to type any character.
  * @return True if character was successfully mapped, false if unsupported.
  */
 bool asciiToKeyStroke(char c, KeyCode& code, bool& shift, const std::string& layout = "us");

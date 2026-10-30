@@ -1244,17 +1244,25 @@ void LinuxPlatform::typeDumpString(const std::string& text) {
     std::string layout = engine_ ? engine_->getSettings().layout : "us";
     tff::emitKeyStrokesForText(
         text,
-        [this](tff::KeyCode code, bool shift) {
+        [this](tff::KeyCode code, bool shift, tff::KeyCode level3_key) {
             received_keys_.push_back(code);
             if (uinput_fd_ >= 0) {
                 if (shift) {
                     emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 1);
                     emitUinputRaw(EV_SYN, SYN_REPORT, 0);
                 }
+                if (level3_key != 0) {
+                    emitUinputRaw(EV_KEY, level3_key, 1);
+                    emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                }
                 emitUinputRaw(EV_KEY, code, 1);
                 emitUinputRaw(EV_SYN, SYN_REPORT, 0);
                 emitUinputRaw(EV_KEY, code, 0);
                 emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                if (level3_key != 0) {
+                    emitUinputRaw(EV_KEY, level3_key, 0);
+                    emitUinputRaw(EV_SYN, SYN_REPORT, 0);
+                }
                 if (shift) {
                     emitUinputRaw(EV_KEY, KEY_LEFTSHIFT, 0);
                     emitUinputRaw(EV_SYN, SYN_REPORT, 0);
