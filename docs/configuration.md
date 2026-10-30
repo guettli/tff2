@@ -192,7 +192,7 @@ TFF translates text strings directly into synthesized keystrokes and shift combi
 - **Clean Chord Release**: When chord keys are released after triggering a text snippet, they are swallowed cleanly so that no physical chord keys leak into your text buffer or editor.
 
 > [!NOTE]
-> **Keyboard Layout Baseline**: Because TFF operates at the input hardware/driver level before desktop environment layout translation, synthesized punctuation symbols assume standard US QWERTY keycode locations. If your desktop session uses a non-US keymap (e.g. German QWERTZ or French AZERTY), the desktop environment will translate those scancodes according to your active layout.
+> **Keyboard Layout**: On Linux and the RP2040, text is typed as key presses, so TFF has to know the keyboard layout of the computer. Set [`settings.layout`](#global-settings-settings) (e.g. `de` for German QWERTZ); the default is US QWERTY. On Windows, text is typed as characters and works with any layout. Only ASCII characters are supported in snippets; a non-ASCII character such as `ü` is rejected when the config is loaded.
 
 ## Tap-vs-Hold Keys (Dual-Role Keys)
 
