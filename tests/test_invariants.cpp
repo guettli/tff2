@@ -782,7 +782,7 @@ static void test_invariant_held_combo_review_cases() {
                                                                       {'u', 1500, K::KEY_C},
                                                                       {'u', 1600, K::KEY_F},
                                                                       {'f', 1700, 0}}),
-              "leftctrl_ c_ c/ leftctrl/ ", "ctrl + buffered combo key");
+              "leftctrl_ c_ leftctrl/ c/ ", "ctrl + buffered combo key");
     // ... and for a key that auto-shift is still deciding
     expectLog(runSteps("combos:\n  d + f: leftctrl\nauto_shift:\n  enabled: true\n"
                        "  timeout_ms: 175\n  keys: letters\n",
@@ -865,6 +865,19 @@ static void test_invariant_held_combo_review_cases() {
                         {'u', 1800, K::KEY_X},
                         {'f', 1900, 0}}),
               "esc_ esc/ leftshift_ x_ x/ leftshift/ ", "auto-shift after esc combo");
+    // A key pressed after Ctrl was released doesn't get Ctrl, even while a chord key waits
+    expectLog(runSteps("combos:\n  d + f: leftctrl\n  j + k: esc\n", {{'d', 1000, K::KEY_D},
+                                                                      {'d', 1020, K::KEY_F},
+                                                                      {'t', 1300, 0},
+                                                                      {'d', 1400, K::KEY_J},
+                                                                      {'u', 1420, K::KEY_D},
+                                                                      {'d', 1430, K::KEY_X},
+                                                                      {'u', 1440, K::KEY_X},
+                                                                      {'u', 1450, K::KEY_F},
+                                                                      {'t', 1500, 0},
+                                                                      {'u', 2100, K::KEY_J},
+                                                                      {'f', 2200, 0}}),
+              "leftctrl_ j_ leftctrl/ x_ x/ j/ ", "key after ctrl release");
     // finish() while a combo is held releases it instead of typing its keys
     expectLog(
         runSteps("combos:\n  d + f: leftctrl\n",

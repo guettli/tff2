@@ -163,9 +163,11 @@ key pressed before the combo released) makes `detachHeldCombos()` take the combo
 stays down. The first release of a key in `held_combo_keys_` releases the combo output
 (`releaseHeldComboKey()`); the releases of its other keys are swallowed. If keys pressed while
 the combo was held still wait in `buf_` (e.g. a possible chord), the output UP waits in
-`pending_combo_releases_` until they have been emitted (`releasePendingCombos()`, called after
-each event and timer), so they still get the combo's modifier: Ctrl + `c` gives Ctrl+C, Ctrl +
-chord `j + k: esc` gives Ctrl+Esc. Releasing a modifier combo commits a key that auto-shift is
+`pending_combo_releases_` with the time of the release until the keys buffered before it have
+been emitted (`releasePendingCombos()`, called after each event and timer, and by
+`flushBuffer()` before the first key that came after the release). So keys pressed while the
+combo was held get its modifier (Ctrl + `c` gives Ctrl+C, Ctrl + chord `j + k: esc` gives
+Ctrl+Esc) and keys pressed after the release don't. Releasing a modifier combo commits a key that auto-shift is
 still deciding. `finish()` releases held combos instead of flushing their keys. If a key in `swallow_keys_` (still held after
 its combo was released) starts the same combo again, its release ends that combo too
 (`releaseCombosWithKey()`), and the combo's other still held keys move to `held_combo_keys_`.
