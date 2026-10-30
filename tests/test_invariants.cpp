@@ -719,8 +719,114 @@ static void test_invariant_held_combo_and_other_keys() {
     press(3210, Keys::KEY_C, KEY_VAL_DOWN);
     press(3530, Keys::KEY_V, KEY_VAL_UP);
     press(3700, Keys::KEY_C, KEY_VAL_UP);
-    expect("tab_ tab/ tab_ tab/ c_ c/ ", "combo key held, other combo key tapped twice");
+    expect("tab_ tab/ tab_ tab/ ", "combo key held, other combo key tapped twice");
     std::cout << "  [PASS] Held combo with other keys (combo output released with its keys)"
+              << std::endl;
+}
+
+// 10d. Review cases: order behind buffered keys, re-triggered combo with a rolling release,
+// modifiers from two sources, finish() with a key held by two sources.
+struct Step {
+    char kind;  // 'd' down, 'u' up, 't' timer, 'f' finish
+    int64_t ms;
+    KeyCode key;
+};
+
+static std::string runSteps(const std::string& yaml, const std::vector<Step>& steps) {
+    TrackingEventWriter writer;
+    TFFEngine engine(&writer);
+    Config cfg;
+    std::string err;
+    bool ok = loadYamlConfig(yaml, cfg, err);
+    assert(ok);
+    engine.setConfig(cfg);
+    for (const auto& st : steps) {
+        TimeVal t = TimeVal::fromMicros(st.ms * 1000);
+        if (st.kind == 't') {
+            while (engine.hasActiveTimer() && engine.getActiveTimerTime() <= t) {
+                TimeVal at = engine.getActiveTimerTime();
+                engine.onTimer(at);
+                if (engine.hasActiveTimer() && engine.getActiveTimerTime() <= at) {
+                    break;
+                }
+            }
+            engine.onTimer(t);
+        } else if (st.kind == 'f') {
+            engine.finish();
+        } else {
+            engine.processEvent(
+                Event{t, EV_KEY, st.key, st.kind == 'd' ? KEY_VAL_DOWN : KEY_VAL_UP});
+        }
+    }
+    writer.assertZeroStuckKeys("review case");
+    return keyLog(writer);
+}
+
+static void expectLog(const std::string& got, const std::string& expected,
+                      const std::string& context) {
+    if (got != expected) {
+        std::cerr << "FAILED " << context << ": got '" << got << "', expected '" << expected << "'"
+                  << std::endl;
+        assert(false);
+    }
+}
+
+static void test_invariant_held_combo_review_cases() {
+    namespace K = Keys;
+    // Ctrl from a combo stays down for a key that is still buffered (c is a combo key)
+    expectLog(runSteps("combos:\n  d + f: leftctrl\n  c + v: tab\n", {{'d', 1000, K::KEY_D},
+                                                                      {'d', 1020, K::KEY_F},
+                                                                      {'t', 1300, 0},
+                                                                      {'d', 1400, K::KEY_C},
+                                                                      {'u', 1450, K::KEY_D},
+                                                                      {'u', 1500, K::KEY_C},
+                                                                      {'u', 1600, K::KEY_F},
+                                                                      {'f', 1700, 0}}),
+              "leftctrl_ c_ leftctrl/ c/ ", "ctrl + buffered combo key");
+    // ... and for a key that auto-shift is still deciding
+    expectLog(runSteps("combos:\n  d + f: leftctrl\nauto_shift:\n  enabled: true\n"
+                       "  timeout_ms: 175\n  keys: letters\n",
+                       {{'d', 1000, K::KEY_D},
+                        {'d', 1020, K::KEY_F},
+                        {'t', 1300, 0},
+                        {'d', 1400, K::KEY_X},
+                        {'u', 1450, K::KEY_D},
+                        {'u', 1500, K::KEY_X},
+                        {'u', 1600, K::KEY_F},
+                        {'f', 1700, 0}}),
+              "leftctrl_ x_ leftctrl/ x/ ", "ctrl + auto-shift key");
+    // Hold f, tap j twice, release f before j: two Esc, no stray j
+    expectLog(runSteps("combos:\n  f + j: esc\n", {{'d', 1000, K::KEY_F},
+                                                   {'d', 1020, K::KEY_J},
+                                                   {'u', 1100, K::KEY_J},
+                                                   {'d', 1300, K::KEY_J},
+                                                   {'t', 1500, 0},
+                                                   {'u', 1600, K::KEY_F},
+                                                   {'u', 1650, K::KEY_J},
+                                                   {'f', 1700, 0}}),
+              "esc_ esc/ esc_ esc/ ", "re-triggered combo, rolling release");
+    // A held Super is not released and pressed again by a combo that also sends Super
+    expectLog(runSteps("combos:\n  d + f: super+e\ntap_hold:\n  capslock:\n    tap: esc\n"
+                       "    hold: super\n    timeout: 150ms\n",
+                       {{'d', 1000, K::KEY_CAPSLOCK},
+                        {'t', 1200, 0},
+                        {'d', 1300, K::KEY_D},
+                        {'d', 1320, K::KEY_F},
+                        {'t', 1600, 0},
+                        {'u', 1700, K::KEY_D},
+                        {'u', 1710, K::KEY_F},
+                        {'u', 1800, K::KEY_CAPSLOCK},
+                        {'f', 1900, 0}}),
+              "leftmeta_ e_ e/ leftmeta/ ", "modifier from two sources");
+    // finish() releases a key held by two sources once
+    expectLog(runSteps("tap_hold:\n  capslock:\n    tap: esc\n    hold: leftshift\n"
+                       "    timeout: 150ms\n",
+                       {{'d', 1000, K::KEY_LEFTSHIFT},
+                        {'d', 1100, K::KEY_CAPSLOCK},
+                        {'t', 1400, 0},
+                        {'f', 1500, 0}}),
+              "leftshift_ leftshift/ ", "finish with a key held twice");
+    std::cout << "  [PASS] Held combo review cases (order, re-trigger, modifiers, finish)"
               << std::endl;
 }
 
@@ -855,6 +961,7 @@ int main() {
     test_invariant_randomized_fuzzing();
     test_invariant_same_output_key_twice();
     test_invariant_held_combo_and_other_keys();
+    test_invariant_held_combo_review_cases();
     test_invariant_corrupted_and_extreme_inputs();
     test_invariant_esc_emergency_reset();
 

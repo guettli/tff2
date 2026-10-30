@@ -161,15 +161,20 @@ sequenceDiagram
 key pressed before the combo released) makes `detachHeldCombos()` take the combo keys out of
 `buf_` into `held_combo_keys_`. The other key is then processed on its own and the combo output
 stays down. The first release of a key in `held_combo_keys_` releases the combo output
-(`releaseHeldComboKey()`); the releases of its other keys are swallowed. If a key in
-`swallow_keys_` (still held after its combo was released) starts the same combo again, its
-release ends that combo too (`releaseCombosWithKey()`).
+(`releaseHeldComboKey()`); the releases of its other keys are swallowed. If other events are
+still buffered, that release waits in `buf_` behind them and releases the combo when it is
+emitted (`emitBufferedEvent()`), so a buffered key still gets the combo's modifier; a key that
+auto-shift is still deciding is committed first. If a key in `swallow_keys_` (still held after
+its combo was released) starts the same combo again, its release ends that combo too
+(`releaseCombosWithKey()`), and the combo's other still held keys move to `held_combo_keys_`.
 
 **Output press count**: `writeEventDirect()` counts the DOWNs of each output key
 (`output_press_count_`), because different sources can press the same key (a combo holding Esc
 and a CapsLock tap sending Esc, a tap-hold `shift` and auto-shift). A DOWN for a key that is
-already down is sent as UP + DOWN (a new press), and the UP is only sent when the last source
-releases the key. `reset()` releases such keys completely.
+already down is sent as UP + DOWN (a new press), except for modifiers, which just stay down (a
+lone Super or Alt tap would open the start menu or the menu bar). The UP is only sent when the
+last source releases the key. `reset()` and `finish()` send every release they make and drop
+the duplicates.
 
 ---
 

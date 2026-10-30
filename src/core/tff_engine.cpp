@@ -1187,6 +1187,8 @@ void TFFEngine::emitTapHoldTap(const ActiveTapHold& ath, TimeVal time) {
 }
 
 void TFFEngine::finish() {
+    // Like reset(): every release goes out, also of keys pressed by two sources.
+    releasing_all_outputs_ = true;
     // Keys still waiting for an undecided tap-hold key: the tap-hold key was never released
     // with another key tapped, so it's a tap; then the waiting keys follow.
     while (!deferred_events_.empty()) {
@@ -1276,6 +1278,8 @@ void TFFEngine::finish() {
         }
     }
     active_tap_dance_ = ActiveTapDance{};
+    output_press_count_.clear();
+    releasing_all_outputs_ = false;
 }
 
 void TFFEngine::evictOldestBufferedEvent() {
@@ -1309,7 +1313,9 @@ bool TFFEngine::handleDownChar(const Event& ev) {
 }
 
 bool TFFEngine::handleUpChar(const Event& ev) {
-    if (releaseHeldComboKey(ev)) {
+    // With other keys still buffered, the release of a held combo key waits behind them (so
+    // Ctrl from a combo is still down for a buffered C); emitBufferedEvent() releases the combo.
+    if (buf_.empty() && releaseHeldComboKey(ev)) {
         return true;
     }
     while (buf_.size() >= MAX_BUFFER_SIZE) {
@@ -1467,8 +1473,31 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
             if (has_down && has_up) {
                 trace(TraceEvent::Kind::KeySwallowed, "(swallowed)");
                 // A combo started again with this still held key (hold v, tap c twice for
-                // "c + v") ends with its release.
-                releaseCombosWithKey(sw_key, curr_time);
+                // "c + v") ends with its release; its other keys are still held and their
+                // releases are swallowed.
+                for (const auto& combo : releaseCombosWithKey(sw_key, curr_time)) {
+                    for (KeyCode k : combo.keys) {
+                        if (k == sw_key) {
+                            continue;
+                        }
+                        bool k_down = false;
+                        bool k_up = false;
+                        for (const auto& e : buf_) {
+                            if (e.code == k) {
+                                k_down = k_down || e.value == KEY_VAL_DOWN;
+                                k_up = k_up || e.value == KEY_VAL_UP;
+                            }
+                        }
+                        if (k_down) {
+                            buf_.erase(std::remove_if(buf_.begin(), buf_.end(),
+                                                      [k](const Event& e) { return e.code == k; }),
+                                       buf_.end());
+                            if (!k_up) {
+                                held_combo_keys_.insert(k);
+                            }
+                        }
+                    }
+                }
                 buf_.erase(std::remove_if(buf_.begin(), buf_.end(),
                                           [sw_key](const Event& e) { return e.code == sw_key; }),
                            buf_.end());
@@ -1903,16 +1932,24 @@ void TFFEngine::writeComboOutputUp(const Combo& combo, TimeVal time) {
     }
 }
 
-void TFFEngine::releaseCombosWithKey(KeyCode key, TimeVal time) {
+std::vector<Combo> TFFEngine::releaseCombosWithKey(KeyCode key, TimeVal time) {
+    std::vector<Combo> released;
     for (auto it = down_keys_written_.begin(); it != down_keys_written_.end();) {
         if (std::find(it->keys.begin(), it->keys.end(), key) != it->keys.end()) {
-            Combo combo = *it;
+            released.push_back(*it);
             it = down_keys_written_.erase(it);
-            writeComboOutputUp(combo, time);
         } else {
             ++it;
         }
     }
+    if (!released.empty() && pending_auto_shift_.key != 0) {
+        // A key typed while the combo (e.g. Ctrl) was held gets it, not an auto-shifted later.
+        commitPendingAutoShiftUnshifted(time);
+    }
+    for (const auto& combo : released) {
+        writeComboOutputUp(combo, time);
+    }
+    return released;
 }
 
 // A combo whose output is down stays down while other keys are pressed or released (e.g.
@@ -1923,10 +1960,15 @@ void TFFEngine::detachHeldCombos() {
         auto in_combo = [&](KeyCode code) {
             return std::find(combo.keys.begin(), combo.keys.end(), code) != combo.keys.end();
         };
+        // A buffered release of an already detached key stays in the buffer for its turn.
+        auto detach = [&](const Event& ev) {
+            return in_combo(ev.code) &&
+                   !(ev.value == KEY_VAL_UP && held_combo_keys_.count(ev.code) > 0);
+        };
         bool has_combo_key = false;
         bool has_other_key = false;
         for (const auto& ev : buf_) {
-            if (in_combo(ev.code)) {
+            if (detach(ev)) {
                 has_combo_key = true;
             } else {
                 has_other_key = true;
@@ -1936,7 +1978,7 @@ void TFFEngine::detachHeldCombos() {
             continue;
         }
         for (const auto& ev : buf_) {
-            if (in_combo(ev.code) && ev.value == KEY_VAL_DOWN) {
+            if (detach(ev) && ev.value == KEY_VAL_DOWN) {
                 held_combo_keys_.insert(ev.code);
                 auto sw = std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code);
                 if (sw != swallow_keys_.end()) {
@@ -1944,9 +1986,7 @@ void TFFEngine::detachHeldCombos() {
                 }
             }
         }
-        buf_.erase(std::remove_if(buf_.begin(), buf_.end(),
-                                  [&](const Event& ev) { return in_combo(ev.code); }),
-                   buf_.end());
+        buf_.erase(std::remove_if(buf_.begin(), buf_.end(), detach), buf_.end());
     }
 }
 
@@ -2038,6 +2078,12 @@ void TFFEngine::writeKey(KeyCode code, int32_t value, TimeVal time) {
 void TFFEngine::writeEventDirect(const Event& ev, const std::string& reason) {
     if (ev.type == EV_KEY && ev.value == KEY_VAL_DOWN) {
         int& count = output_press_count_[ev.code];
+        if (count > 0 && isModifier(ev.code)) {
+            // A modifier that is already down stays down: releasing it would look like a lone
+            // tap (Super opens the start menu, Alt the menu bar).
+            ++count;
+            return;
+        }
         if (count > 0) {
             // Already down (e.g. a combo and a tap-hold both send Esc): release it first, so the
             // output sees a new press instead of a second DOWN.
@@ -2052,8 +2098,10 @@ void TFFEngine::writeEventDirect(const Event& ev, const std::string& reason) {
                 return;
             }
             output_press_count_.erase(it);
+        } else if (releasing_all_outputs_) {
+            return;  // already released (two sources of this key both release it)
         }
-        // An UP without a counted DOWN is passed on unchanged, as before.
+        // Otherwise an UP without a counted DOWN is passed on unchanged, as before.
     }
     writeKeyEvent(ev, reason);
 }
@@ -2157,6 +2205,9 @@ void TFFEngine::handleAutoShiftOrWrite(const Event& ev, const std::string& reaso
 }
 
 void TFFEngine::emitBufferedEvent(const Event& ev, const std::string& reason) {
+    if (ev.value == KEY_VAL_UP && releaseHeldComboKey(ev)) {
+        return;
+    }
     if (ev.value == KEY_VAL_DOWN && !active_layer_stack_.empty()) {
         const LayerAction* action = findLayerAction(ev.code);
         if (action != nullptr) {

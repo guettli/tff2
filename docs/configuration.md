@@ -127,7 +127,8 @@ If you keep the combo keys held, the output key stays held too. While it is held
 
 If the same output key is pressed from two places at once (a combo holds `esc` and a CapsLock
 tap also sends `esc`), the second press is sent as a new press (Esc up, Esc down), and the key
-goes up when the last of them is released.
+goes up when the last of them is released. A modifier (Shift, Ctrl, Alt, Super) that is already
+down just stays down, so it never looks like a lone tap of Super or Alt.
 
 ## Text Snippets & Multi-Character Macro Expansion
 

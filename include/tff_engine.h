@@ -300,7 +300,7 @@ private:
     void writeComboDownKeys(const Combo& combo);
     void writeComboUpKeys(const Combo& combo);
     void writeComboOutputUp(const Combo& combo, TimeVal time);
-    void releaseCombosWithKey(KeyCode key, TimeVal time);
+    std::vector<Combo> releaseCombosWithKey(KeyCode key, TimeVal time);
     void detachHeldCombos();
     bool releaseHeldComboKey(const Event& ev);
     void writeCombo(const Combo& combo, TimeVal time, int32_t value);
