@@ -1324,6 +1324,9 @@ void TFFEngine::evictOldestBufferedEvent() {
     if (keepSwallowedKeyHeld(oldest)) {
         return;
     }
+    if (!pending_combo_releases_.empty()) {
+        releasePendingCombos(oldest.time, &oldest.time);
+    }
     emitBufferedEvent(oldest, "BufferOverflow>EvictOldest");
     auto it = std::find(swallow_keys_.begin(), swallow_keys_.end(), oldest.code);
     if (it != swallow_keys_.end()) {
