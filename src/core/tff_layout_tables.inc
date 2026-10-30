@@ -1105,9 +1105,9 @@ static const LayoutChar kLayout_es[] = {
     {0x0058, Keys::KEY_X, 1, 0, 0},  // X
     {0x0059, Keys::KEY_Y, 1, 0, 0},  // Y
     {0x005A, Keys::KEY_Z, 1, 0, 0},  // Z
-    {0x005B, Keys::KEY_8, 2, 0, 0},  // [
-    {0x005C, Keys::KEY_MINUS, 2, 0, 0},
-    {0x005D, Keys::KEY_9, 2, 0, 0},  // ]
+    {0x005B, Keys::KEY_LEFTBRACE, 2, 0, 0},  // [
+    {0x005C, Keys::KEY_GRAVE, 2, 0, 0},
+    {0x005D, Keys::KEY_RIGHTBRACE, 2, 0, 0},  // ]
     {0x005E, Keys::KEY_SPACE, 0, Keys::KEY_LEFTBRACE, 1},  // ^
     {0x005F, Keys::KEY_SLASH, 1, 0, 0},  // _
     {0x0060, Keys::KEY_SPACE, 0, Keys::KEY_LEFTBRACE, 0},  // `
@@ -1137,9 +1137,9 @@ static const LayoutChar kLayout_es[] = {
     {0x0078, Keys::KEY_X, 0, 0, 0},  // x
     {0x0079, Keys::KEY_Y, 0, 0, 0},  // y
     {0x007A, Keys::KEY_Z, 0, 0, 0},  // z
-    {0x007B, Keys::KEY_7, 2, 0, 0},  // {
+    {0x007B, Keys::KEY_APOSTROPHE, 2, 0, 0},  // {
     {0x007C, Keys::KEY_1, 2, 0, 0},  // |
-    {0x007D, Keys::KEY_0, 2, 0, 0},  // }
+    {0x007D, Keys::KEY_BACKSLASH, 2, 0, 0},  // }
     {0x007E, Keys::KEY_4, 2, 0, 0},  // ~
     {0x00A1, Keys::KEY_EQUAL, 0, 0, 0},  // ¡
     {0x00A2, Keys::KEY_C, 2, 0, 0},  // ¢
@@ -1406,7 +1406,7 @@ static const LayoutChar kLayout_it[] = {
     {0x003D, Keys::KEY_0, 1, 0, 0},  // =
     {0x003E, Keys::KEY_102ND, 1, 0, 0},  // >
     {0x003F, Keys::KEY_MINUS, 1, 0, 0},  // ?
-    {0x0040, Keys::KEY_Q, 2, 0, 0},  // @
+    {0x0040, Keys::KEY_SEMICOLON, 2, 0, 0},  // @
     {0x0041, Keys::KEY_A, 1, 0, 0},  // A
     {0x0042, Keys::KEY_B, 1, 0, 0},  // B
     {0x0043, Keys::KEY_C, 1, 0, 0},  // C
@@ -1433,9 +1433,9 @@ static const LayoutChar kLayout_it[] = {
     {0x0058, Keys::KEY_X, 1, 0, 0},  // X
     {0x0059, Keys::KEY_Y, 1, 0, 0},  // Y
     {0x005A, Keys::KEY_Z, 1, 0, 0},  // Z
-    {0x005B, Keys::KEY_8, 2, 0, 0},  // [
+    {0x005B, Keys::KEY_LEFTBRACE, 2, 0, 0},  // [
     {0x005C, Keys::KEY_GRAVE, 0, 0, 0},
-    {0x005D, Keys::KEY_9, 2, 0, 0},  // ]
+    {0x005D, Keys::KEY_RIGHTBRACE, 2, 0, 0},  // ]
     {0x005E, Keys::KEY_EQUAL, 1, 0, 0},  // ^
     {0x005F, Keys::KEY_SLASH, 1, 0, 0},  // _
     {0x0060, Keys::KEY_MINUS, 2, 0, 0},  // `
@@ -1465,9 +1465,9 @@ static const LayoutChar kLayout_it[] = {
     {0x0078, Keys::KEY_X, 0, 0, 0},  // x
     {0x0079, Keys::KEY_Y, 0, 0, 0},  // y
     {0x007A, Keys::KEY_Z, 0, 0, 0},  // z
-    {0x007B, Keys::KEY_7, 2, 0, 0},  // {
+    {0x007B, Keys::KEY_LEFTBRACE, 3, 0, 0},  // {
     {0x007C, Keys::KEY_GRAVE, 1, 0, 0},  // |
-    {0x007D, Keys::KEY_0, 2, 0, 0},  // }
+    {0x007D, Keys::KEY_RIGHTBRACE, 3, 0, 0},  // }
     {0x007E, Keys::KEY_EQUAL, 2, 0, 0},  // ~
     {0x00A1, Keys::KEY_1, 3, 0, 0},  // ¡
     {0x00A2, Keys::KEY_C, 2, 0, 0},  // ¢

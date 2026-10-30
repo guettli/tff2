@@ -468,28 +468,33 @@ void RP2040Platform::typeDumpString(const std::string& text) {
                 return;
             }
             if (tud_mounted()) {
+                auto send = [](uint8_t mod, uint8_t key0, uint8_t key1) {
+                    const uint8_t keys[6] = {key0, key1, 0, 0, 0, 0};
+                    while (!tud_hid_ready() && tud_mounted()) {
+                        tud_task();
+                    }
+                    if (tud_mounted()) {
+                        tud_hid_keyboard_report(0, mod, keys);
+                    }
+                };
                 uint8_t mod = shift ? 0x02 : 0;
-                uint8_t report_keys[6] = {usb_code, 0, 0, 0, 0, 0};
-                // The level-3 key is AltGr (Right Alt modifier bit), on Neo a normal key
+                // The level-3 key is AltGr (Right Alt modifier bit), on Neo a normal key. That
+                // one is pressed in a report of its own first: in one report, the host may see
+                // the character key before it.
+                uint8_t level3_usb = 0;
                 if (level3_key == tff::Keys::KEY_RIGHTALT) {
                     mod |= 0x40;
                 } else if (level3_key != 0) {
-                    report_keys[1] = convertKeyCodeToUsb(level3_key);
+                    level3_usb = convertKeyCodeToUsb(level3_key);
                 }
-                const uint8_t empty_keys[6] = {0, 0, 0, 0, 0, 0};
-
-                while (!tud_hid_ready() && tud_mounted()) {
-                    tud_task();
+                if (level3_usb != 0) {
+                    send(mod, level3_usb, 0);
                 }
-                if (tud_mounted()) {
-                    tud_hid_keyboard_report(0, mod, report_keys);
+                send(mod, usb_code, level3_usb);
+                if (level3_usb != 0) {
+                    send(mod, level3_usb, 0);
                 }
-                while (!tud_hid_ready() && tud_mounted()) {
-                    tud_task();
-                }
-                if (tud_mounted()) {
-                    tud_hid_keyboard_report(0, 0, empty_keys);
-                }
+                send(0, 0, 0);
             }
 #else
             (void)shift;

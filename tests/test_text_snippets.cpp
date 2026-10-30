@@ -345,6 +345,12 @@ void test_char_to_keystrokes() {
     assert(charToKeyStrokes('b', "fr", s) && s.strokes[0].code == Keys::KEY_B);
     assert(charToKeyStrokes('n', "fr", s) && s.strokes[0].code == Keys::KEY_N);
     assert(charToKeyStrokes(0xE9, "fr", s) && s.count == 1 && s.strokes[0].code == Keys::KEY_2);
+    // es/it: AltGr characters on the keys printed on the keycaps (as on Windows), not on the
+    // AltGr+digit keys that only xkb has
+    assert(charToKeyStrokes('[', "es", s) && s.strokes[0].level3 &&
+           s.strokes[0].code == Keys::KEY_LEFTBRACE);
+    assert(charToKeyStrokes('{', "it", s) && s.strokes[0].level3 && s.strokes[0].shift &&
+           s.strokes[0].code == Keys::KEY_LEFTBRACE);
     // us: no umlauts
     assert(!charToKeyStrokes(0xFC, "us", s));
     assert(charToKeyStrokes('\n', "neo", s) && s.strokes[0].code == Keys::KEY_ENTER);

@@ -200,7 +200,9 @@ A snippet can contain any character that can be typed on your keyboard layout:
 > `de` for German QWERTZ); the default is US QWERTY. A character that isn't on that layout (`ü`
 > with `us`, an emoji) is rejected when the config is loaded. The layouts are the standard xkb
 > layouts: `de` is the default German layout with dead keys (not `nodeadkeys`), `neo` uses the
-> Mod3 key (`#`/`\` key) for level 3.
+> Mod3 key (`#`/`\` key) for level 3. Characters typed with AltGr are placed as on the keycaps
+> (Linux and Windows hosts of an RP2040); a macOS host uses Option with other positions, so on
+> a Mac use only characters that don't need AltGr.
 >
 > On Windows, text is typed as characters (not key presses), so it works with any layout and a
 > snippet may contain any character, e.g. `€`, `ñ` or emoji, whatever `settings.layout` is.

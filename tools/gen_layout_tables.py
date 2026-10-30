@@ -28,6 +28,16 @@ LAYOUTS = [
     ("colemak", "us", "colemak", "KEY_RIGHTALT"),
 ]
 
+# Where xkb has a character on more than one key, the key printed on the keycap (as on
+# Windows and macOS, for the RP2040, which types on any host). xkb es and it also have
+# brackets on AltGr+digits, which only exist on Linux.
+KEYCAP = {
+    "es": {"[": ("LEFTBRACE", 2), "]": ("RIGHTBRACE", 2), "{": ("APOSTROPHE", 2),
+           "}": ("BACKSLASH", 2), "\\": ("GRAVE", 2)},
+    "it": {"[": ("LEFTBRACE", 2), "]": ("RIGHTBRACE", 2), "{": ("LEFTBRACE", 3),
+           "}": ("RIGHTBRACE", 3), "@": ("SEMICOLON", 2), "#": ("APOSTROPHE", 2)},
+}
+
 # evdev key codes of the main key block (digits row to bottom row, space, ISO <> key)
 MAIN_KEYS = list(range(2, 14)) + list(range(16, 28)) + list(range(30, 42)) + \
     list(range(43, 54)) + [57, 86]
@@ -80,8 +90,10 @@ KEY_LEFTSHIFT = 42
 LEVEL3_CODES = {"KEY_RIGHTALT": 100, "KEY_BACKSLASH": 43}
 
 ctx = x.xkb_context_new(0)
-compose = x.xkb_compose_state_new(
-    x.xkb_compose_table_new_from_locale(ctx, b"en_US.UTF-8", 0), 0)
+compose_table = x.xkb_compose_table_new_from_locale(ctx, b"en_US.UTF-8", 0)
+if not compose_table:
+    sys.exit("en_US.UTF-8 Compose table not found (xkb dead keys can't be resolved)")
+compose = x.xkb_compose_state_new(compose_table, 0)
 
 
 def compose_pair(dead, sym):
@@ -190,7 +202,17 @@ def table(name, layout, variant, level3):
     # Keep only what really types the character with the level-3 key used (on us and dvorak,
     # Right Alt is a plain Alt key, so their level-3 characters can't be typed)
     level3_code = LEVEL3_CODES[level3]
-    return {cp: s for cp, (_, s) in chars.items() if typed(km, level3_code, s) == chr(cp)}
+    codes = {v: k for k, v in EVDEV_NAMES.items()}
+    for ch, (key, flags) in KEYCAP.get(name, {}).items():
+        strokes = [(codes[key], flags)]
+        if typed(km, level3_code, strokes) != ch:
+            sys.exit(f"{name}: KEYCAP {ch!r} = {key}/{flags} doesn't type it")
+        chars[ord(ch)] = ((0,), strokes)
+    result = {cp: s for cp, (_, s) in chars.items() if typed(km, level3_code, s) == chr(cp)}
+    missing = [chr(c) for c in range(0x20, 0x7F) if c not in result]
+    if missing:
+        sys.exit(f"{name}: printable ASCII not typeable: {''.join(missing)!r}")
+    return result
 
 
 def main():
