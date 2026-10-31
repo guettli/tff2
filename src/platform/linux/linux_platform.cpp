@@ -343,7 +343,8 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
     if (!file.is_open()) {
         std::cerr << "Error reloading config: failed to open " << config_file << "\n";
         std::cerr << "Keeping current configuration ("
-                  << (engine_ ? engine_->getCombos().size() : 0) << " combo(s) active)\n";
+                  << (engine_ ? comboEntries(engine_->getCombos()).size() : 0)
+                  << " combo(s) active)\n";
         return false;
     }
 
@@ -354,14 +355,15 @@ bool LinuxPlatform::reloadConfiguration(const std::string& config_file) {
     if (!tff::loadYamlConfig(buffer.str(), config, err_msg)) {
         std::cerr << "Error reloading config (" << resolved << "): " << err_msg << "\n";
         std::cerr << "Keeping current configuration ("
-                  << (engine_ ? engine_->getCombos().size() : 0) << " combo(s) active)\n";
+                  << (engine_ ? comboEntries(engine_->getCombos()).size() : 0)
+                  << " combo(s) active)\n";
         return false;
     }
 
     config_file_ = resolved;
     setConfig(config);
     std::cout << "[TFF Config] Successfully reloaded configuration from " << resolved << " ("
-              << config.combos.size() << " combo(s), " << config.tap_hold_keys.size()
+              << comboEntries(config.combos).size() << " combo(s), " << config.tap_hold_keys.size()
               << " tap-hold key(s), " << config.tap_dances.size() << " tap-dance key(s), "
               << config.one_shot_keys.size() << " one-shot key(s), "
               << config.leader.sequences.size() << " leader sequence(s), "
@@ -1023,9 +1025,10 @@ void LinuxPlatform::runMonitor(std::atomic<bool>& should_stop, const tff::Monito
     out << "Ten Flying Fingers (TFF) - Live Event Monitor & Debugger\n"
         << "========================================================\n";
     if (!config_file_.empty()) {
-        out << "Configuration: " << config_file_ << " (" << engine_->getCombos().size()
-            << " combos, " << engine_->getTapHoldKeys().size() << " tap-hold, "
-            << engine_->getLayers().size() << " layers)\n";
+        out << "Configuration: " << config_file_ << " ("
+            << comboEntries(engine_->getCombos()).size() << " combos, "
+            << engine_->getTapHoldKeys().size() << " tap-hold, " << engine_->getLayers().size()
+            << " layers)\n";
     }
     out << "Monitoring " << devices_.size() << " keyboard device(s) ("
         << (grabbed_ ? "exclusive grab" : "snooping mode, non-exclusive") << "):\n";

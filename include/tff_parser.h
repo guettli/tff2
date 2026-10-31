@@ -58,6 +58,15 @@ struct LoadOptions {
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
                     const LoadOptions& options = {});
 
+// A combo as written in the config: `d + f` (any order) is stored as one Combo per key order.
+struct ComboEntry {
+    const Combo* combo;  // the first key order
+    bool any_order;      // every order of its keys is a combo with the same action
+};
+
+// Groups the key orders of `a + b` combos back into one entry (for counts and the cheat sheet)
+std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos);
+
 }  // namespace tff
 
 #endif  // TFF_PARSER_H

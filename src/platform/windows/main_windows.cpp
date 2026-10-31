@@ -122,10 +122,10 @@ int runValidate(const std::string& config_file) {
     if (!loadConfigFile(config_file, config)) {
         return 1;
     }
-    std::cout << "Configuration is valid! Loaded " << config.combos.size() << " combo(s), "
-              << config.tap_hold_keys.size() << " tap-hold key(s), " << config.tap_dances.size()
-              << " tap-dance key(s), " << config.one_shot_keys.size() << " one-shot key(s), "
-              << config.leader.sequences.size() << " leader sequence(s), "
+    std::cout << "Configuration is valid! Loaded " << comboEntries(config.combos).size()
+              << " combo(s), " << config.tap_hold_keys.size() << " tap-hold key(s), "
+              << config.tap_dances.size() << " tap-dance key(s), " << config.one_shot_keys.size()
+              << " one-shot key(s), " << config.leader.sequences.size() << " leader sequence(s), "
               << (config.auto_shift.enabled
                       ? ("auto-shift (" + std::to_string(config.auto_shift.keys.size()) +
                          " keys), ")
@@ -444,8 +444,9 @@ int main(int argc, char* argv[]) {
         std::cout << "Ten Flying Fingers (TFF) - Live Event Monitor & Debugger\n"
                   << "========================================================\n"
                   << "Configuration: " << platform.getConfigFile() << " ("
-                  << engine.getCombos().size() << " combos, " << engine.getTapHoldKeys().size()
-                  << " tap-hold, " << engine.getLayers().size() << " layers)\n"
+                  << comboEntries(engine.getCombos()).size() << " combos, "
+                  << engine.getTapHoldKeys().size() << " tap-hold, " << engine.getLayers().size()
+                  << " layers)\n"
                   << "Observe-only mode: keys are shown but not remapped.\n"
                   << "\nPress keys on your keyboard to monitor events. Press Ctrl+C to exit.\n"
                   << "-----------------------------------------------------------------------"
@@ -454,7 +455,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Ten Flying Fingers (TFF) - Windows Remapper\n"
                   << "==========================================\n"
                   << "Loading configuration: " << platform.getConfigFile() << "\n"
-                  << "Loaded " << engine.getCombos().size() << " combo(s), "
+                  << "Loaded " << comboEntries(engine.getCombos()).size() << " combo(s), "
                   << engine.getTapHoldKeys().size() << " tap-hold key(s), "
                   << engine.getTapDances().size() << " tap-dance key(s), "
                   << engine.getOneShotKeys().size() << " one-shot key(s), "

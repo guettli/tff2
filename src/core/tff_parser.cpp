@@ -5,8 +5,21 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <set>
 
 namespace tff {
+
+// The key orders of an any-order combo (`d + f`) were added from index `first` on: move the order
+// as written to the front (shown by the cheat sheet)
+static void writtenOrderFirst(std::vector<Combo>& combos, size_t first,
+                              const std::vector<KeyCode>& written) {
+    for (size_t i = first; i < combos.size(); ++i) {
+        if (combos[i].keys == written) {
+            std::swap(combos[first], combos[i]);
+            return;
+        }
+    }
+}
 
 namespace {
 
@@ -936,6 +949,47 @@ std::string normalizeShortCsv(const std::string& input) {
     return res;
 }
 
+std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos) {
+    auto sameExceptOrder = [](const Combo& a, const Combo& b) {
+        if (a.keys.size() != b.keys.size() ||
+            !std::is_permutation(a.keys.begin(), a.keys.end(), b.keys.begin())) {
+            return false;
+        }
+        Combo reordered = a;
+        reordered.keys = b.keys;
+        return reordered == b;
+    };
+    std::vector<ComboEntry> entries;
+    std::vector<bool> grouped(combos.size(), false);
+    for (size_t i = 0; i < combos.size(); ++i) {
+        if (grouped[i]) {
+            continue;
+        }
+        std::vector<size_t> group = {i};
+        for (size_t j = i + 1; j < combos.size(); ++j) {
+            if (!grouped[j] && sameExceptOrder(combos[i], combos[j])) {
+                group.push_back(j);
+            }
+        }
+        size_t orders = 1;
+        for (size_t n = 2; n <= combos[i].keys.size(); ++n) {
+            orders *= n;
+        }
+        std::set<std::vector<KeyCode>> distinct;
+        for (size_t j : group) {
+            distinct.insert(combos[j].keys);
+        }
+        const bool any_order = combos[i].keys.size() > 1 && distinct.size() == orders;
+        if (any_order) {
+            for (size_t j : group) {
+                grouped[j] = true;
+            }
+        }
+        entries.push_back({&combos[i], any_order});
+    }
+    return entries;
+}
+
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
                     const LoadOptions& options) {
     config = Config{};
@@ -1697,6 +1751,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                             }
                         }
                     }
+                    const size_t first_order = config.combos.size();
                     std::vector<KeyCode> perm = chord_codes;
                     std::sort(perm.begin(), perm.end());
                     do {
@@ -1715,6 +1770,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         }
                         config.combos.push_back(c);
                     } while (std::next_permutation(perm.begin(), perm.end()));
+                    writtenOrderFirst(config.combos, first_order, chord_codes);
                 } else {
                     Combo c;
                     c.keys = chord_codes;
@@ -2784,6 +2840,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         }
                     }
                 }
+                const size_t first_order = config.combos.size();
                 std::vector<KeyCode> perm = chord_codes;
                 std::sort(perm.begin(), perm.end());
                 do {
@@ -2802,6 +2859,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                     config.combos.push_back(c);
                 } while (std::next_permutation(perm.begin(), perm.end()));
+                writtenOrderFirst(config.combos, first_order, chord_codes);
             } else {
                 Combo c;
                 c.keys = chord_codes;
@@ -3014,6 +3072,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         }
                     }
                 }
+                const size_t first_order = config.combos.size();
                 std::vector<KeyCode> perm = chord_codes;
                 std::sort(perm.begin(), perm.end());
                 do {
@@ -3033,6 +3092,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                     config.combos.push_back(c);
                 } while (std::next_permutation(perm.begin(), perm.end()));
+                std::vector<KeyCode> written = leader_codes;
+                written.insert(written.end(), chord_codes.begin(), chord_codes.end());
+                writtenOrderFirst(config.combos, first_order, written);
             } else {
                 Combo c;
                 c.keys = leader_codes;

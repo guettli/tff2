@@ -1,5 +1,6 @@
 #include "tff_cheatsheet.h"
 #include "tff_key_codes.h"
+#include "tff_parser.h"
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
@@ -178,6 +179,22 @@ std::string Cheatsheet::formatKeys(const std::vector<KeyCode>& keys) {
     return out;
 }
 
+namespace {
+
+/// `d + f` for a combo in any order, `d f` for one in this order
+std::string formatComboKeys(const ComboEntry& entry) {
+    if (!entry.any_order) {
+        return Cheatsheet::formatKeys(entry.combo->keys);
+    }
+    std::string out;
+    for (KeyCode key : entry.combo->keys) {
+        out += (out.empty() ? "" : " + ") + Cheatsheet::formatKey(key);
+    }
+    return out;
+}
+
+}  // namespace
+
 std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& opts) {
     std::ostringstream ss;
     bool col = opts.color && !opts.markdown;
@@ -257,8 +274,9 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             ss << "## Home Row Combos & Chords\n\n"
                << "| Input Keys | Output Action | Type |\n"
                << "|:---|:---|:---|\n";
-            for (const auto& c : config.combos) {
-                std::string in_keys = formatKeys(c.keys);
+            for (const auto& entry : comboEntries(config.combos)) {
+                const Combo& c = *entry.combo;
+                std::string in_keys = formatComboKeys(entry);
                 std::string out_act =
                     formatOutputAction(c.out_keys, c.text, c.toggle_layer, c.mouse);
                 std::string type =
@@ -520,16 +538,17 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
 
     // 2. Combos
     if (!config.combos.empty()) {
-        ss << bold(blue("[ Combos & Chords ] (" + std::to_string(config.combos.size()) + " active)",
-                        col),
+        const std::vector<ComboEntry> entries = comboEntries(config.combos);
+        ss << bold(blue("[ Combos & Chords ] (" + std::to_string(entries.size()) + " active)", col),
                    col)
            << "\n\n";
         printRow(ss, "  ", {{"Input Keys", 24}, {"Output Action", 34}, {"Type", 14}},
                  {bold("Input Keys", col), bold("Output Action", col), bold("Type", col)});
         ss << "  " << dim(std::string(72, '-'), col) << "\n";
 
-        for (const auto& c : config.combos) {
-            std::string plain_in = formatKeys(c.keys);
+        for (const auto& entry : entries) {
+            const Combo& c = *entry.combo;
+            std::string plain_in = formatComboKeys(entry);
             std::string plain_out = formatOutputAction(c.out_keys, c.text, c.toggle_layer, c.mouse);
             std::string type_plain =
                 (c.mouse.type != MouseActionType::None)

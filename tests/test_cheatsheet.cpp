@@ -300,6 +300,40 @@ static void test_settings_cheatsheet() {
     std::cout << "test_settings_cheatsheet: PASSED\n";
 }
 
+void test_any_order_combos() {
+    Config config;
+    std::string err;
+    assert(
+        loadYamlConfig("combos:\n  j + k: tab\n  a + s + d: esc\n  f j: delete\n"
+                       "  j f: delete\n  d f: \"x\"\n",
+                       config, err));
+    assert(config.combos.size() == 11);  // 2 + 6 orders, f j, j f, d f
+    const std::vector<ComboEntry> entries = comboEntries(config.combos);
+    assert(entries.size() == 4);  // f j and j f with the same action are j + f
+    assert(entries[0].any_order && entries[1].any_order && entries[2].any_order);
+    assert(!entries[3].any_order);
+
+    CheatsheetOptions opts;
+    opts.color = false;
+    std::string out = Cheatsheet::generate(config, opts);
+    assert(out.find("[ Combos & Chords ] (4 active)") != std::string::npos);
+    assert(out.find("j + k") != std::string::npos);
+    assert(out.find("k j") == std::string::npos);
+    assert(out.find("a + s + d") != std::string::npos);
+    opts.markdown = true;
+    assert(Cheatsheet::generate(config, opts).find("j + k") != std::string::npos);
+
+    // shown as written; an order also written on its own is still one combo
+    assert(loadYamlConfig("combos:\n  k + j + a: esc\n  d + f: tab\n  f d: tab\n", config, err));
+    assert(comboEntries(config.combos).size() == 2);
+    opts.markdown = false;
+    out = Cheatsheet::generate(config, opts);
+    assert(out.find("k + j + a") != std::string::npos);
+    assert(out.find("d + f") != std::string::npos);
+    assert(out.find("f d") == std::string::npos);
+    std::cout << "test_any_order_combos: PASSED\n";
+}
+
 int main() {
     std::cout << "Running Cheatsheet Visualizer tests...\n";
     test_empty_config();
@@ -309,6 +343,7 @@ int main() {
     test_helpers();
     test_toggle_layer_cheatsheet();
     test_settings_cheatsheet();
-    std::cout << "All 7 Cheatsheet tests passed successfully!\n";
+    test_any_order_combos();
+    std::cout << "All 8 Cheatsheet tests passed successfully!\n";
     return 0;
 }
