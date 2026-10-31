@@ -2115,6 +2115,22 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
         curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
     };
     const KeyCode level3_key = layoutLevel3Key(settings_.layout);
+    // A Shift or AltGr that is down (held physically or by a key mapping) would change the typed
+    // characters: release it for the text and press it again afterwards.
+    std::vector<std::pair<KeyCode, int>> lifted;
+    for (KeyCode key :
+         {Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT, Keys::KEY_RIGHTALT, level3_key}) {
+        auto it = output_press_count_.find(key);
+        if (it == output_press_count_.end() || it->second <= 0 ||
+            std::any_of(lifted.begin(), lifted.end(),
+                        [key](const std::pair<KeyCode, int>& l) { return l.first == key; })) {
+            continue;
+        }
+        lifted.emplace_back(key, it->second);
+        output_press_count_.erase(it);
+        writeKeyEvent(Event{curr_time, EV_KEY, key, KEY_VAL_UP}, "TextSnippet");
+        curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
+    }
     size_t pos = 0;
     while (pos < text.size()) {
         uint32_t code_point = 0;
@@ -2143,6 +2159,11 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
                 write(Keys::KEY_LEFTSHIFT, KEY_VAL_UP);
             }
         }
+    }
+    for (const auto& l : lifted) {
+        writeKeyEvent(Event{curr_time, EV_KEY, l.first, KEY_VAL_DOWN}, "TextSnippet");
+        output_press_count_[l.first] = l.second;
+        curr_time = TimeVal::fromMicros(curr_time.toMicros() + 100);
     }
 }
 
