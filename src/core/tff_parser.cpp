@@ -1147,7 +1147,6 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                                             "one_shot", "leader",   "auto_shift",
                                             "mouse",    "settings", "tap_dance"};
     size_t doc_indent = std::string::npos;
-    std::set<std::string> seen_sections;
     std::set<std::string> seen_settings;
     size_t settings_child_indent = std::string::npos;
     while (std::getline(iss, line)) {
@@ -1158,24 +1157,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
 
         size_t current_indent = line.find_first_not_of(" \t");
-        // Sections start at the indentation of the first line (a layer or key may have the
-        // same name)
-        if (doc_indent == std::string::npos)
-            doc_indent = current_indent;
-        const bool top_level = current_indent <= doc_indent;
-        if (top_level && (t == "---" || t == "...")) {
+        if (t == "---" || t == "...") {
             continue;  // YAML document markers
         }
-        if (top_level) {
-            const std::string name = trim(t.substr(0, t.find(':')));
-            if (t.find(':') != std::string::npos &&
-                std::find(std::begin(kSections), std::end(kSections), name) !=
-                    std::end(kSections) &&
-                !seen_sections.insert(name).second) {
-                err_msg = "section '" + name + "' appears twice";
-                return false;
-            }
-        }
+        // Sections start at the indentation of the first line (a layer or key may have the
+        // same name)
+        doc_indent = std::min(doc_indent, current_indent);
+        const bool top_level = current_indent == doc_indent;
 
         if (top_level && t.rfind("combos:", 0) == 0) {
             if (!flush_pending_th())

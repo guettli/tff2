@@ -713,8 +713,6 @@ layers:
         assert(err_msg.find("must be indented") != std::string::npos);
         assert(!tff::loadYamlConfig("# keys\n  d f: esc\n", cfg, err_msg));
         assert(err_msg.find("must be indented") != std::string::npos);
-        assert(!tff::loadYamlConfig("  combos:\n    d f: esc\nx y: tab\n", cfg, err_msg));
-        assert(err_msg.find("must be indented") != std::string::npos);
         // a document that is indented as a whole, or starts with a byte order mark
         assert(tff::loadYamlConfig("  combos:\n    d f: esc\n  settings:\n    layout: de\n", cfg,
                                    err_msg));
@@ -728,9 +726,12 @@ layers:
         assert(!tff::loadYamlConfig("combos:\n  d f: esc\n\"settings\":\n  layout: de\n", cfg,
                                     err_msg));
         assert(err_msg.find("without quotes: settings:") != std::string::npos);
-        // a section or setting twice
-        assert(!tff::loadYamlConfig("combos:\n  d f: esc\ncombos:\n  j k: tab\n", cfg, err_msg));
-        assert(err_msg.find("section 'combos' appears twice") != std::string::npos);
+        assert(tff::loadYamlConfig("  combos:\n    d f: esc\nsettings:\n  layout: de\n", cfg,
+                                   err_msg));
+        assert(cfg.settings.layout == "de");
+        // a section may be split, a setting may not be set twice
+        assert(tff::loadYamlConfig("combos:\n  d f: esc\ncombos:\n  j k: tab\n", cfg, err_msg));
+        assert(cfg.combos.size() == 2);
         assert(!tff::loadYamlConfig(
             "combos:\n  d f: esc\nsettings:\n  combo_timeout_ms: 30\n  combo_timeout_ms: 60\n", cfg,
             err_msg));

@@ -13,7 +13,7 @@ The configuration file contains a list of combos under the `combos:` root key.
 The sections are `combos:`, `tap_hold:`, `layers:`, `one_shot:`, `tap_dance:`, `leader:`,
 `auto_shift:`, `mouse:` and `settings:`. They start at the beginning of a line; everything in
 them is indented. TFF rejects a file with an unknown (e.g. misspelled) section, a line outside
-of a section, a section or setting written twice, the same `tap_hold` key twice, or the same
+of a section, a setting written twice, the same `tap_hold` key twice, or the same
 combo keys twice with different actions (in the same layer). Note that `d + f` covers both
 orders, so `d + f` and `f d` with different actions is a duplicate too.
 
