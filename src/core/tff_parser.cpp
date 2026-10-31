@@ -1027,13 +1027,12 @@ struct ComboTiming {
     int64_t gap_us = 0;
 };
 
-// std::stoi, but "2s" or "150.9" is an error instead of 2 or 150
-static int stoiWhole(const std::string& v) {
-    size_t used = 0;
-    const int val = std::stoi(v, &used);
-    if (used != v.size())
+// Milliseconds of a settings value: 200, 200ms, 0.2s ("2s" used to be read as 2)
+static int settingMs(const std::string& v) {
+    int64_t us = 0;
+    if (!parseDurationMicros(v, us) || us > 1000000000LL)
         throw std::invalid_argument(v);
-    return val;
+    return static_cast<int>(us / 1000);
 }
 
 static bool isComboTiming(const std::string& name) {
@@ -1643,7 +1642,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 k == "combo_window_ms" || k == "combo_gap_ms") {
                 const std::string name = k == "combo_gap_ms" ? k : "combo_overlap_ms";
                 try {
-                    int val = stoiWhole(v);
+                    int val = settingMs(v);
                     if (val < 1 || val > 5000) {
                         err_msg = name + " must be between 1 and 5000";
                         return false;
@@ -1656,7 +1655,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 }
             } else if (k == "tap_hold_timeout_ms" || k == "tap_hold_timeout") {
                 try {
-                    int val = stoiWhole(v);
+                    int val = settingMs(v);
                     if (val < 1 || val > 10000) {
                         err_msg = "tap_hold_timeout_ms must be between 1 and 10000";
                         return false;
@@ -1725,7 +1724,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             std::string v = trim(t.substr(colon + 1));
             if (k == "speed" || k == "move_speed" || k == "mouse_speed") {
                 try {
-                    int spd = stoiWhole(v);
+                    int spd = std::stoi(v);
                     if (spd < 1 || spd > 1000) {
                         err_msg = "mouse speed must be between 1 and 1000";
                         return false;
@@ -1737,7 +1736,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 }
             } else if (k == "wheel_step" || k == "wheel_speed" || k == "scroll_step") {
                 try {
-                    int ws = stoiWhole(v);
+                    int ws = std::stoi(v);
                     if (ws < 1 || ws > 100) {
                         err_msg = "mouse wheel_step must be between 1 and 100";
                         return false;

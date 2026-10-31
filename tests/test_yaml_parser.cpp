@@ -785,9 +785,15 @@ layers:
             "combos:\n  - keys: [a, s]\n    gap_ms: 250\n    out: esc\n    gap_ms: 260\n", cfg,
             err_msg));
         assert(err_msg.find("line 5: combo gap_ms is set twice") != std::string::npos);
-        assert(!tff::loadYamlConfig("combos:\n  d f: esc\nsettings:\n  combo_overlap_ms: 2s\n", cfg,
+        assert(
+            tff::loadYamlConfig("combos:\n  d f: esc\nsettings:\n  combo_overlap_ms: 0.05s\n"
+                                "  combo_gap_ms: 200ms\n  tap_hold_timeout_ms: 180.0\n",
+                                cfg, err_msg));
+        assert(cfg.settings.combo_overlap_ms == 50 && cfg.settings.combo_gap_ms == 200 &&
+               cfg.settings.tap_hold_timeout_ms == 180);
+        assert(!tff::loadYamlConfig("combos:\n  d f: esc\nsettings:\n  combo_gap_ms: 6s\n", cfg,
                                     err_msg));
-        assert(err_msg.find("invalid integer for combo_overlap_ms: 2s") != std::string::npos);
+        assert(err_msg.find("combo_gap_ms must be between 1 and 5000") != std::string::npos);
         assert(!tff::loadYamlConfig("combos:\n  d f: { out: esc, gap_ms: 6000 }\n", cfg, err_msg));
         assert(err_msg.find("exceeds the maximum") != std::string::npos);
         // layer: and timeout_ms: after action: belong to that entry only

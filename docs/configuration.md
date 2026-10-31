@@ -108,8 +108,10 @@ A combo triggers when both are true:
 
 Both can be set for one combo with `overlap_ms` and `gap_ms` (a number of milliseconds, or a
 duration like `80ms`). For a combo that is hard to press at once (such as `d + f + j`, or a
-stretch), give it a larger `gap_ms`. A larger `overlap_ms` makes a combo harder to trigger by
-accident while typing fast. `timeout_ms` and `timeout` are old names of `overlap_ms`.
+stretch), give it a larger `gap_ms`. That doesn't help while a smaller combo with some of its
+keys is complete: with `f j` and `d + f + j`, holding `f` and `j` for 140ms triggers `f j`
+before a late `d` arrives. A larger `overlap_ms` makes a combo harder to trigger by accident
+while typing fast. `timeout_ms` and `timeout` are old names of `overlap_ms`.
 
 ```yaml
 combos:
