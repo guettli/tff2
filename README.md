@@ -325,6 +325,17 @@ Cppcheck static analysis, and CLI smoke tests:
 ./scripts/check.sh --all       # Runs everything including ASan/UBSan, coverage, and RP2040
 ```
 
+### Linux End-to-End Test
+
+Runs the real `tff_linux` on a virtual keyboard (uinput) and decodes its output with xkbcommon,
+for several host layouts (snippets, combo timing, tap-hold, layers, one-shot, leader, tap dance):
+
+```bash
+sudo python3 tests/linux/e2e.py build/tff_linux
+```
+
+The cases are in `tests/linux/e2e_cases.py`. CI runs it on every push.
+
 ### Automated Hardware Testing (USB-OTG Loop)
 
 End-to-end hardware testing can be run using any Linux device equipped with a USB-OTG port (such as
