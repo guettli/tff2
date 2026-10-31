@@ -59,11 +59,13 @@ const wchar_t kOsdClass[] = L"TffOsdWindow";
 
 /// Existence, size and write time of an executable file, to notice an update or uninstall.
 struct ExeFile {
+    bool readable = true;  ///< false: the file couldn't be checked (e.g. network share offline)
     bool exists = false;
     ULONGLONG size = 0;
     ULONGLONG write_time = 0;
     bool operator==(const ExeFile& o) const {
-        return exists == o.exists && size == o.size && write_time == o.write_time;
+        return readable == o.readable && exists == o.exists && size == o.size &&
+               write_time == o.write_time;
     }
 };
 
@@ -75,6 +77,9 @@ ExeFile exeFile(const std::wstring& path) {
         f.size = (static_cast<ULONGLONG>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
         f.write_time = (static_cast<ULONGLONG>(data.ftLastWriteTime.dwHighDateTime) << 32) |
                        data.ftLastWriteTime.dwLowDateTime;
+    } else {
+        const DWORD err = GetLastError();
+        f.readable = err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND;
     }
     return f;
 }
@@ -470,13 +475,32 @@ void showMenu(HWND hwnd) {
     }
 }
 
+/// True if the command line has this argument
+bool hasArg(const wchar_t* wanted) {
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    bool found = false;
+    for (int i = 1; argv != nullptr && i < argc; ++i) {
+        found = found || wcscmp(argv[i], wanted) == 0;
+    }
+    LocalFree(argv);
+    return found;
+}
+
 /// An installer replaces or removes tffw.exe while it runs (Windows lets it rename the running
 /// file), so this process would go on running the old version. Once the file has stayed
 /// unchanged for a few seconds: start the new version (same elevation) or, if it was
 /// uninstalled, exit.
 void checkExeUpdated(HWND hwnd) {
     const ExeFile now = exeFile(g_app.exe_path);
-    if (now == g_app.exe_started) {
+    if (now == g_app.exe_started || !now.readable) {
+        g_app.exe_seen = g_app.exe_started;
+        g_app.exe_stable_checks = 0;
+        return;
+    }
+    // An MSI installation is running (it may still write files or roll back)
+    if (HANDLE msi = OpenMutexW(SYNCHRONIZE, FALSE, L"Global\\_MSIExecute")) {
+        CloseHandle(msi);
         g_app.exe_stable_checks = 0;
         return;
     }
@@ -488,11 +512,17 @@ void checkExeUpdated(HWND hwnd) {
     if (++g_app.exe_stable_checks < kExeStableChecks) {
         return;
     }
+    const std::string exe = tff::win::narrow(g_app.exe_path);
     if (!now.exists) {
-        logLine("[TFF] " + tff::win::narrow(g_app.exe_path) + " was removed: exiting");
+        logLine("[TFF] " + exe + " was removed: exiting");
+    } else if (tff::win::isElevated() && !tff::win::isInProgramFiles(g_app.exe_path)) {
+        // Anyone could have put that file there: don't start it with administrator rights.
+        logLine("[TFF] " + exe + " was replaced: restart TFF to use the new version");
+        g_app.exe_started = g_app.exe_seen = now;
+        return;
     } else {
         std::wstring cmd = GetCommandLineW();
-        if (cmd.find(kAfterUpdateArg) == std::wstring::npos) {
+        if (!hasArg(kAfterUpdateArg)) {
             cmd += L" ";
             cmd += kAfterUpdateArg;
         }
@@ -501,15 +531,14 @@ void checkExeUpdated(HWND hwnd) {
         PROCESS_INFORMATION pi{};
         if (!CreateProcessW(g_app.exe_path.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr,
                             nullptr, &si, &pi)) {
-            logLine("[TFF] " + tff::win::narrow(g_app.exe_path) +
-                    " was updated, starting it failed (error " + std::to_string(GetLastError()) +
-                    "): this version keeps running");
+            logLine("[TFF] " + exe + " was updated, starting it failed (error " +
+                    std::to_string(GetLastError()) + "): this version keeps running");
             g_app.exe_started = now;
             return;
         }
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
-        logLine("[TFF] " + tff::win::narrow(g_app.exe_path) + " was updated: started it, exiting");
+        logLine("[TFF] " + exe + " was updated: started it, exiting");
     }
     KillTimer(hwnd, kExeCheckTimer);
     stopEngine();
@@ -619,7 +648,8 @@ std::string configFromCommandLine() {
     std::string config;
     for (int i = 1; argv != nullptr && i < argc; ++i) {
         const std::wstring arg = argv[i];
-        if ((arg == L"-c" || arg == L"--config") && i + 1 < argc) {
+        if ((arg == L"-c" || arg == L"--config") && i + 1 < argc &&
+            kAfterUpdateArg != std::wstring(argv[i + 1])) {
             config = tff::win::narrow(argv[++i]);
         } else if (arg.size() > 5 && arg.find(L".yaml") != std::wstring::npos) {
             config = tff::win::narrow(arg);
@@ -659,7 +689,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     bool already_running = false;
     HANDLE mutex = tff::win::acquireInstanceMutex(already_running);
     // Started by the previous version after an update: wait for it to exit.
-    for (int i = 0; already_running && i < 50 && wcsstr(GetCommandLineW(), kAfterUpdateArg); ++i) {
+    for (int i = 0; already_running && i < 50 && hasArg(kAfterUpdateArg); ++i) {
         if (mutex != nullptr) {
             CloseHandle(mutex);
         }

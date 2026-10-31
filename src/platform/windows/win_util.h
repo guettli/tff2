@@ -18,6 +18,8 @@ std::string narrow(const std::wstring& wide);
 
 /// Directory containing the running executable.
 std::string exeDir();
+/// True if path is inside %ProgramFiles% (only administrators can change files there).
+bool isInProgramFiles(const std::wstring& path);
 /// %APPDATA%\tff (roaming user configuration).
 std::string userConfigDir();
 /// %APPDATA%\tff\tff-combos.yaml

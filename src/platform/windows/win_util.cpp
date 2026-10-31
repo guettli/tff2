@@ -305,6 +305,15 @@ void AsyncLog::loop() {
     }
 }
 
+bool isInProgramFiles(const std::wstring& path) {
+    std::wstring dir = widen(knownFolder(FOLDERID_ProgramFiles));
+    if (dir.empty() || path.size() <= dir.size() + 1 || path[dir.size()] != L'\\') {
+        return false;
+    }
+    return CompareStringOrdinal(path.c_str(), static_cast<int>(dir.size()), dir.c_str(),
+                                static_cast<int>(dir.size()), TRUE) == CSTR_EQUAL;
+}
+
 bool isElevated() {
     HANDLE token = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {

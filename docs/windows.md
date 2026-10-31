@@ -24,6 +24,8 @@ Download from [GitHub Releases](https://github.com/guettli/tff2/releases):
 To update, install the new MSI; TFF can keep running. The running `tffw.exe` notices within a
 few seconds that its program file was replaced and starts the new version (with the same
 rights, e.g. elevated). When TFF is uninstalled, it exits. To update the ZIP, quit TFF first.
+(An elevated TFF restarts by itself only from `C:\Program Files`, where only administrators can
+replace files.)
 
 The programs are not code-signed yet, so Windows SmartScreen may warn on first start ("More
 info" → "Run anyway"). Some antivirus products are suspicious of any program that hooks the
