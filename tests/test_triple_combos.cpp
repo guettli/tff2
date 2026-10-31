@@ -466,6 +466,18 @@ void test_combo_overlap_and_gap() {
     runTimed("combos:\n  a + s: { out: esc, gap_ms: 250 }\n", "a_ 200 s_ 50 a/ 20 s/", esc,
              "per-combo gap_ms");
 
+    runTimed("combos:\n  a + s: { out: esc, gap_ms: 50 }\n", "a_ 100 s_ 50 a/ 20 s/", raw,
+             "per-combo gap_ms below the default");
+    runTimed(combo + "  a + d: { out: f1, gap_ms: 300 }\n", "a_ 200 s_ 50 a/ 20 s/", raw,
+             "another combo's longer gap_ms doesn't apply");
+    runTimed("settings:\n  combo_overlap_ms: 200\n" + combo, "a_ 180 s_ 250 a/ 20 s/", raw,
+             "a longer overlap doesn't lengthen the gap");
+    // Held keys trigger after 140ms even with a long gap; a key tapped meanwhile comes with it
+    runTimed("settings:\n  combo_gap_ms: 400\n" + combo, "a_ 20 s_ 200 d_ 10 d/ 50 a/ s/",
+             "ESC-down\nD-down\nD-up\nESC-up\n", "held combo with a long gap");
+    runTimed(combo + "  a + s + d: { out: f1, gap_ms: 300 }\n", "a_ 20 s_ 200 x_ x/ 50 a/ s/",
+             "ESC-down\nX-down\nX-up\nESC-up\n", "longer combo's gap doesn't delay a held combo");
+
     // A per-combo timeout_ms (= overlap_ms) used to shrink the gap to the same value
     runTimed("combos:\n  a + s: { out: esc, timeout_ms: 80 }\n", "a_ 120 s_ 90 a/ 20 s/", esc,
              "timeout_ms 80 keeps the 150ms gap");

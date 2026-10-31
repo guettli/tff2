@@ -303,6 +303,7 @@ private:
     std::string tooYoung(const Combo& combo, const Event& last_down, TimeVal curr_time);
     int64_t comboOverlapUs(const Combo& combo) const;
     int64_t comboGapUs(const Combo& combo) const;
+    TimeVal nextComboDeadline(const Event& last_down, TimeVal after) const;
 
     void writeComboDownKeys(const Combo& combo);
     void writeComboUpKeys(const Combo& combo);

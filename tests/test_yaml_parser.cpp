@@ -693,7 +693,8 @@ layers:
         // Validation: timeout > 5000ms
         std::string big_yaml = "combos:\n  - keys: a + s\n    outKeys: esc\n    timeout_ms: 6000\n";
         assert(!tff::loadYamlConfig(big_yaml, cfg, err_msg));
-        assert(err_msg.find("combo timeout exceeds maximum") != std::string::npos);
+        assert(err_msg.find("line 4: combo timeout_ms 6000 exceeds the maximum of 5000 ms") !=
+               std::string::npos);
 
         std::cout << "✓ Test 16 passed: per-combo custom timeout parsing and validation\n";
     }
@@ -780,8 +781,15 @@ layers:
         assert(!tff::loadYamlConfig(
             "combos:\n  d f: { out: esc, overlap_ms: 60, timeout_ms: 50 }\n", cfg, err_msg));
         assert(err_msg.find("combo overlap_ms is set twice") != std::string::npos);
+        assert(!tff::loadYamlConfig(
+            "combos:\n  - keys: [a, s]\n    gap_ms: 250\n    out: esc\n    gap_ms: 260\n", cfg,
+            err_msg));
+        assert(err_msg.find("line 5: combo gap_ms is set twice") != std::string::npos);
+        assert(!tff::loadYamlConfig("combos:\n  d f: esc\nsettings:\n  combo_overlap_ms: 2s\n", cfg,
+                                    err_msg));
+        assert(err_msg.find("invalid integer for combo_overlap_ms: 2s") != std::string::npos);
         assert(!tff::loadYamlConfig("combos:\n  d f: { out: esc, gap_ms: 6000 }\n", cfg, err_msg));
-        assert(err_msg.find("exceeds maximum") != std::string::npos);
+        assert(err_msg.find("exceeds the maximum") != std::string::npos);
         // layer: and timeout_ms: after action: belong to that entry only
         assert(
             tff::loadYamlConfig("combos:\n  - keys: [f, j]\n    action: esc\n"

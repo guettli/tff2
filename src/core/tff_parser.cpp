@@ -1027,6 +1027,15 @@ struct ComboTiming {
     int64_t gap_us = 0;
 };
 
+// std::stoi, but "2s" or "150.9" is an error instead of 2 or 150
+static int stoiWhole(const std::string& v) {
+    size_t used = 0;
+    const int val = std::stoi(v, &used);
+    if (used != v.size())
+        throw std::invalid_argument(v);
+    return val;
+}
+
 static bool isComboTiming(const std::string& name) {
     return name == "overlap_ms" || name == "timeout_ms" || name == "timeout" || name == "gap_ms";
 }
@@ -1038,6 +1047,10 @@ static bool parseComboTiming(const std::string& name, const std::string& value, 
     int64_t us = 0;
     if (!parseDurationMicros(value, us) || us <= 0) {
         err_msg = "invalid timeout value in combo: " + name + ": " + value;
+        return false;
+    }
+    if (us > 5000000) {
+        err_msg = "combo " + name + " " + value + " exceeds the maximum of 5000 ms";
         return false;
     }
     if (target != 0) {
@@ -1630,7 +1643,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 k == "combo_window_ms" || k == "combo_gap_ms") {
                 const std::string name = k == "combo_gap_ms" ? k : "combo_overlap_ms";
                 try {
-                    int val = std::stoi(v);
+                    int val = stoiWhole(v);
                     if (val < 1 || val > 5000) {
                         err_msg = name + " must be between 1 and 5000";
                         return false;
@@ -1643,7 +1656,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 }
             } else if (k == "tap_hold_timeout_ms" || k == "tap_hold_timeout") {
                 try {
-                    int val = std::stoi(v);
+                    int val = stoiWhole(v);
                     if (val < 1 || val > 10000) {
                         err_msg = "tap_hold_timeout_ms must be between 1 and 10000";
                         return false;
@@ -1712,7 +1725,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             std::string v = trim(t.substr(colon + 1));
             if (k == "speed" || k == "move_speed" || k == "mouse_speed") {
                 try {
-                    int spd = std::stoi(v);
+                    int spd = stoiWhole(v);
                     if (spd < 1 || spd > 1000) {
                         err_msg = "mouse speed must be between 1 and 1000";
                         return false;
@@ -1724,7 +1737,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 }
             } else if (k == "wheel_step" || k == "wheel_speed" || k == "scroll_step") {
                 try {
-                    int ws = std::stoi(v);
+                    int ws = stoiWhole(v);
                     if (ws < 1 || ws > 100) {
                         err_msg = "mouse wheel_step must be between 1 and 100";
                         return false;
@@ -2815,10 +2828,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 return false;
             if (current_keys.empty() && entry_end_combo == config.combos.size()) {
                 for (size_t i = entry_first_combo; i < entry_end_combo; ++i) {
-                    if (config.combos[i].overlap_us == 0)
-                        config.combos[i].overlap_us = current_combo_timing.overlap_us;
-                    if (config.combos[i].gap_us == 0)
-                        config.combos[i].gap_us = current_combo_timing.gap_us;
+                    setTiming(config.combos[i], current_combo_timing);
                 }
             }
             continue;
@@ -2991,7 +3001,6 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             current_text.clear();
             current_toggle_layer.clear();
             current_combo_layer.clear();
-            current_combo_timing = ComboTiming{};
             current_mouse = MouseAction{};
             has_text = false;
             has_toggle_layer = false;
@@ -3295,10 +3304,6 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
     }
 
     for (const auto& combo : config.combos) {
-        if (combo.overlap_us > 5000000LL || combo.gap_us > 5000000LL) {
-            err_msg = "combo timeout exceeds maximum allowed 5000ms";
-            return false;
-        }
         if (!combo.toggle_layer.empty()) {
             bool found_layer = false;
             for (const auto& lyr : config.layers) {

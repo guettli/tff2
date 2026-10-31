@@ -520,7 +520,9 @@ void test_FJX_emits_f_but_should_not() {
     bool ok = parseComboLog(file, events, err);
     assert(ok);
 
-    std::vector<Combo> combos = {{{Keys::KEY_F, Keys::KEY_J}, {Keys::KEY_X}}};
+    // J comes 352 ms after F: allow a longer gap than the default
+    std::vector<Combo> combos = {
+        Combo({Keys::KEY_F, Keys::KEY_J}, {Keys::KEY_X}, "", "", {}, "", 0, 1000000)};
 
     SliceWriter writer;
     TFFEngine engine(&writer, combos);

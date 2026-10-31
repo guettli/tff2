@@ -100,7 +100,7 @@ combos:
 #### 3. Combo Timing (`overlap_ms`, `gap_ms`)
 A combo triggers when both are true:
 
-- **Gap**: each key comes at most `combo_gap_ms` (default: 150ms) after the previous one.
+- **Gap**: each key comes less than `combo_gap_ms` (default: 150ms) after the previous one.
 - **Overlap**: all keys are held together for at least `combo_overlap_ms` (default: 40ms). Keys
   that are released sooner, e.g. `d` and `f` while typing "df" fast, are typed normally. Keys
   still held after 140ms (or `combo_overlap_ms`, if that's longer) trigger the combo without
