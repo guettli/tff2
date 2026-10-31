@@ -2118,12 +2118,9 @@ void TFFEngine::emitText(const std::string& text, TimeVal base_time) {
     // A Shift or AltGr that is down (held physically or by a key mapping) would change the typed
     // characters: release it for the text and press it again afterwards.
     std::vector<std::pair<KeyCode, int>> lifted;
-    for (KeyCode key :
-         {Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT, Keys::KEY_RIGHTALT, level3_key}) {
+    for (KeyCode key : layoutCharModifierKeys(settings_.layout)) {
         auto it = output_press_count_.find(key);
-        if (it == output_press_count_.end() || it->second <= 0 ||
-            std::any_of(lifted.begin(), lifted.end(),
-                        [key](const std::pair<KeyCode, int>& l) { return l.first == key; })) {
+        if (it == output_press_count_.end() || it->second <= 0) {
             continue;
         }
         lifted.emplace_back(key, it->second);

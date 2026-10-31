@@ -866,6 +866,23 @@ KeyCode layoutLevel3Key(const std::string& layout) {
     return findLayoutTable(layout).level3_key;
 }
 
+std::vector<KeyCode> layoutCharModifierKeys(const std::string& layout) {
+    std::vector<KeyCode> keys = {Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT};
+    const LayoutTable& table = findLayoutTable(layout);
+    if (table.level3_key == Keys::KEY_BACKSLASH) {
+        // Neo: Mod3 on CapsLock and #, Mod4 on <> and AltGr
+        keys.insert(keys.end(),
+                    {Keys::KEY_CAPSLOCK, Keys::KEY_BACKSLASH, Keys::KEY_102ND, Keys::KEY_RIGHTALT});
+        return keys;
+    }
+    // On us and dvorak, Right Alt is plain Alt (releasing it would look like a lone Alt tap)
+    if (std::any_of(table.chars, table.chars + table.size,
+                    [](const LayoutChar& c) { return (c.flags & 2) || (c.dead_flags & 2); })) {
+        keys.push_back(table.level3_key);
+    }
+    return keys;
+}
+
 bool decodeUtf8(const std::string& text, size_t& pos, uint32_t& code_point) {
     auto byte = [&](size_t i) { return static_cast<unsigned char>(text[i]); };
     unsigned char first = byte(pos);

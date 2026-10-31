@@ -432,6 +432,25 @@ void test_engine_emission_with_shift_held() {
         "LEFTSHIFT-up\n";
     runAndCheckWithLayout(inputs, cfg.combos, "de", expected,
                           "test_engine_emission_with_shift_held");
+
+    // On us, Right Alt is plain Alt and stays down (no lone Alt tap)
+    assert(loadYamlConfig("combos:\n  f n: \"a\"\n", cfg, err));
+    runAndCheckWithLayout(inputs, cfg.combos, "us",
+                          "LEFTSHIFT-down\n"
+                          "RIGHTALT-down\n"
+                          "LEFTSHIFT-up\n"
+                          "A-down\n"
+                          "A-up\n"
+                          "LEFTSHIFT-down\n"
+                          "RIGHTALT-up\n"
+                          "LEFTSHIFT-up\n",
+                          "test_engine_emission_with_shift_held us");
+    assert(layoutCharModifierKeys("dvorak") ==
+           std::vector<KeyCode>({Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT}));
+    assert(layoutCharModifierKeys("gb").back() == Keys::KEY_RIGHTALT);
+    assert(layoutCharModifierKeys("neo") ==
+           std::vector<KeyCode>({Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT, Keys::KEY_CAPSLOCK,
+                                 Keys::KEY_BACKSLASH, Keys::KEY_102ND, Keys::KEY_RIGHTALT}));
     std::cout << "OK\n";
 }
 

@@ -192,9 +192,10 @@ A snippet can contain any character that can be typed on your keyboard layout:
 - **Umlauts and accents** that the layout has: `ä ö ü ß` on `de`, `é è à ç ù` on `fr`, `ñ` on
   `es`, and accented letters typed with the layout's dead keys.
 - **Whitespace & Control**: Space, `\t` (Tab), `\n` (Enter).
-- **Held Shift and AltGr**: A Shift or AltGr held while a snippet is typed (physically or by a
-  key mapping) doesn't change the text: TFF releases it for the snippet and presses it again
-  afterwards. A tapped one-shot Shift is used up by the snippet.
+- **Held Shift and AltGr**: A Shift or AltGr (on `neo` also Mod3 and Mod4) that is held while a
+  snippet is typed (physically or by a key mapping) doesn't change the text: TFF releases it for
+  the snippet and presses it again afterwards. A tapped one-shot Shift is used up by the snippet.
+  Ctrl, Alt and Super are not released.
 - **Clean Chord Release**: When chord keys are released after triggering a text snippet, they are swallowed cleanly so that no physical chord keys leak into your text buffer or editor.
 
 > [!NOTE]
