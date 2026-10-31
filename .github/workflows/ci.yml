@@ -292,6 +292,32 @@ jobs:
           & build/Release/tff_e2e.exe build/Release/tff.exe tests/windows/e2e.yaml
           exit $LASTEXITCODE
 
+  linux-e2e:
+    # tff_linux reads a uinput keyboard and writes its virtual keyboard; the output is decoded
+    # with xkbcommon into text, as a desktop would see it.
+    name: Linux End-to-End (uinput + xkbcommon)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon0 xkb-data libx11-data
+          sudo modprobe uinput
+
+      - name: Build tff_linux
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DTFF_WARNINGS_AS_ERRORS=ON
+          cmake --build build -j$(nproc) --target tff_linux
+
+      - name: End-to-end test
+        timeout-minutes: 5
+        run: sudo python3 tests/linux/e2e.py build/tff_linux
+
   coverage:
     name: Code Coverage (gcov)
     runs-on: ubuntu-latest
