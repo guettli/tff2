@@ -58,7 +58,8 @@ struct Combo {
     std::string toggle_layer;       // Toggle layer on/off when chord triggers
     MouseAction mouse;              // Emitted mouse action (click / movement / scroll)
     std::string layer;              // If set, combo is active only while this modal layer is active
-    int64_t timeout_us = 0;         // Custom required overlap (0 = use settings.combo_timeout_ms)
+    int64_t overlap_us = 0;         // Min time all keys are held together (0 = settings.combo_overlap_ms)
+    int64_t gap_us = 0;             // Max time between two key presses (0 = settings.combo_gap_ms)
 };
 ```
 

@@ -1,7 +1,7 @@
 # Configuration for the Windows end-to-end test (tests/windows/tff_e2e.cpp).
 # Timeouts are generous so the test is stable on slow CI machines.
 settings:
-  combo_timeout_ms: 80
+  combo_overlap_ms: 80
   tap_hold_timeout_ms: 250
 
 combos:

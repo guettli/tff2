@@ -97,14 +97,27 @@ combos:
     outKeys: delete
 ```
 
-#### 3. Per-Combo Custom Timeouts (`timeout_ms`)
-By default, all combos inherit the global `combo_timeout_ms` (default: 40ms) defined under `settings:`. For chords requiring wider windows (such as triple combos like `d + f + j` or difficult finger stretches), you can configure a custom `timeout_ms` (or duration string like `80ms`) override per chord:
+#### 3. Combo Timing (`overlap_ms`, `gap_ms`)
+A combo triggers when both are true:
+
+- **Gap**: each key comes less than `combo_gap_ms` (default: 150ms) after the previous one.
+- **Overlap**: all keys are held together for at least `combo_overlap_ms` (default: 40ms). Keys
+  that are released sooner, e.g. `d` and `f` while typing "df" fast, are typed normally. Keys
+  still held after 140ms (or `combo_overlap_ms`, if that's longer) trigger the combo without
+  waiting for the release.
+
+Both can be set for one combo with `overlap_ms` and `gap_ms` (a number of milliseconds, or a
+duration like `80ms`). For a combo that is hard to press at once (such as `d + f + j`, or a
+stretch), give it a larger `gap_ms`. That doesn't help while a smaller combo with some of its
+keys is complete: with `f j` and `d + f + j`, holding `f` and `j` for 140ms triggers `f j`
+before a late `d` arrives. A larger `overlap_ms` makes a combo harder to trigger by accident
+while typing fast. `timeout_ms` and `timeout` are old names of `overlap_ms`.
 
 ```yaml
 combos:
   # Compact format with inline dictionary:
-  d + f + j: { out: esc, timeout_ms: 80 }
-  a + s + d: { out: backspace, timeout: 70ms }
+  d + f + j: { out: esc, gap_ms: 250 }
+  a + s + d: { out: backspace, overlap_ms: 70ms }
 ```
 
 Or in classic list format:
@@ -113,13 +126,13 @@ Or in classic list format:
 combos:
   - keys: d + f + j
     outKeys: esc
-    timeout_ms: 80
+    gap_ms: 250
 
-  # Layer-scoped combo with custom timeout:
+  # Layer-scoped combo with its own overlap:
   - keys: h + l
     outKeys: end
     layer: nav
-    timeout_ms: 60
+    overlap_ms: 60
 ```
 
 #### Holding a Combo
@@ -831,7 +844,8 @@ TFF supports an optional top-level `settings:` section to customize engine timin
 
 ```yaml
 settings:
-  combo_timeout_ms: 40       # Overlap detection window for chords (default: 40ms)
+  combo_overlap_ms: 40       # Combo keys must be held together this long (default: 40ms)
+  combo_gap_ms: 150          # Max time between two key presses of a combo (default: 150ms)
   tap_hold_timeout_ms: 200   # Default timeout for dual-role keys (default: 200ms)
   exclusive_grab: true       # Exclusively grab physical keyboards (default: true)
   hotplug: false             # Monitor /dev/input for hotplugged keyboards (default: false, XOR with devices)
@@ -845,7 +859,8 @@ settings:
 
 | Option | Type | Default | Description |
 |:---|:---|:---|:---|
-| `combo_timeout_ms` | integer (1–5000) | `40` | Overlap window in milliseconds required to trigger simultaneous chords. Can be overridden on individual chords using `timeout_ms:`. Fast typists can decrease this (e.g. `30`–`35ms`) to avoid accidental chords during rapid rolls; others can increase it (e.g. `60`–`80ms`). |
+| `combo_overlap_ms` | integer (1–5000) | `40` | Minimum time in milliseconds all keys of a combo must be held together. If you trigger combos by accident while typing fast, increase it (e.g. `60`–`80`); if combos are hard to trigger, decrease it (e.g. `30`). Per combo: `overlap_ms`. Old names: `combo_timeout_ms`, `combo_timeout`, `combo_window_ms`. |
+| `combo_gap_ms` | integer (1–5000) | `150` | Maximum time in milliseconds between two key presses of a combo. Increase it if you press combo keys one after the other rather than at once. Per combo: `gap_ms`. |
 | `tap_hold_timeout_ms` | integer (1–10000) | `200` | Default timeout in milliseconds for dual-role keys. Any `tap_hold:` key without an explicit timeout inherits this value. |
 | `exclusive_grab` | boolean | `true` | When true, grabs keyboard devices exclusively via `ioctl(fd, EVIOCGRAB, 1)` so original keys are intercepted. |
 | `hotplug` | boolean | `false` | When true, uses Linux `inotify` to automatically detect and attach newly connected USB keyboards. Mutually exclusive (XOR) with explicit device configurations. |

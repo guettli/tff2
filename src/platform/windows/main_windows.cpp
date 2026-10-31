@@ -131,7 +131,8 @@ int runValidate(const std::string& config_file) {
                          " keys), ")
                       : "")
               << config.layers.size()
-              << " layer(s), and settings (combo: " << config.settings.combo_timeout_ms
+              << " layer(s), and settings (combo overlap: " << config.settings.combo_overlap_ms
+              << "ms, gap: " << config.settings.combo_gap_ms
               << "ms, tap-hold: " << config.settings.tap_hold_timeout_ms << "ms) from "
               << config_file << "\n";
     return 0;
@@ -460,8 +461,9 @@ int main(int argc, char* argv[]) {
                   << engine.getTapDances().size() << " tap-dance key(s), "
                   << engine.getOneShotKeys().size() << " one-shot key(s), "
                   << engine.getLeaderConfig().sequences.size() << " leader sequence(s), "
-                  << engine.getLayers().size()
-                  << " layer(s), settings (combo: " << platform.getSettings().combo_timeout_ms
+                  << engine.getLayers().size() << " layer(s), settings (combo overlap: "
+                  << platform.getSettings().combo_overlap_ms
+                  << "ms, gap: " << platform.getSettings().combo_gap_ms
                   << "ms, tap-hold: " << platform.getSettings().tap_hold_timeout_ms << "ms)\n";
         if (!tff::win::isElevated()) {
             std::cout << "Note: not running as administrator; keys typed into elevated windows "

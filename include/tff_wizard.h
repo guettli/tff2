@@ -31,7 +31,7 @@ struct WizardAnswers {
     bool enable_home_row_mods = false;
     bool enable_auto_shift = false;
     bool enable_leader_sequences = false;
-    int combo_timeout_ms = 40;
+    int combo_overlap_ms = 40;
     int tap_hold_timeout_ms = 200;
 };
 

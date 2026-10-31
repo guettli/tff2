@@ -10,6 +10,17 @@ namespace tff {
 
 namespace {
 
+// " [overlap 60ms, gap 200ms]" for a combo with its own timing
+std::string comboTimingLabel(const Combo& c) {
+    std::string label;
+    if (c.overlap_us > 0)
+        label = "overlap " + std::to_string(c.overlap_us / 1000) + "ms";
+    if (c.gap_us > 0)
+        label += (label.empty() ? "" : ", ") + std::string("gap ") +
+                 std::to_string(c.gap_us / 1000) + "ms";
+    return label.empty() ? "" : " [" + label + "]";
+}
+
 std::string ansi(const std::string& code, const std::string& text, bool enable) {
     if (!enable)
         return text;
@@ -295,9 +306,7 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
                 if (!c.layer.empty()) {
                     type += " (Layer: `" + c.layer + "`)";
                 }
-                if (c.timeout_us > 0) {
-                    type += " [" + std::to_string(c.timeout_us / 1000) + "ms]";
-                }
+                type += comboTimingLabel(c);
                 ss << "| " << formatMarkdownCode(in_keys) << " | " << formatMarkdownCode(out_act)
                    << " | " << type << " |\n";
             }
@@ -386,7 +395,8 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             ss << "## Global Settings\n\n"
                << "| Setting | Value |\n"
                << "|:---|:---|\n"
-               << "| Combo Overlap Window | `" << config.settings.combo_timeout_ms << "ms` |\n"
+               << "| Combo Overlap | `" << config.settings.combo_overlap_ms << "ms` |\n"
+               << "| Combo Gap | `" << config.settings.combo_gap_ms << "ms` |\n"
                << "| Default Tap-Hold Timeout | `" << config.settings.tap_hold_timeout_ms
                << "ms` |\n"
                << "| Exclusive Grab | `" << (config.settings.exclusive_grab ? "true" : "false")
@@ -565,9 +575,7 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
             if (!c.layer.empty()) {
                 type_plain += " (Layer: " + c.layer + ")";
             }
-            if (c.timeout_us > 0) {
-                type_plain += " [" + std::to_string(c.timeout_us / 1000) + "ms]";
-            }
+            type_plain += comboTimingLabel(c);
 
             std::string out_col =
                 (c.mouse.type != MouseActionType::None ||
@@ -699,8 +707,10 @@ std::string Cheatsheet::generate(const Config& config, const CheatsheetOptions& 
     // 6. Global Settings (if customized)
     if (config.settings != Settings{}) {
         ss << bold(blue("[ Global Settings ]", col), col) << "\n";
-        ss << "  " << dim("Combo Timeout: ", col)
-           << cyan(std::to_string(config.settings.combo_timeout_ms) + "ms", col)
+        ss << "  " << dim("Combo Overlap: ", col)
+           << cyan(std::to_string(config.settings.combo_overlap_ms) + "ms", col)
+           << dim(" | Combo Gap: ", col)
+           << cyan(std::to_string(config.settings.combo_gap_ms) + "ms", col)
            << dim(" | Tap-Hold Timeout: ", col)
            << cyan(std::to_string(config.settings.tap_hold_timeout_ms) + "ms", col)
            << dim(" | Exclusive Grab: ", col)

@@ -9,24 +9,37 @@
       "type": "object",
       "description": "Global timing and daemon behavior settings",
       "properties": {
-        "combo_timeout_ms": {
+        "combo_overlap_ms": {
           "type": "integer",
           "minimum": 1,
           "maximum": 5000,
           "default": 40,
-          "description": "Maximum overlapping duration in milliseconds for chords to trigger a combo"
+          "description": "Minimum time in milliseconds all keys of a combo must be held together"
+        },
+        "combo_gap_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 150,
+          "description": "Maximum time in milliseconds between two key presses of a combo"
+        },
+        "combo_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Old name of combo_overlap_ms"
         },
         "combo_timeout": {
           "type": "integer",
           "minimum": 1,
           "maximum": 5000,
-          "description": "Alias for combo_timeout_ms"
+          "description": "Old name of combo_overlap_ms"
         },
         "combo_window_ms": {
           "type": "integer",
           "minimum": 1,
           "maximum": 5000,
-          "description": "Alias for combo_timeout_ms"
+          "description": "Old name of combo_overlap_ms"
         },
         "tap_hold_timeout_ms": {
           "type": "integer",
@@ -136,15 +149,21 @@
                 "type": "string",
                 "description": "Mouse movement, scroll, or button action"
               },
+              "overlap_ms": {
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$",
+                "description": "This combo's combo_overlap_ms (e.g. 70 or 70ms)"
+              },
+              "gap_ms": {
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$",
+                "description": "This combo's combo_gap_ms (e.g. 200 or 200ms)"
+              },
               "timeout_ms": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 5000,
-                "description": "Custom overlap timeout for this combo in milliseconds"
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$",
+                "description": "Old name of overlap_ms"
               },
               "timeout": {
-                "type": ["integer", "string"],
-                "description": "Custom overlap timeout for this combo (e.g. 70ms or 70)"
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$",
+                "description": "Old name of overlap_ms"
               }
             },
             "required": ["keys"],
@@ -166,8 +185,10 @@
                   "layer": { "type": "string" },
                   "toggle_layer": { "type": "string" },
                   "mouse": { "type": "string" },
-                  "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 5000 },
-                  "timeout": { "type": ["integer", "string"] }
+                  "overlap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" },
+                  "gap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" },
+                  "timeout_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" },
+                  "timeout": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" }
                 },
                 "additionalProperties": false
               }
@@ -193,8 +214,10 @@
                 "text": { "type": "string" },
                 "toggle_layer": { "type": "string" },
                 "mouse": { "type": "string" },
-                "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 5000 },
-                "timeout": { "type": ["integer", "string"] }
+                "overlap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" },
+                "gap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" },
+                "timeout_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" },
+                "timeout": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^(([1-9][0-9]{0,2}|[1-4][0-9]{3}|5000)(ms)?|[0-4](\\.[0-9]+)?s|5s)$" }
               },
               "additionalProperties": false
             }

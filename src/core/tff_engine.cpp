@@ -93,12 +93,14 @@ bool TFFEngine::isModifierActive() const {
 
 void TFFEngine::setSettings(const Settings& settings) {
     settings_ = settings;
-    min_overlap_us_ = settings.combo_timeout_ms * 1000LL;
 }
 
-void TFFEngine::setComboTimeoutMs(int64_t ms) {
-    settings_.combo_timeout_ms = ms;
-    min_overlap_us_ = ms * 1000LL;
+int64_t TFFEngine::comboOverlapUs(const Combo& combo) const {
+    return combo.overlap_us > 0 ? combo.overlap_us : settings_.combo_overlap_ms * 1000LL;
+}
+
+int64_t TFFEngine::comboGapUs(const Combo& combo) const {
+    return combo.gap_us > 0 ? combo.gap_us : settings_.combo_gap_ms * 1000LL;
 }
 
 void TFFEngine::setConfig(const Config& config) {
@@ -1353,13 +1355,7 @@ bool TFFEngine::keepSwallowedKeyHeld(const Event& ev) {
 
 bool TFFEngine::handleDownChar(const Event& ev) {
     if (fake_active_timer_) {
-        int64_t max_timeout = timeout_after_down_us_;
-        for (const auto& combo : all_combos_) {
-            if (!combo.keys.empty() && combo.keys[0] == ev.code && combo.timeout_us > max_timeout) {
-                max_timeout = combo.timeout_us;
-            }
-        }
-        fake_active_timer_next_time_ = TimeVal::fromMicros(ev.time.toMicros() + max_timeout);
+        fake_active_timer_next_time_ = nextComboDeadline(ev, ev.time);
     }
     while (buf_.size() >= MAX_BUFFER_SIZE) {
         evictOldestBufferedEvent();
@@ -1511,7 +1507,34 @@ void TFFEngine::onTimerNow(TimeVal time) {
     if (fake_active_timer_next_time_ <= time) {
         fake_active_timer_next_time_ = TimeVal::maxTime();
         eval(time, "timer");
+        // Still undecided: wake up at the next point where a combo can be decided
+        for (auto it = buf_.rbegin(); it != buf_.rend(); ++it) {
+            if (it->value == KEY_VAL_DOWN) {
+                fake_active_timer_next_time_ = nextComboDeadline(*it, time);
+                break;
+            }
+        }
     }
+}
+
+TimeVal TFFEngine::nextComboDeadline(const Event& last_down, TimeVal after) const {
+    // After the last key press, a combo is decided when its gap is over (no further key can
+    // belong to it) or when its keys have been held long enough to trigger
+    TimeVal next = TimeVal::maxTime();
+    auto consider = [&](int64_t wait_us) {
+        const TimeVal t = TimeVal::fromMicros(last_down.time.toMicros() + wait_us);
+        if (after < t && t < next)
+            next = t;
+    };
+    consider(settings_.combo_gap_ms * 1000);
+    consider(std::max(min_age_us_, settings_.combo_overlap_ms * 1000));
+    for (const auto& combo : all_combos_) {
+        if (std::find(combo.keys.begin(), combo.keys.end(), last_down.code) != combo.keys.end()) {
+            consider(comboGapUs(combo));
+            consider(std::max(min_age_us_, comboOverlapUs(combo)));
+        }
+    }
+    return next;
 }
 
 bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
@@ -1782,6 +1805,8 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     const Event* last_down_event = nullptr;
     const Event* first_up_event = nullptr;
     bool has_unknown = false;
+    bool gap_too_long = false;
+    const Event* prev_fresh_down = nullptr;
 
     for (const auto& ev : buf_) {
         bool in_combo = false;
@@ -1796,6 +1821,14 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
             break;
         }
         if (ev.value == KEY_VAL_DOWN) {
+            // Keys still held from a combo that already triggered keep their old press time
+            const bool fresh = std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) ==
+                               swallow_keys_.end();
+            if (fresh && prev_fresh_down &&
+                timeSubMicros(prev_fresh_down->time, ev.time) >= comboGapUs(combo))
+                gap_too_long = true;
+            if (fresh)
+                prev_fresh_down = &ev;
             last_down_event = &ev;
             seen_down.push_back(ev.code);
         } else if (ev.value == KEY_VAL_UP) {
@@ -1814,6 +1847,10 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
         msg = "Unknown key in buffer";
         return EvalResult::NoMatch;
     }
+    if (gap_too_long) {
+        msg = "Too long between two key presses";
+        return EvalResult::NoMatch;
+    }
 
     for (size_t i = 0; i < combo.keys.size(); ++i) {
         if (i >= seen_down.size()) {
@@ -1821,10 +1858,8 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
                 msg = "Key released before all combo keys were pressed";
                 return EvalResult::NoMatch;
             }
-            int64_t combo_timeout =
-                (combo.timeout_us > 0) ? combo.timeout_us : timeout_after_down_us_;
             if (last_down_event &&
-                timeSubMicros(last_down_event->time, curr_time) >= combo_timeout) {
+                timeSubMicros(last_down_event->time, curr_time) >= comboGapUs(combo)) {
                 msg = "Timeout waiting for next combo key";
                 return EvalResult::NoMatch;
             }
@@ -1838,11 +1873,10 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     }
 
     // All down keys seen
-    if (first_up_event && last_down_event && last_down_event->time < first_up_event->time &&
+    if (first_up_event && last_down_event && last_down_event->time <= first_up_event->time &&
         last_down_event->code != first_up_event->code) {
         int64_t overlap = timeSubMicros(last_down_event->time, first_up_event->time);
-        int64_t required_overlap = (combo.timeout_us > 0) ? combo.timeout_us : min_overlap_us_;
-        if (overlap < required_overlap) {
+        if (overlap < comboOverlapUs(combo)) {
             msg = "Overlap too short";
             return EvalResult::NoMatch;
         }
@@ -1854,7 +1888,7 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     }
 
     if (last_down_event) {
-        std::string too_young_msg = tooYoung(*last_down_event, curr_time);
+        std::string too_young_msg = tooYoung(combo, *last_down_event, curr_time);
         if (!too_young_msg.empty()) {
             msg = too_young_msg;
             return EvalResult::ComboNotFinished;
@@ -1871,14 +1905,14 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     return EvalResult::AllDownKeysSeen;
 }
 
-std::string TFFEngine::tooYoung(const Event& last_down, TimeVal curr_time) {
+std::string TFFEngine::tooYoung(const Combo& combo, const Event& last_down, TimeVal curr_time) {
     if (buf_.size() > 1) {
         if (buf_[buf_.size() - 2].code == last_down.code) {
             return "";
         }
     }
     int64_t age = timeSubMicros(last_down.time, curr_time);
-    if (age < min_age_us_) {
+    if (age < std::max(min_age_us_, comboOverlapUs(combo))) {
         return "All down seen, but too young";
     }
     return "";

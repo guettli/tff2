@@ -272,7 +272,7 @@ leader:
 
 static void test_settings_cheatsheet() {
     Config config;
-    config.settings.combo_timeout_ms = 65;
+    config.settings.combo_overlap_ms = 65;
     config.settings.tap_hold_timeout_ms = 350;
     config.settings.exclusive_grab = false;
     config.settings.hotplug = true;
@@ -282,7 +282,8 @@ static void test_settings_cheatsheet() {
     term_opts.color = false;
     std::string term = Cheatsheet::generate(config, term_opts);
     assert(term.find("[ Global Settings ]") != std::string::npos);
-    assert(term.find("Combo Timeout: 65ms") != std::string::npos);
+    assert(term.find("Combo Overlap: 65ms") != std::string::npos);
+    assert(term.find("Combo Gap: 150ms") != std::string::npos);
     assert(term.find("Tap-Hold Timeout: 350ms") != std::string::npos);
     assert(term.find("Exclusive Grab: no") != std::string::npos);
     assert(term.find("Hotplug: yes") != std::string::npos);
