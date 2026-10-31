@@ -2,6 +2,7 @@
 #define TFF_KEY_CODES_H
 
 #include <string>
+#include <vector>
 #include <cstdint>
 #include "tff_types.h"
 
@@ -212,6 +213,12 @@ bool charToKeyStrokes(uint32_t code_point, const std::string& layout, CharKeyStr
  * @brief The key held for KeyStroke::level3 on a layout (KEY_RIGHTALT, KEY_BACKSLASH on Neo).
  */
 KeyCode layoutLevel3Key(const std::string& layout);
+
+/**
+ * @brief The keys that change which character a key types on a layout: Shift, and AltGr on
+ * layouts with level-3 characters (Neo: its Mod3 and Mod4 keys). Ctrl, Alt and Super aren't.
+ */
+std::vector<KeyCode> layoutCharModifierKeys(const std::string& layout);
 
 /**
  * @brief Decodes the UTF-8 character at text[pos] and advances pos past it.

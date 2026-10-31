@@ -399,6 +399,61 @@ void test_engine_emission_altgr_and_dead_keys() {
     std::cout << "OK\n";
 }
 
+void test_engine_emission_with_shift_held() {
+    std::cout << "[TEST] Held Shift and AltGr don't change the snippet text... ";
+    Config cfg;
+    std::string err;
+    assert(loadYamlConfig("combos:\n  f n: \"a@\"\nsettings:\n  layout: de\n", cfg, err));
+    int64_t t = 1000000;
+    std::vector<Event> inputs = {
+        {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 5000), EV_KEY, Keys::KEY_RIGHTALT, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 20000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
+        {TimeVal::fromMicros(t + 80000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 90000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 100000), EV_KEY, Keys::KEY_RIGHTALT, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 110000), EV_KEY, Keys::KEY_LEFTSHIFT, KEY_VAL_UP},
+    };
+    std::string expected =
+        "LEFTSHIFT-down\n"
+        "RIGHTALT-down\n"
+        "LEFTSHIFT-up\n"
+        "RIGHTALT-up\n"
+        "A-down\n"
+        "A-up\n"
+        "RIGHTALT-down\n"
+        "Q-down\n"
+        "Q-up\n"
+        "RIGHTALT-up\n"
+        "LEFTSHIFT-down\n"
+        "RIGHTALT-down\n"
+        "RIGHTALT-up\n"
+        "LEFTSHIFT-up\n";
+    runAndCheckWithLayout(inputs, cfg.combos, "de", expected,
+                          "test_engine_emission_with_shift_held");
+
+    // On us, Right Alt is plain Alt and stays down (no lone Alt tap)
+    assert(loadYamlConfig("combos:\n  f n: \"a\"\n", cfg, err));
+    runAndCheckWithLayout(inputs, cfg.combos, "us",
+                          "LEFTSHIFT-down\n"
+                          "RIGHTALT-down\n"
+                          "LEFTSHIFT-up\n"
+                          "A-down\n"
+                          "A-up\n"
+                          "LEFTSHIFT-down\n"
+                          "RIGHTALT-up\n"
+                          "LEFTSHIFT-up\n",
+                          "test_engine_emission_with_shift_held us");
+    assert(layoutCharModifierKeys("dvorak") ==
+           std::vector<KeyCode>({Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT}));
+    assert(layoutCharModifierKeys("gb").back() == Keys::KEY_RIGHTALT);
+    assert(layoutCharModifierKeys("neo") ==
+           std::vector<KeyCode>({Keys::KEY_LEFTSHIFT, Keys::KEY_RIGHTSHIFT, Keys::KEY_CAPSLOCK,
+                                 Keys::KEY_BACKSLASH, Keys::KEY_102ND, Keys::KEY_RIGHTALT}));
+    std::cout << "OK\n";
+}
+
 void test_parser_snippet_layout_check() {
     std::cout << "[TEST] Parser checks snippets against settings.layout... ";
     Config cfg;
@@ -723,6 +778,7 @@ int main() {
     test_engine_emission_german_layout();
     test_char_to_keystrokes();
     test_engine_emission_altgr_and_dead_keys();
+    test_engine_emission_with_shift_held();
     test_parser_snippet_layout_check();
     test_yaml_parser_compact_syntax();
     test_yaml_parser_symmetric_and_leader();
