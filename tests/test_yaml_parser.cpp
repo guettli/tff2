@@ -698,6 +698,49 @@ layers:
         std::cout << "✓ Test 16 passed: per-combo custom timeout parsing and validation\n";
     }
 
+    // Test 17: Config mistakes that used to be ignored
+    {
+        tff::Config cfg;
+        std::string err_msg;
+        // misspelled section
+        assert(
+            !tff::loadYamlConfig("combos:\n  d f: esc\ntap_holds:\n  capslock:\n    tap: esc\n"
+                                 "    hold: leftctrl\n",
+                                 cfg, err_msg));
+        assert(err_msg.find("unknown section 'tap_holds'") != std::string::npos);
+        // combos not indented
+        assert(!tff::loadYamlConfig("combos:\nd f: esc\n", cfg, err_msg));
+        assert(err_msg.find("must be indented") != std::string::npos);
+        assert(!tff::loadYamlConfig("  d f: esc\n", cfg, err_msg));
+        assert(err_msg.find("not inside a section") != std::string::npos);
+        // a layer may have the name of a section
+        assert(
+            tff::loadYamlConfig("tap_hold:\n  space:\n    tap: space\n    layer: leader\n"
+                                "layers:\n  leader:\n    h: left\n",
+                                cfg, err_msg));
+        assert(cfg.layers.size() == 1 && cfg.layers[0].name == "leader");
+        // combos: inside a layer is not a section
+        assert(
+            !tff::loadYamlConfig("layers:\n  nav:\n    combos:\n      d + f: esc\n", cfg, err_msg));
+        // duplicates
+        assert(
+            !tff::loadYamlConfig("tap_hold:\n  capslock:\n    tap: esc\n    hold: leftctrl\n"
+                                 "  capslock:\n    tap: tab\n    hold: leftalt\n",
+                                 cfg, err_msg));
+        assert(err_msg.find("duplicate tap_hold key: capslock") != std::string::npos);
+        assert(!tff::loadYamlConfig("combos:\n  d f: esc\n  d f: tab\n", cfg, err_msg));
+        assert(err_msg.find("combo 'd f' is defined twice") != std::string::npos);
+        assert(!tff::loadYamlConfig("combos:\n  d + f: esc\n  f d: tab\n", cfg, err_msg));
+        // the same action twice, or in another layer, is fine
+        assert(tff::loadYamlConfig("combos:\n  d + f: esc\n  f d: esc\n", cfg, err_msg));
+        assert(
+            tff::loadYamlConfig("combos:\n  d + f: esc\n  d + f: { out: tab, layer: nav }\n"
+                                "layers:\n  nav:\n    h: left\n",
+                                cfg, err_msg));
+        assert(tff::loadYamlConfig("---\ncombos:\n  d f: esc\n", cfg, err_msg));
+        std::cout << "✓ Test 17 passed: unknown sections, unindented lines, duplicates\n";
+    }
+
     std::cout << "\nAll YAML parser tests passed!\n";
     return 0;
 }

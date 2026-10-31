@@ -10,6 +10,12 @@ Configurations are parsed natively in C++ using a lightweight parser (`tff::load
 
 The configuration file contains a list of combos under the `combos:` root key.
 
+The sections are `combos:`, `tap_hold:`, `layers:`, `one_shot:`, `tap_dance:`, `leader:`,
+`auto_shift:`, `mouse:` and `settings:`. They start at the beginning of a line; everything in
+them is indented. TFF rejects a file with an unknown (e.g. misspelled) section, a line outside
+of a section, the same `tap_hold` key twice, or the same combo keys twice with different
+actions (in the same layer).
+
 ### Basic Structure
 
 ```yaml
