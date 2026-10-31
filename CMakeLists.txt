@@ -7,7 +7,7 @@ if(PICO_BUILD)
     include(pico_sdk_import.cmake)
 endif()
 
-project(tff2 VERSION 2.0.21 LANGUAGES C CXX)
+project(tff2 VERSION 2.0.22 LANGUAGES C CXX)
 
 # Windows: link the C/C++ runtime statically so tff.exe/tffw.exe start on a clean Windows
 # without the Visual C++ Redistributable (VCRUNTIME140.dll, MSVCP140.dll).
