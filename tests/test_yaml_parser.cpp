@@ -563,7 +563,7 @@ settings
 )";
         tff::Config cfg_no_colon;
         assert(!tff::loadYamlConfig(no_colon_yaml, cfg_no_colon, err_msg));
-        assert(err_msg == "mapping values are not allowed in this context");
+        assert(err_msg.find("mapping values are not allowed in this context") != std::string::npos);
 
         // 9. Devices configuration in settings (list and single string)
         std::string devices_list_yaml = R"(
@@ -736,6 +736,17 @@ layers:
             "combos:\n  d f: esc\nsettings:\n  combo_timeout_ms: 30\n  combo_timeout_ms: 60\n", cfg,
             err_msg));
         assert(err_msg.find("setting 'combo_timeout_ms' is set twice") != std::string::npos);
+        // errors name the line; quotes
+        assert(!tff::loadYamlConfig("combos:\n  d f: esc\n\n  j k: nosuchkey\n", cfg, err_msg));
+        assert(err_msg.rfind("line 4: ", 0) == 0);
+        assert(
+            !tff::loadYamlConfig("combos:\n  - keys: [j, k]\n    action: \"abc\n", cfg, err_msg));
+        assert(err_msg.find("line 3: missing closing quote") == 0);
+        assert(tff::loadYamlConfig(
+            "combos:\n  j k: { text: 'say \"hi' }\n  d f: { text: \"a\\\"b\" }\n"
+            "  s d: { text: 5\" }\n",
+            cfg, err_msg));
+        assert(cfg.combos[0].text == "say \"hi" && cfg.combos[1].text == "a\"b");
         // layer: and timeout_ms: after action: belong to that entry only
         assert(
             tff::loadYamlConfig("combos:\n  - keys: [f, j]\n    action: esc\n"
