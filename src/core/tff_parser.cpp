@@ -97,6 +97,37 @@ std::string stripComment(const std::string& line) {
     return line;
 }
 
+// A value that starts with a double quote but has no closing one: `text: "abc`. A quote in
+// the middle of a plain value (`say "hi`) is an ordinary character.
+static bool hasUnclosedQuote(const std::string& t) {
+    bool value_start = true;
+    for (size_t i = 0; i < t.size(); ++i) {
+        const char c = t[i];
+        if (value_start && (c == '"' || c == '\'')) {
+            size_t j = i + 1;
+            for (; j < t.size(); ++j) {
+                if (c == '"' && t[j] == '\\') {
+                    ++j;
+                } else if (c == '\'' && t[j] == '\'' && j + 1 < t.size() && t[j + 1] == '\'') {
+                    ++j;  // '' inside single quotes
+                } else if (t[j] == c) {
+                    break;
+                }
+            }
+            if (j >= t.size())
+                return c == '"';
+            i = j;
+            value_start = false;
+            continue;
+        }
+        if (c == ' ')
+            continue;  // a value may start after spaces
+        value_start = c == '{' || c == '[' || (c == '-' && i == 0) ||
+                      (c == ':' && i + 1 < t.size() && t[i + 1] == ' ');
+    }
+    return false;
+}
+
 std::string unquoteAndUnescape(const std::string& s) {
     std::string str = trim(s);
     if (str.empty())
@@ -990,8 +1021,9 @@ std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos) {
     return entries;
 }
 
-bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
-                    const LoadOptions& options) {
+// line_no: the line being read when an error occurs, 0 for errors about the whole file
+static bool loadYamlLines(const std::string& yaml_str, Config& config, std::string& err_msg,
+                          const LoadOptions& options, size_t& line_no) {
     config = Config{};
     // Editors on Windows may save a UTF-8 byte order mark
     const bool bom = yaml_str.rfind("\xEF\xBB\xBF", 0) == 0;
@@ -1023,6 +1055,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     // Combos added by the last list entry; a layer:/timeout_ms: after its action applies to them
     size_t entry_first_combo = 0;
     size_t entry_end_combo = std::string::npos;
+    size_t combo_entry_line = 0;  // line of the last `- keys:`
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
@@ -1061,6 +1094,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                      pending_th.tap_toggle_layer.empty()) ||
                     (pending_th.hold_key == 0 && pending_th.hold_layer.empty())) {
                     err_msg = "tap_hold definition requires both 'tap' and 'hold'";
+                    line_no = 0;
                     return false;
                 }
                 config.tap_hold_keys.push_back(pending_th);
@@ -1085,6 +1119,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     } else {
                         err_msg = "one_shot key '" + keyCodeToWord(pending_os.key) +
                                   "' requires a modifier or layer";
+                        line_no = 0;
                         return false;
                     }
                 }
@@ -1105,11 +1140,13 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         if (has_pending_lseq) {
             if (pending_lseq.keys.empty()) {
                 err_msg = "leader sequence missing keys";
+                line_no = 0;
                 return false;
             }
             if (pending_lseq.out_keys.empty() && pending_lseq.text.empty() &&
                 pending_lseq.toggle_layer.empty()) {
                 err_msg = "leader sequence requires an action (text, keys, or toggle_layer)";
+                line_no = 0;
                 return false;
             }
             config.leader.sequences.push_back(pending_lseq);
@@ -1133,6 +1170,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     err_msg =
                         "tap_dance definition requires at least one action (tap, double_tap, hold, "
                         "triple_tap)";
+                    line_no = 0;
                     return false;
                 }
                 config.tap_dances.push_back(pending_td);
@@ -1150,12 +1188,17 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     std::set<std::string> seen_settings;
     size_t settings_child_indent = std::string::npos;
     while (std::getline(iss, line)) {
+        ++line_no;
         // Strip inline comment if any (preserving '#' inside quoted strings)
         std::string clean_line = stripComment(line);
         std::string t = trim(clean_line);
         if (t.empty())
             continue;
 
+        if (hasUnclosedQuote(t)) {
+            err_msg = "missing closing quote (\") in: " + t;
+            return false;
+        }
         size_t current_indent = line.find_first_not_of(" \t");
         if (t == "---" || t == "...") {
             continue;  // YAML document markers
@@ -2669,8 +2712,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (!current_keys.empty() && current_outkeys.empty() && !has_text &&
                 !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
+                line_no = combo_entry_line;
                 return false;
             }
+            combo_entry_line = line_no;
             auto colon = t.find(':');
             current_keys = trim(t.substr(colon + 1));
             if (!current_keys.empty() && current_keys.front() == '[') {
@@ -2696,6 +2741,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             if (!current_keys.empty() && current_outkeys.empty() && !has_text &&
                 !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
+                line_no = combo_entry_line;
                 return false;
             }
             err_msg = "empty list in 'keys' is not allowed";
@@ -3133,6 +3179,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             }
         }
     }
+    line_no = 0;
 
     if (!flush_pending_th())
         return false;
@@ -3146,6 +3193,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer &&
         !has_mouse) {
         err_msg = "empty list in 'outKeys' is not allowed";
+        line_no = combo_entry_line;
         return false;
     }
 
@@ -3522,6 +3570,16 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     }
 
     return validateSnippets(config, options, err_msg);
+}
+
+bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
+                    const LoadOptions& options) {
+    size_t line_no = 0;
+    if (loadYamlLines(yaml_str, config, err_msg, options, line_no))
+        return true;
+    if (line_no > 0)
+        err_msg = "line " + std::to_string(line_no) + ": " + err_msg;
+    return false;
 }
 
 bool loadYamlCombos(const std::string& yaml_str, std::vector<Combo>& combos, std::string& err_msg) {
