@@ -97,21 +97,33 @@ std::string stripComment(const std::string& line) {
     return line;
 }
 
-// A value that starts with a double quote but has no closing one: `text: "abc`
+// A value that starts with a double quote but has no closing one: `text: "abc`. A quote in
+// the middle of a plain value (`say "hi`) is an ordinary character.
 static bool hasUnclosedQuote(const std::string& t) {
+    bool value_start = true;
     for (size_t i = 0; i < t.size(); ++i) {
-        const char q = t[i];
-        const bool starts_value =
-            i == 0 || t[i - 1] == ' ' || t[i - 1] == '[' || t[i - 1] == '{' || t[i - 1] == ',';
-        if ((q != '"' && q != '\'') || !starts_value)
+        const char c = t[i];
+        if (value_start && (c == '"' || c == '\'')) {
+            size_t j = i + 1;
+            for (; j < t.size(); ++j) {
+                if (c == '"' && t[j] == '\\') {
+                    ++j;
+                } else if (c == '\'' && t[j] == '\'' && j + 1 < t.size() && t[j + 1] == '\'') {
+                    ++j;  // '' inside single quotes
+                } else if (t[j] == c) {
+                    break;
+                }
+            }
+            if (j >= t.size())
+                return c == '"';
+            i = j;
+            value_start = false;
             continue;
-        size_t j = i + 1;
-        while (j < t.size() && t[j] != q) {
-            j += q == '"' && t[j] == '\\' ? 2 : 1;  // 'it''s' is two quoted parts, fine too
         }
-        if (j >= t.size())
-            return q == '"';
-        i = j;
+        if (c == ' ')
+            continue;  // a value may start after spaces
+        value_start = c == '{' || c == '[' || (c == '-' && i == 0) ||
+                      (c == ':' && i + 1 < t.size() && t[i + 1] == ' ');
     }
     return false;
 }
@@ -1043,6 +1055,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
     // Combos added by the last list entry; a layer:/timeout_ms: after its action applies to them
     size_t entry_first_combo = 0;
     size_t entry_end_combo = std::string::npos;
+    size_t combo_entry_line = 0;  // line of the last `- keys:`
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
@@ -2699,8 +2712,10 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             if (!current_keys.empty() && current_outkeys.empty() && !has_text &&
                 !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
+                line_no = combo_entry_line;
                 return false;
             }
+            combo_entry_line = line_no;
             auto colon = t.find(':');
             current_keys = trim(t.substr(colon + 1));
             if (!current_keys.empty() && current_keys.front() == '[') {
@@ -2726,6 +2741,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             if (!current_keys.empty() && current_outkeys.empty() && !has_text &&
                 !has_toggle_layer) {
                 err_msg = "empty list in 'outKeys' is not allowed";
+                line_no = combo_entry_line;
                 return false;
             }
             err_msg = "empty list in 'keys' is not allowed";
@@ -3177,6 +3193,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
     if (!current_keys.empty() && current_outkeys.empty() && !has_text && !has_toggle_layer &&
         !has_mouse) {
         err_msg = "empty list in 'outKeys' is not allowed";
+        line_no = combo_entry_line;
         return false;
     }
 

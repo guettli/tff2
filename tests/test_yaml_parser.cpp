@@ -747,6 +747,13 @@ layers:
             "  s d: { text: 5\" }\n",
             cfg, err_msg));
         assert(cfg.combos[0].text == "say \"hi" && cfg.combos[1].text == "a\"b");
+        for (const char* text : {"say \"hi", "'it''s \"x'", "5 \"", "'a: \"b'", "\"a\\\\\""}) {
+            assert(tff::loadYamlConfig(std::string("combos:\n  j k: { text: ") + text + " }\n", cfg,
+                                       err_msg));
+        }
+        assert(!tff::loadYamlConfig(
+            "combos:\n  - keys: [j, k]\n\n  - keys: [d, f]\n    action: esc\n", cfg, err_msg));
+        assert(err_msg.rfind("line 2: ", 0) == 0);
         // layer: and timeout_ms: after action: belong to that entry only
         assert(
             tff::loadYamlConfig("combos:\n  - keys: [f, j]\n    action: esc\n"
