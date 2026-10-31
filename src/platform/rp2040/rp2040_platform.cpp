@@ -156,12 +156,14 @@ bool RP2040Platform::initialize() {
     printf(
         "RP2040Platform initialized successfully with TFFEngine (%zu combos, %zu tap-hold, %zu "
         "layers)\n",
-        config_.combos.size(), config_.tap_hold_keys.size(), config_.layers.size());
+        tff::comboEntries(config_.combos).size(), config_.tap_hold_keys.size(),
+        config_.layers.size());
 #else
     printf(
         "RP2040Platform initialized for testing with TFFEngine (%zu combos, %zu tap-hold, %zu "
         "layers)\n",
-        config_.combos.size(), config_.tap_hold_keys.size(), config_.layers.size());
+        tff::comboEntries(config_.combos).size(), config_.tap_hold_keys.size(),
+        config_.layers.size());
 #endif
 
     initialized_ = true;

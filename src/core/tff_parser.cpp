@@ -936,6 +936,43 @@ std::string normalizeShortCsv(const std::string& input) {
     return res;
 }
 
+std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos) {
+    auto sameExceptOrder = [](const Combo& a, const Combo& b) {
+        if (a.keys.size() != b.keys.size() ||
+            !std::is_permutation(a.keys.begin(), a.keys.end(), b.keys.begin())) {
+            return false;
+        }
+        Combo reordered = a;
+        reordered.keys = b.keys;
+        return reordered == b;
+    };
+    std::vector<ComboEntry> entries;
+    std::vector<bool> grouped(combos.size(), false);
+    for (size_t i = 0; i < combos.size(); ++i) {
+        if (grouped[i]) {
+            continue;
+        }
+        std::vector<size_t> group = {i};
+        for (size_t j = i + 1; j < combos.size(); ++j) {
+            if (!grouped[j] && sameExceptOrder(combos[i], combos[j])) {
+                group.push_back(j);
+            }
+        }
+        size_t orders = 1;
+        for (size_t n = 2; n <= combos[i].keys.size(); ++n) {
+            orders *= n;
+        }
+        const bool any_order = combos[i].keys.size() > 1 && group.size() == orders;
+        if (any_order) {
+            for (size_t j : group) {
+                grouped[j] = true;
+            }
+        }
+        entries.push_back({&combos[i], any_order});
+    }
+    return entries;
+}
+
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
                     const LoadOptions& options) {
     config = Config{};

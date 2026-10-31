@@ -495,8 +495,8 @@ int runWizard(const WizardOptions& options, std::istream& in, std::ostream& out)
     out_file.close();
 
     out << "\n✓ Successfully saved configuration to " << target_path << "\n";
-    out << "  Active features: " << cfg.combos.size() << " combo(s), " << cfg.tap_hold_keys.size()
-        << " tap-hold key(s), " << cfg.layers.size() << " layer(s)";
+    out << "  Active features: " << comboEntries(cfg.combos).size() << " combo(s), "
+        << cfg.tap_hold_keys.size() << " tap-hold key(s), " << cfg.layers.size() << " layer(s)";
     if (cfg.auto_shift.enabled) {
         out << ", auto-shift enabled";
     }
