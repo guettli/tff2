@@ -121,25 +121,26 @@ struct Combo {
     std::string text;          // Multi-character text snippet / macro expansion
     std::string toggle_layer;  // Layer to toggle on/off when combo triggered
     MouseAction mouse;
-    std::string layer;  // If non-empty, combo is only active when this modal layer is active
-    int64_t timeout_us =
-        0;  // Custom required overlap timeout (0 = fallback to settings.combo_timeout_ms)
+    std::string layer;       // If non-empty, combo is only active when this modal layer is active
+    int64_t overlap_us = 0;  // Min time all keys are held together (0 = settings.combo_overlap_ms)
+    int64_t gap_us = 0;      // Max time between two of its key presses (0 = settings.combo_gap_ms)
 
     Combo() = default;
     Combo(std::vector<KeyCode> k, std::vector<KeyCode> ok, std::string t = "", std::string tl = "",
-          MouseAction m = {}, std::string l = "", int64_t to_us = 0)
+          MouseAction m = {}, std::string l = "", int64_t overlap = 0, int64_t gap = 0)
         : keys(std::move(k)),
           out_keys(std::move(ok)),
           text(std::move(t)),
           toggle_layer(std::move(tl)),
           mouse(m),
           layer(std::move(l)),
-          timeout_us(to_us) {}
+          overlap_us(overlap),
+          gap_us(gap) {}
 
     bool operator==(const Combo& o) const {
         return keys == o.keys && out_keys == o.out_keys && text == o.text &&
                toggle_layer == o.toggle_layer && mouse == o.mouse && layer == o.layer &&
-               timeout_us == o.timeout_us;
+               overlap_us == o.overlap_us && gap_us == o.gap_us;
     }
 };
 
@@ -245,7 +246,10 @@ struct AutoShiftConfig {
 };
 
 struct Settings {
-    int64_t combo_timeout_ms = 40;      // Overlap detection window in ms (default 40ms)
+    // A combo triggers when its keys are pressed at most combo_gap_ms apart and all of them are
+    // held together for at least combo_overlap_ms (or still held when it's decided)
+    int64_t combo_overlap_ms = 40;
+    int64_t combo_gap_ms = 150;
     int64_t tap_hold_timeout_ms = 200;  // Default timeout for dual-role keys in ms (default 200ms)
     bool exclusive_grab = true;         // Exclusive device grab (default true)
     bool hotplug = false;               // Inotify device hotplugging (default false)
@@ -255,7 +259,7 @@ struct Settings {
     std::vector<std::string> devices;  // Explicit keyboard input device paths
 
     bool operator==(const Settings& o) const {
-        return combo_timeout_ms == o.combo_timeout_ms &&
+        return combo_overlap_ms == o.combo_overlap_ms && combo_gap_ms == o.combo_gap_ms &&
                tap_hold_timeout_ms == o.tap_hold_timeout_ms && exclusive_grab == o.exclusive_grab &&
                hotplug == o.hotplug && notifications == o.notifications && layout == o.layout &&
                devices == o.devices;

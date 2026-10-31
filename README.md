@@ -25,7 +25,8 @@ for Backspace, `F` + `J` for Delete, or holding `Caps Lock` for Super while tapp
 ## How It Works
 
 1. **Key Capture**: Reads input from connected keyboards
-2. **Overlap Detection**: Identifies when keys are pressed within configurable time windows
+2. **Overlap Detection**: Identifies keys pressed close together (`combo_gap_ms`) and held
+   together long enough (`combo_overlap_ms`)
 3. **Mapping Lookup**: Translates detected combinations to output key sequences
 4. **Key Output**: Sends mapped keys to the host computer
 
@@ -74,9 +75,10 @@ sequenceDiagram
 
     Note over User,Out: Scenario 1: Overlapping Chord (F + J -> Delete)
     User->>Engine: Press Key F (Down)
-    Engine->>Timer: Start combo timeout (default 40ms)
+    Engine->>Timer: Start combo gap timer (default 150ms)
     Note over Engine: Key F buffered (waiting for chord or timeout)
-    User->>Engine: Press Key J (Down within 40ms)
+    User->>Engine: Press Key J (Down within 150ms)
+    Note over Engine: F and J held together for 40ms (or longer when released)
     Engine->>Engine: Matches combo "f + j -> delete"
     Engine->>Out: Emit KEY_DELETE (Down)
     User->>Engine: Release Key F (Up)

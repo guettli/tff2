@@ -107,8 +107,8 @@ public:
 
     void setSettings(const Settings& settings);
     const Settings& getSettings() const { return settings_; }
-    void setComboTimeoutMs(int64_t ms);
-    int64_t getComboTimeoutMs() const { return settings_.combo_timeout_ms; }
+    void setComboOverlapMs(int64_t ms) { settings_.combo_overlap_ms = ms; }
+    int64_t getComboOverlapMs() const { return settings_.combo_overlap_ms; }
 
     void setEventWriter(EventWriter* out_dev) { out_dev_ = out_dev; }
 
@@ -278,9 +278,7 @@ private:
     TraceCallback trace_callback_;
     LayerToggleCallback layer_toggle_callback_;
 
-    int64_t timeout_after_down_us_ = 150000;  // 150ms
-    int64_t min_age_us_ = 140000;             // 140ms
-    int64_t min_overlap_us_ = 40000;          // 40ms
+    int64_t min_age_us_ = 140000;  // all combo keys held this long: trigger without a release
 
     bool fake_active_timer_ = true;
     TimeVal fake_active_timer_next_time_;
@@ -302,7 +300,9 @@ private:
 
     bool eval(TimeVal curr_time, const std::string& reason);
     EvalResult evalCombo(const Combo& combo, TimeVal curr_time, std::string& msg);
-    std::string tooYoung(const Event& last_down, TimeVal curr_time);
+    std::string tooYoung(const Combo& combo, const Event& last_down, TimeVal curr_time);
+    int64_t comboOverlapUs(const Combo& combo) const;
+    int64_t comboGapUs(const Combo& combo) const;
 
     void writeComboDownKeys(const Combo& combo);
     void writeComboUpKeys(const Combo& combo);

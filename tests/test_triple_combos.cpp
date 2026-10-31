@@ -10,6 +10,7 @@
 #include <string>
 #include <cassert>
 #include <algorithm>
+#include <cctype>
 
 using namespace tff;
 
@@ -313,7 +314,7 @@ combos:
     std::string err;
     assert(loadYamlConfig(yaml, config, err));
     assert(config.combos.size() == 2);
-    assert(config.combos[0].timeout_us == 80000);
+    assert(config.combos[0].overlap_us == 80000);
 
     // Scenario A: Overlap is 50ms (greater than global 40ms, but less than combo's 80ms)
     // Keys pressed: A down at t=1000ms, S down at t=1020ms.
@@ -402,6 +403,75 @@ void test_held_combo_key_times_out_and_emits_down() {
     std::cout << "PASS\n";
 }
 
+// Runs `steps` ("a_ 20 s_ 90 a/ ..." = key down/up and ms to wait) with the config's settings
+static void runTimed(const std::string& yaml, const std::string& steps, const std::string& expected,
+                     const std::string& test_name) {
+    Config config;
+    std::string err;
+    assert(loadYamlConfig(yaml, config, err));
+    VectorWriter writer;
+    TFFEngine engine(&writer, config.combos);
+    engine.setSettings(config.settings);
+    engine.setFakeActiveTimer(true);
+    int64_t t_us = 1000000;
+    std::istringstream in(steps);
+    std::string step;
+    while (in >> step) {
+        if (std::isdigit(static_cast<unsigned char>(step[0]))) {
+            t_us += std::stoll(step) * 1000;
+            continue;
+        }
+        KeyCode code = 0;
+        assert(wordToKeyCode(step.substr(0, step.size() - 1), code, err));
+        engine.processEvent(Event{TimeVal::fromMicros(t_us), EV_KEY, code,
+                                  step.back() == '_' ? KEY_VAL_DOWN : KEY_VAL_UP});
+    }
+    engine.finish();
+    const std::string actual = normalizeShortCsv(eventsToShortCsv(writer.events));
+    if (actual != normalizeShortCsv(expected)) {
+        std::cerr << "FAIL in " << test_name << "\nExpected:\n[" << normalizeShortCsv(expected)
+                  << "]\nActual:\n[" << actual << "]\n";
+        assert(false);
+    }
+}
+
+// combo_overlap_ms: how long all keys are held together; combo_gap_ms: max time between presses
+void test_combo_overlap_and_gap() {
+    std::cout << "[TEST] Combo overlap and gap... ";
+    const std::string raw = "A-down\nS-down\nA-up\nS-up\n";
+    const std::string esc = "ESC-down\nESC-up\n";
+    const std::string combo = "combos:\n  a + s: esc\n";
+
+    // Overlap
+    runTimed(combo, "a_ 20 s_ a/ 20 s/", raw, "no overlap types the keys");
+    runTimed(combo, "a_ 20 s_ 30 a/ 20 s/", raw, "30ms overlap < 40ms");
+    runTimed(combo, "a_ 20 s_ 50 a/ 20 s/", esc, "50ms overlap >= 40ms");
+    runTimed("settings:\n  combo_overlap_ms: 60\n" + combo, "a_ 20 s_ 50 a/ 20 s/", raw,
+             "50ms overlap < combo_overlap_ms 60");
+    runTimed("settings:\n  combo_timeout_ms: 60\n" + combo, "a_ 20 s_ 50 a/ 20 s/", raw,
+             "combo_timeout_ms is another name for combo_overlap_ms");
+
+    // Held keys trigger the combo after 140ms, or after a longer combo_overlap_ms
+    runTimed(combo, "a_ 20 s_ 145 a/ 20 s/", esc, "held 145ms");
+    runTimed("settings:\n  combo_overlap_ms: 200\n" + combo, "a_ 20 s_ 145 a/ 20 s/", raw,
+             "held 145ms < combo_overlap_ms 200");
+    runTimed("settings:\n  combo_overlap_ms: 200\n" + combo, "a_ 20 s_ 210 a/ 20 s/", esc,
+             "held 210ms >= combo_overlap_ms 200");
+
+    // Gap
+    runTimed(combo, "a_ 120 s_ 50 a/ 20 s/", esc, "120ms gap <= 150ms");
+    runTimed(combo, "a_ 200 s_ 50 a/ 20 s/", raw, "200ms gap > 150ms");
+    runTimed("settings:\n  combo_gap_ms: 250\n" + combo, "a_ 200 s_ 50 a/ 20 s/", esc,
+             "200ms gap <= combo_gap_ms 250");
+    runTimed("combos:\n  a + s: { out: esc, gap_ms: 250 }\n", "a_ 200 s_ 50 a/ 20 s/", esc,
+             "per-combo gap_ms");
+
+    // A per-combo timeout_ms (= overlap_ms) used to shrink the gap to the same value
+    runTimed("combos:\n  a + s: { out: esc, timeout_ms: 80 }\n", "a_ 120 s_ 90 a/ 20 s/", esc,
+             "timeout_ms 80 keeps the 150ms gap");
+    std::cout << "PASS\n";
+}
+
 int main() {
     std::cout << "================================================\n";
     std::cout << "  Testing Triple Combos & N-Key Chording        \n";
@@ -415,6 +485,7 @@ int main() {
     test_repo_config_triple_combo();
     test_per_combo_custom_timeout();
     test_held_combo_key_times_out_and_emits_down();
+    test_combo_overlap_and_gap();
 
     std::cout << "================================================\n";
     std::cout << "ALL TRIPLE COMBO & N-KEY CHORDING TESTS PASSED! ✓\n";

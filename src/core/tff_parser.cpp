@@ -1021,6 +1021,54 @@ std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos) {
     return entries;
 }
 
+// Per-combo timing: overlap_ms (old names timeout_ms, timeout) and gap_ms
+struct ComboTiming {
+    int64_t overlap_us = 0;
+    int64_t gap_us = 0;
+};
+
+static bool isComboTiming(const std::string& name) {
+    return name == "overlap_ms" || name == "timeout_ms" || name == "timeout" || name == "gap_ms";
+}
+
+static bool parseComboTiming(const std::string& name, const std::string& value, ComboTiming& timing,
+                             std::string& err_msg) {
+    const bool gap = name == "gap_ms";
+    int64_t& target = gap ? timing.gap_us : timing.overlap_us;
+    int64_t us = 0;
+    if (!parseDurationMicros(value, us) || us <= 0) {
+        err_msg = "invalid timeout value in combo: " + name + ": " + value;
+        return false;
+    }
+    if (target != 0) {
+        err_msg = "combo " + std::string(gap ? "gap_ms" : "overlap_ms") + " is set twice";
+        return false;
+    }
+    target = us;
+    return true;
+}
+
+static bool parseComboTiming(const std::map<std::string, std::string>& fields, ComboTiming& timing,
+                             std::string& err_msg) {
+    for (const auto& field : fields) {
+        if (isComboTiming(field.first) &&
+            !parseComboTiming(field.first, field.second, timing, err_msg))
+            return false;
+    }
+    return true;
+}
+
+// "- gap_ms: 80" -> "gap_ms"
+static std::string listProperty(const std::string& t) {
+    std::string prop = trim(t.substr(0, t.find(':')));
+    return prop.rfind('-', 0) == 0 ? trim(prop.substr(1)) : prop;
+}
+
+static void setTiming(Combo& c, const ComboTiming& timing) {
+    c.overlap_us = timing.overlap_us;
+    c.gap_us = timing.gap_us;
+}
+
 // line_no: the line being read when an error occurs, 0 for errors about the whole file
 static bool loadYamlLines(const std::string& yaml_str, Config& config, std::string& err_msg,
                           const LoadOptions& options, size_t& line_no) {
@@ -1051,7 +1099,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
     MouseAction current_mouse;
     bool has_mouse = false;
     std::string current_combo_layer;
-    int64_t current_combo_timeout_us = 0;
+    ComboTiming current_combo_timing;
     // Combos added by the last list entry; a layer:/timeout_ms: after its action applies to them
     size_t entry_first_combo = 0;
     size_t entry_end_combo = std::string::npos;
@@ -1563,20 +1611,34 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             std::string v = trim(t.substr(colon + 1));
             if (settings_child_indent == std::string::npos)
                 settings_child_indent = current_indent;
-            if (current_indent == settings_child_indent && !seen_settings.insert(k).second) {
-                err_msg = "setting '" + k + "' is set twice";
+            static const std::map<std::string, std::string> kSettingAliases = {
+                {"combo_timeout_ms", "combo_overlap_ms"},
+                {"combo_timeout", "combo_overlap_ms"},
+                {"combo_window_ms", "combo_overlap_ms"},
+                {"tap_hold_timeout", "tap_hold_timeout_ms"},
+                {"grab", "exclusive_grab"},
+                {"notify", "notifications"},
+                {"device", "devices"}};
+            const auto alias = kSettingAliases.find(k);
+            const std::string setting = alias == kSettingAliases.end() ? k : alias->second;
+            if (current_indent == settings_child_indent && !seen_settings.insert(setting).second) {
+                err_msg = "setting '" + setting + "' is set twice" +
+                          (k != setting ? " (" + k + " is another name for it)" : "");
                 return false;
             }
-            if (k == "combo_timeout_ms" || k == "combo_timeout" || k == "combo_window_ms") {
+            if (k == "combo_overlap_ms" || k == "combo_timeout_ms" || k == "combo_timeout" ||
+                k == "combo_window_ms" || k == "combo_gap_ms") {
+                const std::string name = k == "combo_gap_ms" ? k : "combo_overlap_ms";
                 try {
                     int val = std::stoi(v);
                     if (val < 1 || val > 5000) {
-                        err_msg = "combo_timeout_ms must be between 1 and 5000";
+                        err_msg = name + " must be between 1 and 5000";
                         return false;
                     }
-                    config.settings.combo_timeout_ms = val;
+                    (k == "combo_gap_ms" ? config.settings.combo_gap_ms
+                                         : config.settings.combo_overlap_ms) = val;
                 } catch (...) {
-                    err_msg = "invalid integer for combo_timeout_ms: " + v;
+                    err_msg = "invalid integer for " + name + ": " + v;
                     return false;
                 }
             } else if (k == "tap_hold_timeout_ms" || k == "tap_hold_timeout") {
@@ -1755,25 +1817,11 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 std::string toggle_err;
                 MouseAction mouse_act;
                 std::string mouse_err;
-                int64_t layer_combo_timeout_us = 0;
+                ComboTiming layer_combo_timing;
                 std::map<std::string, std::string> inline_fields;
                 if (parseInlineDictFields(val_part, inline_fields)) {
-                    if (inline_fields.find("timeout_ms") != inline_fields.end()) {
-                        if (!parseDurationMicros(inline_fields["timeout_ms"],
-                                                 layer_combo_timeout_us) ||
-                            layer_combo_timeout_us <= 0) {
-                            err_msg =
-                                "invalid timeout value in combo: " + inline_fields["timeout_ms"];
-                            return false;
-                        }
-                    } else if (inline_fields.find("timeout") != inline_fields.end()) {
-                        if (!parseDurationMicros(inline_fields["timeout"],
-                                                 layer_combo_timeout_us) ||
-                            layer_combo_timeout_us <= 0) {
-                            err_msg = "invalid timeout value in combo: " + inline_fields["timeout"];
-                            return false;
-                        }
-                    }
+                    if (!parseComboTiming(inline_fields, layer_combo_timing, err_msg))
+                        return false;
                     if (inline_fields.find("text") != inline_fields.end()) {
                         std::string raw_txt = inline_fields["text"];
                         if ((raw_txt.size() >= 2 && raw_txt.front() == '"' &&
@@ -1846,7 +1894,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                         Combo c;
                         c.keys = perm;
                         c.layer = current_layer_name;
-                        c.timeout_us = layer_combo_timeout_us;
+                        setTiming(c, layer_combo_timing);
                         if (is_toggle) {
                             c.toggle_layer = toggle_layer_name;
                         } else if (is_mouse) {
@@ -1863,7 +1911,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                     Combo c;
                     c.keys = chord_codes;
                     c.layer = current_layer_name;
-                    c.timeout_us = layer_combo_timeout_us;
+                    setTiming(c, layer_combo_timing);
                     if (is_toggle) {
                         c.toggle_layer = toggle_layer_name;
                     } else if (is_mouse) {
@@ -2732,7 +2780,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             current_text.clear();
             current_toggle_layer.clear();
             current_combo_layer.clear();
-            current_combo_timeout_us = 0;
+            current_combo_timing = ComboTiming{};
             has_text = false;
             has_toggle_layer = false;
             continue;
@@ -2761,20 +2809,16 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 }
             }
             continue;
-        } else if (t.rfind("timeout_ms:", 0) == 0 || t.rfind("- timeout_ms:", 0) == 0 ||
-                   t.rfind("timeout:", 0) == 0 || t.rfind("- timeout:", 0) == 0) {
-            auto colon = t.find(':');
-            std::string to_val = trim(t.substr(colon + 1));
-            int64_t to_us = 0;
-            if (!parseDurationMicros(to_val, to_us) || to_us <= 0) {
-                err_msg = "invalid timeout value in combo: " + to_val;
+        } else if (t.find(':') != std::string::npos && isComboTiming(listProperty(t))) {
+            if (!parseComboTiming(listProperty(t), trim(t.substr(t.find(':') + 1)),
+                                  current_combo_timing, err_msg))
                 return false;
-            }
-            current_combo_timeout_us = to_us;
             if (current_keys.empty() && entry_end_combo == config.combos.size()) {
                 for (size_t i = entry_first_combo; i < entry_end_combo; ++i) {
-                    if (config.combos[i].timeout_us == 0)
-                        config.combos[i].timeout_us = to_us;
+                    if (config.combos[i].overlap_us == 0)
+                        config.combos[i].overlap_us = current_combo_timing.overlap_us;
+                    if (config.combos[i].gap_us == 0)
+                        config.combos[i].gap_us = current_combo_timing.gap_us;
                 }
             }
             continue;
@@ -2911,7 +2955,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                     Combo c;
                     c.keys = perm;
                     c.layer = current_combo_layer;
-                    c.timeout_us = current_combo_timeout_us;
+                    setTiming(c, current_combo_timing);
                     if (has_toggle_layer) {
                         c.toggle_layer = current_toggle_layer;
                     } else if (has_mouse) {
@@ -2928,7 +2972,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 Combo c;
                 c.keys = chord_codes;
                 c.layer = current_combo_layer;
-                c.timeout_us = current_combo_timeout_us;
+                setTiming(c, current_combo_timing);
                 if (has_toggle_layer) {
                     c.toggle_layer = current_toggle_layer;
                 } else if (has_mouse) {
@@ -2947,7 +2991,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             current_text.clear();
             current_toggle_layer.clear();
             current_combo_layer.clear();
-            current_combo_timeout_us = 0;
+            current_combo_timing = ComboTiming{};
             current_mouse = MouseAction{};
             has_text = false;
             has_toggle_layer = false;
@@ -2974,25 +3018,14 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
             }
 
             std::string combo_layer;
-            int64_t combo_timeout_us = 0;
+            ComboTiming combo_timing;
             std::map<std::string, std::string> inline_fields;
             if (parseInlineDictFields(val_part, inline_fields)) {
                 if (inline_fields.find("layer") != inline_fields.end()) {
                     combo_layer = unquoteAndUnescape(inline_fields["layer"]);
                 }
-                if (inline_fields.find("timeout_ms") != inline_fields.end()) {
-                    if (!parseDurationMicros(inline_fields["timeout_ms"], combo_timeout_us) ||
-                        combo_timeout_us <= 0) {
-                        err_msg = "invalid timeout value in combo: " + inline_fields["timeout_ms"];
-                        return false;
-                    }
-                } else if (inline_fields.find("timeout") != inline_fields.end()) {
-                    if (!parseDurationMicros(inline_fields["timeout"], combo_timeout_us) ||
-                        combo_timeout_us <= 0) {
-                        err_msg = "invalid timeout value in combo: " + inline_fields["timeout"];
-                        return false;
-                    }
-                }
+                if (!parseComboTiming(inline_fields, combo_timing, err_msg))
+                    return false;
                 if (inline_fields.find("text") != inline_fields.end()) {
                     std::string raw_txt = inline_fields["text"];
                     if ((raw_txt.size() >= 2 && raw_txt.front() == '"' && raw_txt.back() == '"') ||
@@ -3145,7 +3178,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                     c.keys = leader_codes;
                     c.keys.insert(c.keys.end(), perm.begin(), perm.end());
                     c.layer = combo_layer;
-                    c.timeout_us = combo_timeout_us;
+                    setTiming(c, combo_timing);
                     if (toggle_mode) {
                         c.toggle_layer = toggle_layer_name;
                     } else if (mouse_mode) {
@@ -3165,7 +3198,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
                 c.keys = leader_codes;
                 c.keys.insert(c.keys.end(), chord_codes.begin(), chord_codes.end());
                 c.layer = combo_layer;
-                c.timeout_us = combo_timeout_us;
+                setTiming(c, combo_timing);
                 if (toggle_mode) {
                     c.toggle_layer = toggle_layer_name;
                 } else if (mouse_mode) {
@@ -3262,11 +3295,7 @@ static bool loadYamlLines(const std::string& yaml_str, Config& config, std::stri
     }
 
     for (const auto& combo : config.combos) {
-        if (combo.timeout_us < 0) {
-            err_msg = "negative timeout value in combo";
-            return false;
-        }
-        if (combo.timeout_us > 5000000LL) {
+        if (combo.overlap_us > 5000000LL || combo.gap_us > 5000000LL) {
             err_msg = "combo timeout exceeds maximum allowed 5000ms";
             return false;
         }

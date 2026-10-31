@@ -38,7 +38,7 @@ const std::vector<WizardPreset> PRESET_DEFINITIONS = {
 # Ten Flying Fingers (TFF) - Minimal Configuration
 # Fast home-row index finger chords and dual-role CapsLock
 settings:
-  combo_timeout_ms: 40
+  combo_overlap_ms: 40
   tap_hold_timeout_ms: 200
 
 combos:
@@ -60,7 +60,7 @@ tap_hold:
 # Ten Flying Fingers (TFF) - Vim Navigation Preset
 # Hold Space to activate modal navigation layer (H/J/K/L, Home, End, PgUp, PgDn)
 settings:
-  combo_timeout_ms: 40
+  combo_overlap_ms: 40
   tap_hold_timeout_ms: 200
 
 combos:
@@ -98,7 +98,7 @@ layers:
 # Ten Flying Fingers (TFF) - Home-Row Modifiers Preset
 # Dual-role home-row keys: tap for standard letter, hold for modifier
 settings:
-  combo_timeout_ms: 40
+  combo_overlap_ms: 40
   tap_hold_timeout_ms: 180
 
 tap_hold:
@@ -143,7 +143,7 @@ tap_hold:
 # Ten Flying Fingers (TFF) - Full Power-User Preset
 # Home-row chords, Space-Nav layer, dual-role keys, and Auto-Shift capitalization
 settings:
-  combo_timeout_ms: 40
+  combo_overlap_ms: 40
   tap_hold_timeout_ms: 200
 
 combos:
@@ -219,7 +219,7 @@ std::string generateConfigFromAnswers(const WizardAnswers& a) {
        << "# Documentation: https://github.com/guettli/tff2\n\n";
 
     ss << "settings:\n"
-       << "  combo_timeout_ms: " << a.combo_timeout_ms << "\n"
+       << "  combo_overlap_ms: " << a.combo_overlap_ms << "\n"
        << "  tap_hold_timeout_ms: " << a.tap_hold_timeout_ms << "\n\n";
 
     if (a.enable_home_row_combos && !a.enable_home_row_mods) {

@@ -425,7 +425,7 @@ combos:
         tff::Config cfg_default;
         std::string err_msg;
         assert(tff::loadYamlConfig(minimal_yaml, cfg_default, err_msg));
-        assert(cfg_default.settings.combo_timeout_ms == 40);
+        assert(cfg_default.settings.combo_overlap_ms == 40);
         assert(cfg_default.settings.tap_hold_timeout_ms == 200);
         assert(cfg_default.settings.exclusive_grab == true);
         assert(cfg_default.settings.hotplug == false);
@@ -457,7 +457,7 @@ tap_hold:
 )";
         tff::Config cfg_custom;
         assert(tff::loadYamlConfig(custom_settings_yaml, cfg_custom, err_msg));
-        assert(cfg_custom.settings.combo_timeout_ms == 60);
+        assert(cfg_custom.settings.combo_overlap_ms == 60);
         assert(cfg_custom.settings.tap_hold_timeout_ms == 350);
         assert(cfg_custom.settings.exclusive_grab == false);
         assert(cfg_custom.settings.hotplug == false);
@@ -480,7 +480,7 @@ settings:
 )";
         tff::Config cfg_aliases;
         assert(tff::loadYamlConfig(aliases_yaml, cfg_aliases, err_msg));
-        assert(cfg_aliases.settings.combo_timeout_ms == 45);
+        assert(cfg_aliases.settings.combo_overlap_ms == 45);
         assert(cfg_aliases.settings.tap_hold_timeout_ms == 280);
         assert(cfg_aliases.settings.exclusive_grab == false);
         assert(cfg_aliases.settings.hotplug == true);
@@ -503,7 +503,7 @@ settings:
 )";
         tff::Config cfg_bad_combo;
         assert(!tff::loadYamlConfig(bad_combo_yaml, cfg_bad_combo, err_msg));
-        assert(err_msg.find("combo_timeout_ms must be between 1 and 5000") != std::string::npos);
+        assert(err_msg.find("combo_overlap_ms must be between 1 and 5000") != std::string::npos);
 
         // 6. Validation: invalid integer
         std::string bad_int_yaml = R"(
@@ -594,12 +594,12 @@ combos:
         // 10. TFFEngine integration with Settings
         tff::TFFEngine engine;
         engine.setConfig(cfg_custom);
-        assert(engine.getSettings().combo_timeout_ms == 60);
-        assert(engine.getComboTimeoutMs() == 60);
+        assert(engine.getSettings().combo_overlap_ms == 60);
+        assert(engine.getComboOverlapMs() == 60);
 
-        engine.setComboTimeoutMs(75);
-        assert(engine.getComboTimeoutMs() == 75);
-        assert(engine.getSettings().combo_timeout_ms == 75);
+        engine.setComboOverlapMs(75);
+        assert(engine.getComboOverlapMs() == 75);
+        assert(engine.getSettings().combo_overlap_ms == 75);
 
         std::cout << "✓ Test 14 passed: settings section parsing, defaults, and validation\n";
     }
@@ -660,19 +660,19 @@ layers:
         bool found_hl = false;
         for (const auto& c : cfg.combos) {
             if (c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_ESC) {
-                assert(c.timeout_us == 70000);
+                assert(c.overlap_us == 70000);
                 found_as = true;
             }
             if (c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_TAB) {
-                assert(c.timeout_us == 80000);
+                assert(c.overlap_us == 80000);
                 found_df = true;
             }
             if (c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_ENTER) {
-                assert(c.timeout_us == 65000);
+                assert(c.overlap_us == 65000);
                 found_jk = true;
             }
             if (c.layer == "nav" && c.out_keys.size() == 1 && c.out_keys[0] == tff::Keys::KEY_END) {
-                assert(c.timeout_us == 55000);
+                assert(c.overlap_us == 55000);
                 found_hl = true;
             }
         }
@@ -735,7 +735,7 @@ layers:
         assert(!tff::loadYamlConfig(
             "combos:\n  d f: esc\nsettings:\n  combo_timeout_ms: 30\n  combo_timeout_ms: 60\n", cfg,
             err_msg));
-        assert(err_msg.find("setting 'combo_timeout_ms' is set twice") != std::string::npos);
+        assert(err_msg.find("setting 'combo_overlap_ms' is set twice") != std::string::npos);
         // errors name the line; quotes
         assert(!tff::loadYamlConfig("combos:\n  d f: esc\n\n  j k: nosuchkey\n", cfg, err_msg));
         assert(err_msg.rfind("line 4: ", 0) == 0);
@@ -754,6 +754,34 @@ layers:
         assert(!tff::loadYamlConfig(
             "combos:\n  - keys: [j, k]\n\n  - keys: [d, f]\n    action: esc\n", cfg, err_msg));
         assert(err_msg.rfind("line 2: ", 0) == 0);
+        // combo overlap and gap
+        assert(tff::loadYamlConfig("combos:\n  d f: esc\n", cfg, err_msg));
+        assert(cfg.settings.combo_overlap_ms == 40 && cfg.settings.combo_gap_ms == 150);
+        assert(tff::loadYamlConfig(
+            "combos:\n  d f: esc\nsettings:\n  combo_overlap_ms: 30\n  combo_gap_ms: 200\n", cfg,
+            err_msg));
+        assert(cfg.settings.combo_overlap_ms == 30 && cfg.settings.combo_gap_ms == 200);
+        assert(!tff::loadYamlConfig(
+            "combos:\n  d f: esc\nsettings:\n  combo_overlap_ms: 30\n  combo_timeout: 50\n", cfg,
+            err_msg));
+        assert(err_msg.find("setting 'combo_overlap_ms' is set twice (combo_timeout is") !=
+               std::string::npos);
+        assert(!tff::loadYamlConfig("combos:\n  d f: esc\nsettings:\n  combo_gap_ms: 0\n", cfg,
+                                    err_msg));
+        assert(err_msg.find("combo_gap_ms must be between 1 and 5000") != std::string::npos);
+        assert(
+            tff::loadYamlConfig("combos:\n  d f: { out: esc, overlap_ms: 60, gap_ms: 200 }\n"
+                                "  - keys: [j, k]\n    gap_ms: 90ms\n    action: tab\n"
+                                "  - keys: [s, d]\n    action: enter\n    gap_ms: 80\n",
+                                cfg, err_msg));
+        assert(cfg.combos[0].overlap_us == 60000 && cfg.combos[0].gap_us == 200000);
+        assert(cfg.combos[1].overlap_us == 0 && cfg.combos[1].gap_us == 90000);
+        assert(cfg.combos[2].gap_us == 80000);
+        assert(!tff::loadYamlConfig(
+            "combos:\n  d f: { out: esc, overlap_ms: 60, timeout_ms: 50 }\n", cfg, err_msg));
+        assert(err_msg.find("combo overlap_ms is set twice") != std::string::npos);
+        assert(!tff::loadYamlConfig("combos:\n  d f: { out: esc, gap_ms: 6000 }\n", cfg, err_msg));
+        assert(err_msg.find("exceeds maximum") != std::string::npos);
         // layer: and timeout_ms: after action: belong to that entry only
         assert(
             tff::loadYamlConfig("combos:\n  - keys: [f, j]\n    action: esc\n"
@@ -762,8 +790,8 @@ layers:
                                 "layers:\n  nav:\n    h: left\n",
                                 cfg, err_msg));
         assert(cfg.combos.size() == 2);
-        assert(cfg.combos[0].layer.empty() && cfg.combos[0].timeout_us == 0);
-        assert(cfg.combos[1].layer == "nav" && cfg.combos[1].timeout_us == 80000);
+        assert(cfg.combos[0].layer.empty() && cfg.combos[0].overlap_us == 0);
+        assert(cfg.combos[1].layer == "nav" && cfg.combos[1].overlap_us == 80000);
         assert(
             tff::loadYamlConfig("combos:\n  - keys: d + f\n    action: esc\n    layer: nav\n"
                                 "layers:\n  nav:\n    h: left\n",

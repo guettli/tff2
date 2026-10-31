@@ -25,7 +25,7 @@ void testPresetsValidation() {
             std::cerr << "Validation failed for preset '" << p.name << "': " << err << "\n";
         }
         assert(ok);
-        assert(cfg.settings.combo_timeout_ms > 0);
+        assert(cfg.settings.combo_overlap_ms > 0);
         assert(cfg.settings.tap_hold_timeout_ms > 0);
     }
     std::cout << "PASSED (" << presets.size() << " presets verified)\n";

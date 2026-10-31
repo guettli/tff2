@@ -181,7 +181,7 @@ Save this complete configuration to `~/.config/tff/tff-combos.yaml`:
 
 ```yaml
 settings:
-  combo_timeout_ms: 40
+  combo_overlap_ms: 40
   tap_hold_timeout_ms: 190
 
 tap_hold:

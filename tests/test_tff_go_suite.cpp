@@ -104,7 +104,8 @@ static const std::vector<Combo> orderedCombos = {
 };
 
 static const std::vector<Combo> capslockCombos = {
-    Combo({Keys::KEY_CAPSLOCK, Keys::KEY_J}, {Keys::KEY_BACKSPACE}, "", "", {}, "", 500000),
+    // J comes 259 ms after Capslock: longer than the default gap
+    Combo({Keys::KEY_CAPSLOCK, Keys::KEY_J}, {Keys::KEY_BACKSPACE}, "", "", {}, "", 0, 500000),
 };
 
 static const std::string asdfTestEvents =
