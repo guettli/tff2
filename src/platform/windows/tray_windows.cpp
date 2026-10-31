@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cstdio>
 #include <ctime>
+#include <cwchar>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -28,6 +29,10 @@ constexpr UINT WM_TFF_ENGINE_EXIT = WM_APP + 13;
 constexpr UINT kTrayId = 1;
 constexpr UINT_PTR kOsdTimer = 1;
 constexpr UINT_PTR kTrayRetryTimer = 2;
+constexpr UINT_PTR kExeCheckTimer = 3;
+constexpr UINT kExeCheckMs = 3000;
+constexpr int kExeStableChecks = 2;  // the new file must stay unchanged this often (installer done)
+const wchar_t kAfterUpdateArg[] = L"--after-update";
 constexpr UINT kTrayRetryMs = 2000;
 constexpr int kTrayRetries = 90;  // 3 minutes: the taskbar may come up late after sign-in
 constexpr UINT kOsdMs = 1200;
@@ -52,6 +57,28 @@ const wchar_t kSettingsKey[] = L"Software\\TFF2";
 const wchar_t kTrayClass[] = L"TffTrayWindow";
 const wchar_t kOsdClass[] = L"TffOsdWindow";
 
+/// Existence, size and write time of an executable file, to notice an update or uninstall.
+struct ExeFile {
+    bool exists = false;
+    ULONGLONG size = 0;
+    ULONGLONG write_time = 0;
+    bool operator==(const ExeFile& o) const {
+        return exists == o.exists && size == o.size && write_time == o.write_time;
+    }
+};
+
+ExeFile exeFile(const std::wstring& path) {
+    ExeFile f;
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &data)) {
+        f.exists = true;
+        f.size = (static_cast<ULONGLONG>(data.nFileSizeHigh) << 32) | data.nFileSizeLow;
+        f.write_time = (static_cast<ULONGLONG>(data.ftLastWriteTime.dwHighDateTime) << 32) |
+                       data.ftLastWriteTime.dwLowDateTime;
+    }
+    return f;
+}
+
 struct App {
     HINSTANCE instance = nullptr;
     HWND tray_window = nullptr;
@@ -71,6 +98,10 @@ struct App {
     std::atomic<int> engine_rc{0};
     std::thread task_query_thread;
     std::atomic<bool> autostart_task{false};  ///< cached: schtasks /Query is slow
+    std::wstring exe_path;
+    ExeFile exe_started;  ///< tffw.exe as it was when this process started
+    ExeFile exe_seen;     ///< last differing state seen by the update check
+    int exe_stable_checks = 0;
 };
 
 App g_app;
@@ -439,6 +470,52 @@ void showMenu(HWND hwnd) {
     }
 }
 
+/// An installer replaces or removes tffw.exe while it runs (Windows lets it rename the running
+/// file), so this process would go on running the old version. Once the file has stayed
+/// unchanged for a few seconds: start the new version (same elevation) or, if it was
+/// uninstalled, exit.
+void checkExeUpdated(HWND hwnd) {
+    const ExeFile now = exeFile(g_app.exe_path);
+    if (now == g_app.exe_started) {
+        g_app.exe_stable_checks = 0;
+        return;
+    }
+    if (!(now == g_app.exe_seen)) {
+        g_app.exe_seen = now;
+        g_app.exe_stable_checks = 0;
+        return;
+    }
+    if (++g_app.exe_stable_checks < kExeStableChecks) {
+        return;
+    }
+    if (!now.exists) {
+        logLine("[TFF] " + tff::win::narrow(g_app.exe_path) + " was removed: exiting");
+    } else {
+        std::wstring cmd = GetCommandLineW();
+        if (cmd.find(kAfterUpdateArg) == std::wstring::npos) {
+            cmd += L" ";
+            cmd += kAfterUpdateArg;
+        }
+        STARTUPINFOW si{};
+        si.cb = sizeof(si);
+        PROCESS_INFORMATION pi{};
+        if (!CreateProcessW(g_app.exe_path.c_str(), cmd.data(), nullptr, nullptr, FALSE, 0, nullptr,
+                            nullptr, &si, &pi)) {
+            logLine("[TFF] " + tff::win::narrow(g_app.exe_path) +
+                    " was updated, starting it failed (error " + std::to_string(GetLastError()) +
+                    "): this version keeps running");
+            g_app.exe_started = now;
+            return;
+        }
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        logLine("[TFF] " + tff::win::narrow(g_app.exe_path) + " was updated: started it, exiting");
+    }
+    KillTimer(hwnd, kExeCheckTimer);
+    stopEngine();
+    DestroyWindow(hwnd);
+}
+
 LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     if (msg == g_app.taskbar_created_msg && msg != 0) {
         addTrayIcon();  // Explorer (re)started
@@ -446,7 +523,9 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     }
     switch (msg) {
         case WM_TIMER:
-            if (wparam == kTrayRetryTimer) {
+            if (wparam == kExeCheckTimer) {
+                checkExeUpdated(hwnd);
+            } else if (wparam == kTrayRetryTimer) {
                 if (ensureTrayIcon()) {
                     KillTimer(hwnd, kTrayRetryTimer);
                     logLine("[TFF] Tray icon added");
@@ -579,6 +658,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
     bool already_running = false;
     HANDLE mutex = tff::win::acquireInstanceMutex(already_running);
+    // Started by the previous version after an update: wait for it to exit.
+    for (int i = 0; already_running && i < 50 && wcsstr(GetCommandLineW(), kAfterUpdateArg); ++i) {
+        if (mutex != nullptr) {
+            CloseHandle(mutex);
+        }
+        Sleep(200);
+        mutex = tff::win::acquireInstanceMutex(already_running);
+    }
     if (already_running) {
         MessageBoxW(nullptr,
                     L"TFF is already running (see the notification area, or a tff.exe console).",
@@ -651,6 +738,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         std::thread([] { g_app.autostart_task = tff::win::autostartStatus().task; });
     addTrayIcon();
     firstRun();
+
+    wchar_t exe[MAX_PATH];
+    const DWORD exe_len = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    if (exe_len > 0 && exe_len < MAX_PATH) {
+        g_app.exe_path = exe;
+        g_app.exe_started = g_app.exe_seen = exeFile(g_app.exe_path);
+        SetTimer(tray, kExeCheckTimer, kExeCheckMs, nullptr);
+    }
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {

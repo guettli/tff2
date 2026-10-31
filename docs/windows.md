@@ -21,6 +21,10 @@ Download from [GitHub Releases](https://github.com/guettli/tff2/releases):
 - `tff2-<version>-windows-x64.zip`: portable, no administrator rights needed; unpack anywhere
   (e.g. `%LOCALAPPDATA%\Programs\TFF2`) and start `tffw.exe`.
 
+To update, install the new MSI; TFF can keep running. The running `tffw.exe` notices within a
+few seconds that its program file was replaced and starts the new version (with the same
+rights, e.g. elevated). When TFF is uninstalled, it exits. To update the ZIP, quit TFF first.
+
 The programs are not code-signed yet, so Windows SmartScreen may warn on first start ("More
 info" → "Run anyway"). Some antivirus products are suspicious of any program that hooks the
 keyboard.
