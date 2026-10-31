@@ -4,7 +4,7 @@
 # Combo keys must be held together at least combo_overlap_ms (40) to trigger.
 
 DE = "settings:\n  layout: de\n"
-DF = "d:d d:f 50 u:d u:f"  # press the d + f combo
+DF = "d:d d:f 80 u:d u:f"  # press the d + f combo (held together ~90 ms)
 
 CASES = [
     # Text snippets are typed as key presses on the host layout
@@ -33,7 +33,9 @@ CASES += [
     dict(name="combo held together", config=TIMING, xkb=("de", ""), steps="d:d d:k 120 u:d u:k 300",
          text="hä?1"),
     dict(name="combo keys without overlap are typed", config=TIMING, xkb=("de", ""),
-         steps="d:d d:k u:d u:k 300", text="dk"),
+         steps="d:d d:k,u:d u:k 300", text="dk"),
+    dict(name="combo keys overlapping 20ms are typed", config=TIMING, xkb=("de", ""),
+         steps="d:d d:k 10 u:d u:k 300", text="dk"),
     dict(name="combo gap too long", config=TIMING, xkb=("de", ""), steps="d:d 200 d:k 60 u:d u:k 300",
          text="dk"),
     dict(name="combo gap from settings", config=DE + '  combo_gap_ms: 300\ncombos:\n  d + k: "hä?1"\n',
@@ -74,7 +76,7 @@ tap_dance:
     hold: leftalt
 """
 X = ("de", "")
-SD = "d:s d:d 50 u:s u:d"  # the s + d snippet combo
+SD = "d:s d:d 80 u:s u:d"  # the s + d snippet combo
 CASES += [
     dict(name="tap-hold tap", config=FULL, xkb=X, steps="t:capslock 300", trace="esc_ esc/"),
     dict(name="tap-hold hold", config=FULL, xkb=X, steps="d:capslock 300 t:c u:capslock",

@@ -53,16 +53,44 @@ def make_source():
     return fd
 
 
-def find_device(name, proc=None, timeout=10):
+def devices(name):
+    found = set()
+    for p in glob.glob("/sys/class/input/event*/device/name"):
+        try:
+            if open(p).read().strip() == name:
+                found.add("/dev/input/" + p.split("/")[4])
+        except OSError:
+            pass  # removed meanwhile
+    return found
+
+
+def find_new_device(name, before, proc=None, timeout=10):
+    """A device called `name` that isn't in `before` (e.g. not the one of a running TFF)."""
     end = time.time() + timeout
     while time.time() < end:
         if proc is not None and proc.poll() is not None:
             return None
-        for p in glob.glob("/sys/class/input/event*/device/name"):
-            if open(p).read().strip() == name:
-                return "/dev/input/" + p.split("/")[4]
+        new = devices(name) - before
+        if new:
+            return max(new, key=lambda d: int(d.rsplit("event", 1)[1]))
         time.sleep(0.05)
     raise RuntimeError("input device not found: " + name)
+
+
+def wait_for_grab(dev, proc, timeout=10):
+    """True once another process (tff_linux) grabbed `dev`: our own grab then fails."""
+    end = time.time() + timeout
+    while time.time() < end and proc.poll() is None:
+        fd = os.open(dev, os.O_RDONLY | os.O_NONBLOCK)
+        try:
+            fcntl.ioctl(fd, EVIOCGRAB, 1)
+            fcntl.ioctl(fd, EVIOCGRAB, 0)
+        except OSError:
+            return True
+        finally:
+            os.close(fd)
+        time.sleep(0.02)
+    return False
 
 
 def emit(fd, code, value):
@@ -76,6 +104,8 @@ class Decoder:
     def __init__(self, layout, variant):
         names = g.RuleNames(b"evdev", b"pc105", layout.encode(), variant.encode(), b"")
         self.keymap = x.xkb_keymap_new_from_names(g.ctx, ctypes.byref(names), 0)
+        if not self.keymap:
+            raise RuntimeError("xkb layout not found: %s(%s)" % (layout, variant))
         self.state = x.xkb_state_new(self.keymap)
         x.xkb_compose_state_reset(g.compose)
         self.text = ""
@@ -103,21 +133,25 @@ class Decoder:
 
 
 def run_case(tff, case, workdir):
-    """Steps: "d:key" down, "u:key" up, "t:key" tap, "r:key" autorepeat, "<ms>" wait."""
+    """Steps: "d:key" down, "u:key" up, "t:key" tap, "r:key" autorepeat, "<ms>" wait.
+    Steps joined by "," are sent back to back ("d:k,u:d": k pressed as d is released)."""
     cfg = os.path.join(workdir, "cfg.yaml")
     log_path = os.path.join(workdir, "tff.log")
     with open(cfg, "w") as f:
         f.write(case["config"])
-    src = make_source()
     events = []
+    src_before = devices(SRC_NAME)
+    out_before = devices(OUT_NAME)
+    src = make_source()
+    ofd = None
     try:
         with open(log_path, "w") as log:
-            proc = subprocess.Popen([tff, cfg, find_device(SRC_NAME)], stdout=log,
-                                    stderr=subprocess.STDOUT)
+            src_dev = find_new_device(SRC_NAME, src_before)
+            proc = subprocess.Popen([tff, cfg, src_dev], stdout=log, stderr=subprocess.STDOUT)
             try:
-                out = find_device(OUT_NAME, proc=proc)
-                if out is None:
-                    return None, "tff_linux exited", open(log_path).read()
+                out = find_new_device(OUT_NAME, out_before, proc=proc)
+                if out is None or not wait_for_grab(src_dev, proc):
+                    return "", "tff_linux exited", open(log_path).read()
                 ofd = os.open(out, os.O_RDONLY | os.O_NONBLOCK)
                 fcntl.ioctl(ofd, EVIOCGRAB, 1)  # keep the output away from the console
 
@@ -132,29 +166,34 @@ def run_case(tff, case, workdir):
                             if typ == EV_KEY:
                                 events.append((code, value))
 
-                drain(0.5)  # tff_linux grabs the source device
+                drain(0.1)
                 for step in case["steps"].split():
                     if step.isdigit():
                         drain(int(step) / 1000)
                         continue
-                    action, key = step.split(":")
-                    code = KEYS[key]
-                    if action == "r":
-                        emit(src, code, 2)
-                        drain(0.03)
-                        continue
-                    if action in ("d", "t"):
-                        emit(src, code, 1)
-                        drain(0.012)
-                    if action in ("u", "t"):
-                        emit(src, code, 0)
-                        drain(0.012)
+                    for part in step.split(","):
+                        action, key = part.split(":")
+                        code = KEYS[key]
+                        if action == "r":
+                            emit(src, code, 2)
+                        if action in ("d", "t"):
+                            emit(src, code, 1)
+                        if action == "t":
+                            drain(0.012)
+                        if action in ("u", "t"):
+                            emit(src, code, 0)
+                    drain(0.03 if action == "r" else 0.012)
                 drain(0.6)
-                os.close(ofd)
             finally:
                 proc.terminate()
-                proc.wait(5)
+                try:
+                    proc.wait(5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
     finally:
+        if ofd is not None:
+            os.close(ofd)
         fcntl.ioctl(src, UI_DEV_DESTROY)
         os.close(src)
     decoder = Decoder(*case.get("xkb", ("us", "")))
@@ -173,12 +212,16 @@ def main():
     cases = {}
     exec(open(os.path.join(HERE, "e2e_cases.py")).read(), cases)
     failures = 0
+    selected = [c for c in cases["CASES"] if name_filter in c["name"]]
+    if not selected:
+        sys.exit("no case matches " + repr(name_filter))
     with tempfile.TemporaryDirectory() as workdir:
-        for case in cases["CASES"]:
-            if name_filter not in case["name"]:
-                continue
+        for case in selected:
             assert "text" in case or "trace" in case, case["name"] + ": no expected result"
-            text, trace, log = run_case(tff, case, workdir)
+            try:
+                text, trace, log = run_case(tff, case, workdir)
+            except Exception as e:  # report and go on with the next case
+                text, trace, log = "", "", "%s: %s" % (type(e).__name__, e)
             ok = case.get("text", text) == text and case.get("trace", trace) == trace
             print(("PASS " if ok else "FAIL ") + case["name"])
             if not ok or os.environ.get("V"):
