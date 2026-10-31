@@ -104,7 +104,7 @@ combos:
   i + p: rightalt+0      # Emits '}' on German QWERTZ
   s + l: leftshift+7     # Emits '/' on German QWERTZ
   b + s: rightalt+minus  # Emits '\' on German QWERTZ
-  p + i: rightalt+102nd  # Emits '|' on German QWERTZ (angle bracket key)
+  o + p: rightalt+102nd  # Emits '|' on German QWERTZ (angle bracket key)
 ```
 
 ---

@@ -993,7 +993,9 @@ std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos) {
 bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& err_msg,
                     const LoadOptions& options) {
     config = Config{};
-    std::istringstream iss(yaml_str);
+    // Editors on Windows may save a UTF-8 byte order mark
+    const bool bom = yaml_str.rfind("\xEF\xBB\xBF", 0) == 0;
+    std::istringstream iss(bom ? yaml_str.substr(3) : yaml_str);
     std::string line;
     bool in_combos = false;
     bool in_tap_hold = false;
@@ -1018,6 +1020,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
     bool has_mouse = false;
     std::string current_combo_layer;
     int64_t current_combo_timeout_us = 0;
+    // Combos added by the last list entry; a layer:/timeout_ms: after its action applies to them
+    size_t entry_first_combo = 0;
+    size_t entry_end_combo = std::string::npos;
     bool has_combos_tag = false;
     bool has_tap_hold_tag = false;
     bool has_layers_tag = false;
@@ -1138,6 +1143,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
         return true;
     };
 
+    static const char* const kSections[] = {"combos",   "tap_hold", "layers",
+                                            "one_shot", "leader",   "auto_shift",
+                                            "mouse",    "settings", "tap_dance"};
+    size_t doc_indent = std::string::npos;
+    std::set<std::string> seen_settings;
+    size_t settings_child_indent = std::string::npos;
     while (std::getline(iss, line)) {
         // Strip inline comment if any (preserving '#' inside quoted strings)
         std::string clean_line = stripComment(line);
@@ -1146,8 +1157,15 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
 
         size_t current_indent = line.find_first_not_of(" \t");
+        if (t == "---" || t == "...") {
+            continue;  // YAML document markers
+        }
+        // Sections start at the indentation of the first line (a layer or key may have the
+        // same name)
+        doc_indent = std::min(doc_indent, current_indent);
+        const bool top_level = current_indent == doc_indent;
 
-        if (t.rfind("combos:", 0) == 0) {
+        if (top_level && t.rfind("combos:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1172,12 +1190,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             combos_base_indent = current_indent;
             current_leader.clear();
             continue;
-        } else if (t.rfind("combos", 0) == 0 && t.find(':') == std::string::npos) {
+        } else if (top_level && t.rfind("combos", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("tap_hold:", 0) == 0) {
+        if (top_level && t.rfind("tap_hold:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1203,7 +1221,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             continue;
         }
 
-        if (t.rfind("layers:", 0) == 0) {
+        if (top_level && t.rfind("layers:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1227,12 +1245,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             layers_base_indent = current_indent;
             current_layer_name.clear();
             continue;
-        } else if (t.rfind("layers", 0) == 0 && t.find(':') == std::string::npos) {
+        } else if (top_level && t.rfind("layers", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("one_shot:", 0) == 0) {
+        if (top_level && t.rfind("one_shot:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1255,12 +1273,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_one_shot_tag = true;
             one_shot_base_indent = current_indent;
             continue;
-        } else if (t.rfind("one_shot", 0) == 0 && t.find(':') == std::string::npos) {
+        } else if (top_level && t.rfind("one_shot", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("leader:", 0) == 0) {
+        if (top_level && t.rfind("leader:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1283,12 +1301,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_leader_tag = true;
             leader_base_indent = current_indent;
             continue;
-        } else if (t.rfind("leader", 0) == 0 && t.find(':') == std::string::npos) {
+        } else if (top_level && t.rfind("leader", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("auto_shift:", 0) == 0) {
+        if (top_level && t.rfind("auto_shift:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1311,12 +1329,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             auto_shift_base_indent = current_indent;
             config.auto_shift.enabled = true;
             continue;
-        } else if (t.rfind("auto_shift", 0) == 0 && t.find(':') == std::string::npos) {
+        } else if (top_level && t.rfind("auto_shift", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("mouse:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
+        if (top_level && t.rfind("mouse:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1339,13 +1357,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_mouse_tag = true;
             mouse_base_indent = current_indent;
             continue;
-        } else if (t.rfind("mouse", 0) == 0 && t.find(':') == std::string::npos &&
-                   (!in_layers || current_indent <= layers_base_indent)) {
+        } else if (top_level && t.rfind("mouse", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("settings:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
+        if (top_level && t.rfind("settings:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1368,13 +1385,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_settings_tag = true;
             settings_base_indent = current_indent;
             continue;
-        } else if (t.rfind("settings", 0) == 0 && t.find(':') == std::string::npos &&
-                   (!in_layers || current_indent <= layers_base_indent)) {
+        } else if (top_level && t.rfind("settings", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
 
-        if (t.rfind("tap_dance:", 0) == 0 && (!in_layers || current_indent <= layers_base_indent)) {
+        if (top_level && t.rfind("tap_dance:", 0) == 0) {
             if (!flush_pending_th())
                 return false;
             if (!flush_pending_os())
@@ -1397,8 +1413,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             has_tap_dance_tag = true;
             tap_dance_base_indent = current_indent;
             continue;
-        } else if (t.rfind("tap_dance", 0) == 0 && t.find(':') == std::string::npos &&
-                   (!in_layers || current_indent <= layers_base_indent)) {
+        } else if (top_level && t.rfind("tap_dance", 0) == 0 && t.find(':') == std::string::npos) {
             err_msg = "mapping values are not allowed in this context";
             return false;
         }
@@ -1461,6 +1476,30 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             in_tap_dance = false;
         }
 
+        if (top_level && t[0] != '-') {
+            const std::string name = trim(t.substr(0, t.find(':')));
+            const std::string unquoted = unquoteAndUnescape(name);
+            if (unquoted != name && std::find(std::begin(kSections), std::end(kSections),
+                                              unquoted) != std::end(kSections)) {
+                err_msg = "write the section name without quotes: " + unquoted + ":";
+                return false;
+            }
+            const bool word = std::all_of(name.begin(), name.end(), [](char c) {
+                return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+            });
+            err_msg = word && !name.empty()
+                          ? "unknown section '" + name +
+                                "' (sections: combos, tap_hold, layers, one_shot, tap_dance, "
+                                "leader, auto_shift, mouse, settings)"
+                          : "'" + t + "' must be indented under a section (e.g. combos:)";
+            return false;
+        }
+        if (!in_combos && !in_tap_hold && !in_layers && !in_one_shot && !in_leader &&
+            !in_auto_shift && !in_mouse && !in_settings && !in_tap_dance) {
+            err_msg = "'" + t + "' is not inside a section (e.g. combos:)";
+            return false;
+        }
+
         if (in_settings) {
             if (in_settings_devices_list) {
                 if (current_indent <= settings_devices_list_indent && t.rfind("-", 0) != 0) {
@@ -1479,6 +1518,12 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 continue;
             std::string k = trim(t.substr(0, colon));
             std::string v = trim(t.substr(colon + 1));
+            if (settings_child_indent == std::string::npos)
+                settings_child_indent = current_indent;
+            if (current_indent == settings_child_indent && !seen_settings.insert(k).second) {
+                err_msg = "setting '" + k + "' is set twice";
+                return false;
+            }
             if (k == "combo_timeout_ms" || k == "combo_timeout" || k == "combo_window_ms") {
                 try {
                     int val = std::stoi(v);
@@ -2663,24 +2708,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
             current_combo_layer = lyr;
-            if (!config.combos.empty() && current_keys.empty()) {
-                auto last_keys = config.combos.back().keys;
-                std::sort(last_keys.begin(), last_keys.end());
-                for (auto it = config.combos.rbegin(); it != config.combos.rend(); ++it) {
-                    if (it->keys.size() == last_keys.size()) {
-                        std::vector<KeyCode> k1 = it->keys;
-                        std::sort(k1.begin(), k1.end());
-                        if (k1 == last_keys) {
-                            if (!it->layer.empty()) {
-                                break;
-                            }
-                            it->layer = lyr;
-                        } else {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
+            if (current_keys.empty() && entry_end_combo == config.combos.size()) {
+                for (size_t i = entry_first_combo; i < entry_end_combo; ++i) {
+                    if (config.combos[i].layer.empty())
+                        config.combos[i].layer = lyr;
                 }
             }
             continue;
@@ -2694,24 +2725,10 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
             current_combo_timeout_us = to_us;
-            if (!config.combos.empty() && current_keys.empty()) {
-                auto last_keys = config.combos.back().keys;
-                std::sort(last_keys.begin(), last_keys.end());
-                for (auto it = config.combos.rbegin(); it != config.combos.rend(); ++it) {
-                    if (it->keys.size() == last_keys.size()) {
-                        std::vector<KeyCode> k1 = it->keys;
-                        std::sort(k1.begin(), k1.end());
-                        if (k1 == last_keys) {
-                            if (it->timeout_us != 0) {
-                                break;
-                            }
-                            it->timeout_us = to_us;
-                        } else {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
+            if (current_keys.empty() && entry_end_combo == config.combos.size()) {
+                for (size_t i = entry_first_combo; i < entry_end_combo; ++i) {
+                    if (config.combos[i].timeout_us == 0)
+                        config.combos[i].timeout_us = to_us;
                 }
             }
             continue;
@@ -2776,6 +2793,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 return false;
             }
 
+            entry_first_combo = config.combos.size();
             bool is_symmetric = (current_keys.find('+') != std::string::npos);
             std::vector<std::string> chord_words;
             if (is_symmetric) {
@@ -2877,6 +2895,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                 config.combos.push_back(c);
             }
 
+            entry_end_combo = config.combos.size();
             current_keys.clear();
             current_outkeys.clear();
             current_text.clear();
@@ -3370,6 +3389,31 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
             config.auto_shift.keys.end());
         if (config.auto_shift.timeout_us <= 0) {
             err_msg = "auto_shift timeout_ms must be positive";
+            return false;
+        }
+    }
+
+    std::vector<KeyCode> seen_tap_hold;
+    for (const auto& th : config.tap_hold_keys) {
+        if (std::find(seen_tap_hold.begin(), seen_tap_hold.end(), th.key) != seen_tap_hold.end()) {
+            err_msg = "duplicate tap_hold key: " + keyCodeToWord(th.key);
+            return false;
+        }
+        seen_tap_hold.push_back(th.key);
+    }
+
+    // The same keys twice (in the same layer) with different actions: only the first would work
+    std::map<std::pair<std::string, std::vector<KeyCode>>, const Combo*> seen_combos;
+    for (const auto& combo : config.combos) {
+        auto inserted = seen_combos.emplace(std::make_pair(combo.layer, combo.keys), &combo);
+        if (!inserted.second && !(*inserted.first->second == combo)) {
+            std::string keys;
+            for (KeyCode k : combo.keys) {
+                keys += (keys.empty() ? "" : " ") + keyCodeToWord(k);
+            }
+            err_msg = "combo '" + keys + "'" +
+                      (combo.layer.empty() ? "" : " in layer '" + combo.layer + "'") +
+                      " is defined twice (only the first one would be used)";
             return false;
         }
     }
