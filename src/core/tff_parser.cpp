@@ -5,8 +5,21 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <set>
 
 namespace tff {
+
+// The key orders of an any-order combo (`d + f`) were added from index `first` on: move the order
+// as written to the front (shown by the cheat sheet)
+static void writtenOrderFirst(std::vector<Combo>& combos, size_t first,
+                              const std::vector<KeyCode>& written) {
+    for (size_t i = first; i < combos.size(); ++i) {
+        if (combos[i].keys == written) {
+            std::swap(combos[first], combos[i]);
+            return;
+        }
+    }
+}
 
 namespace {
 
@@ -962,7 +975,11 @@ std::vector<ComboEntry> comboEntries(const std::vector<Combo>& combos) {
         for (size_t n = 2; n <= combos[i].keys.size(); ++n) {
             orders *= n;
         }
-        const bool any_order = combos[i].keys.size() > 1 && group.size() == orders;
+        std::set<std::vector<KeyCode>> distinct;
+        for (size_t j : group) {
+            distinct.insert(combos[j].keys);
+        }
+        const bool any_order = combos[i].keys.size() > 1 && distinct.size() == orders;
         if (any_order) {
             for (size_t j : group) {
                 grouped[j] = true;
@@ -1734,6 +1751,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                             }
                         }
                     }
+                    const size_t first_order = config.combos.size();
                     std::vector<KeyCode> perm = chord_codes;
                     std::sort(perm.begin(), perm.end());
                     do {
@@ -1752,6 +1770,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         }
                         config.combos.push_back(c);
                     } while (std::next_permutation(perm.begin(), perm.end()));
+                    writtenOrderFirst(config.combos, first_order, chord_codes);
                 } else {
                     Combo c;
                     c.keys = chord_codes;
@@ -2821,6 +2840,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         }
                     }
                 }
+                const size_t first_order = config.combos.size();
                 std::vector<KeyCode> perm = chord_codes;
                 std::sort(perm.begin(), perm.end());
                 do {
@@ -2839,6 +2859,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                     config.combos.push_back(c);
                 } while (std::next_permutation(perm.begin(), perm.end()));
+                writtenOrderFirst(config.combos, first_order, chord_codes);
             } else {
                 Combo c;
                 c.keys = chord_codes;
@@ -3051,6 +3072,7 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                         }
                     }
                 }
+                const size_t first_order = config.combos.size();
                 std::vector<KeyCode> perm = chord_codes;
                 std::sort(perm.begin(), perm.end());
                 do {
@@ -3070,6 +3092,9 @@ bool loadYamlConfig(const std::string& yaml_str, Config& config, std::string& er
                     }
                     config.combos.push_back(c);
                 } while (std::next_permutation(perm.begin(), perm.end()));
+                std::vector<KeyCode> written = leader_codes;
+                written.insert(written.end(), chord_codes.begin(), chord_codes.end());
+                writtenOrderFirst(config.combos, first_order, written);
             } else {
                 Combo c;
                 c.keys = leader_codes;

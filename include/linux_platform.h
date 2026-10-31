@@ -258,7 +258,9 @@ public:
     /**
      * @brief Get count of currently active combo mappings
      */
-    size_t getComboCount() const { return engine_ ? engine_->getCombos().size() : 0; }
+    size_t getComboCount() const {
+        return engine_ ? tff::comboEntries(engine_->getCombos()).size() : 0;
+    }
 
     /**
      * @brief Trigger a diagnostic dump of recent input/output events (types to uinput and logs)

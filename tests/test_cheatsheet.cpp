@@ -322,6 +322,15 @@ void test_any_order_combos() {
     assert(out.find("a + s + d") != std::string::npos);
     opts.markdown = true;
     assert(Cheatsheet::generate(config, opts).find("j + k") != std::string::npos);
+
+    // shown as written; an order also written on its own is still one combo
+    assert(loadYamlConfig("combos:\n  k + j + a: esc\n  d + f: tab\n  f d: tab\n", config, err));
+    assert(comboEntries(config.combos).size() == 2);
+    opts.markdown = false;
+    out = Cheatsheet::generate(config, opts);
+    assert(out.find("k + j + a") != std::string::npos);
+    assert(out.find("d + f") != std::string::npos);
+    assert(out.find("f d") == std::string::npos);
     std::cout << "test_any_order_combos: PASSED\n";
 }
 
