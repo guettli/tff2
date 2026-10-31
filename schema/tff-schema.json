@@ -150,19 +150,19 @@
                 "description": "Mouse movement, scroll, or button action"
               },
               "overlap_ms": {
-                "type": ["integer", "string"],
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$",
                 "description": "This combo's combo_overlap_ms (e.g. 70 or 70ms)"
               },
               "gap_ms": {
-                "type": ["integer", "string"],
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$",
                 "description": "This combo's combo_gap_ms (e.g. 200 or 200ms)"
               },
               "timeout_ms": {
-                "type": ["integer", "string"],
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$",
                 "description": "Old name of overlap_ms"
               },
               "timeout": {
-                "type": ["integer", "string"],
+                "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$",
                 "description": "Old name of overlap_ms"
               }
             },
@@ -185,10 +185,10 @@
                   "layer": { "type": "string" },
                   "toggle_layer": { "type": "string" },
                   "mouse": { "type": "string" },
-                  "overlap_ms": { "type": ["integer", "string"] },
-                  "gap_ms": { "type": ["integer", "string"] },
-                  "timeout_ms": { "type": ["integer", "string"] },
-                  "timeout": { "type": ["integer", "string"] }
+                  "overlap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" },
+                  "gap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" },
+                  "timeout_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" },
+                  "timeout": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" }
                 },
                 "additionalProperties": false
               }
@@ -214,10 +214,10 @@
                 "text": { "type": "string" },
                 "toggle_layer": { "type": "string" },
                 "mouse": { "type": "string" },
-                "overlap_ms": { "type": ["integer", "string"] },
-                "gap_ms": { "type": ["integer", "string"] },
-                "timeout_ms": { "type": ["integer", "string"] },
-                "timeout": { "type": ["integer", "string"] }
+                "overlap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" },
+                "gap_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" },
+                "timeout_ms": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" },
+                "timeout": { "type": ["integer", "string"], "minimum": 1, "maximum": 5000, "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)?$" }
               },
               "additionalProperties": false
             }
