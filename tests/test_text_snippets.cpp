@@ -681,13 +681,13 @@ void test_engine_fast_chord_tap() {
     std::string err;
     assert(loadYamlCombos(yaml, combos, err));
 
-    // Rapid chord tap (< min_age_us)
+    // Rapid chord tap (< min_age_us), both keys held together for 45ms (>= combo_overlap_ms)
     int64_t t = 1000000;
     std::vector<Event> inputs = {
         {TimeVal::fromMicros(t), EV_KEY, Keys::KEY_F, KEY_VAL_DOWN},
         {TimeVal::fromMicros(t + 5000), EV_KEY, Keys::KEY_N, KEY_VAL_DOWN},
-        {TimeVal::fromMicros(t + 10000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
-        {TimeVal::fromMicros(t + 15000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 50000), EV_KEY, Keys::KEY_N, KEY_VAL_UP},
+        {TimeVal::fromMicros(t + 55000), EV_KEY, Keys::KEY_F, KEY_VAL_UP},
     };
 
     std::string expected =

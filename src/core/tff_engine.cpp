@@ -581,6 +581,8 @@ void TFFEngine::triggerEscReset(TimeVal time) {
 }
 
 void TFFEngine::reset() {
+    stopComboWait();
+    repeatable_combos_.clear();
     releasing_all_outputs_ = true;
     esc_hold_active_ = false;
     esc_reset_triggered_ = false;
@@ -775,6 +777,19 @@ bool TFFEngine::processEventNow(const Event& ev) {
         }
         // skip repeats
         return true;
+    }
+
+    if (combo_waiting_ &&
+        (std::find(longer_combo_keys_.begin(), longer_combo_keys_.end(), ev.code) ==
+             longer_combo_keys_.end() ||
+         (ev.value == KEY_VAL_UP &&
+          std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) != swallow_keys_.end()))) {
+        // A held combo waits for a longer one, but this key doesn't belong to it (or it's the
+        // release of a key still held from before, which ends the repeat): decide the held combo
+        // first, so the key comes after it
+        wait_for_longer_combos_ = false;
+        eval(ev.time, "before-key");
+        wait_for_longer_combos_ = true;
     }
 
     if (isModifier(ev.code)) {
@@ -1517,6 +1532,38 @@ void TFFEngine::onTimerNow(TimeVal time) {
     }
 }
 
+// Unordered combos have one entry per key order: a repeat may press the keys in another order
+static bool sameComboAnyOrder(const Combo& a, const Combo& b) {
+    Combo sorted_a = a;
+    Combo sorted_b = b;
+    std::sort(sorted_a.keys.begin(), sorted_a.keys.end());
+    std::sort(sorted_b.keys.begin(), sorted_b.keys.end());
+    return sorted_a == sorted_b;
+}
+
+static std::string comboTriggerText(const Combo& c) {
+    std::string desc;
+    if (!c.layer.empty()) {
+        desc = "[" + c.layer + "] ";
+    }
+    for (size_t k = 0; k < c.keys.size(); ++k) {
+        desc += (k > 0 ? " + " : "") + keyCodeToWord(c.keys[k]);
+    }
+    desc += " -> ";
+    if (!c.text.empty()) {
+        desc += "\"" + c.text + "\"";
+    } else if (!c.toggle_layer.empty()) {
+        desc += "toggle_layer(" + c.toggle_layer + ")";
+    } else if (c.mouse.isRelative() || c.mouse.isButton()) {
+        desc += mouseActionToWord(c.mouse);
+    } else {
+        for (size_t k = 0; k < c.out_keys.size(); ++k) {
+            desc += (k > 0 ? "+" : "") + keyCodeToWord(c.out_keys[k]);
+        }
+    }
+    return desc;
+}
+
 TimeVal TFFEngine::nextComboDeadline(const Event& last_down, TimeVal after) const {
     // After the last key press, a combo is decided when its gap is over (no further key can
     // belong to it) or when its keys have been held long enough to trigger
@@ -1538,6 +1585,15 @@ TimeVal TFFEngine::nextComboDeadline(const Event& last_down, TimeVal after) cons
 }
 
 bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
+    repeatable_combos_.erase(
+        std::remove_if(repeatable_combos_.begin(), repeatable_combos_.end(),
+                       [this](const Combo& c) {
+                           return std::none_of(c.keys.begin(), c.keys.end(), [this](KeyCode k) {
+                               return std::find(swallow_keys_.begin(), swallow_keys_.end(), k) !=
+                                      swallow_keys_.end();
+                           });
+                       }),
+        repeatable_combos_.end());
     // 1. Check for swallowed key releases (held keys from finished combos)
     if (!swallow_keys_.empty()) {
         for (auto it = swallow_keys_.begin(); it != swallow_keys_.end();) {
@@ -1664,29 +1720,6 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         codes[cand.index] = evalCombo(all_combos_[cand.index], curr_time, msg);
     }
 
-    auto formatComboTrigger = [](const Combo& c) {
-        std::string desc;
-        if (!c.layer.empty()) {
-            desc = "[" + c.layer + "] ";
-        }
-        for (size_t k = 0; k < c.keys.size(); ++k) {
-            desc += (k > 0 ? " + " : "") + keyCodeToWord(c.keys[k]);
-        }
-        desc += " -> ";
-        if (!c.text.empty()) {
-            desc += "\"" + c.text + "\"";
-        } else if (!c.toggle_layer.empty()) {
-            desc += "toggle_layer(" + c.toggle_layer + ")";
-        } else if (c.mouse.isRelative() || c.mouse.isButton()) {
-            desc += mouseActionToWord(c.mouse);
-        } else {
-            for (size_t k = 0; k < c.out_keys.size(); ++k) {
-                desc += (k > 0 ? "+" : "") + keyCodeToWord(c.out_keys[k]);
-            }
-        }
-        return desc;
-    };
-
     // 3. Handle WriteUpKeys first (highest priority first)
     bool found = false;
     for (const auto& cand : candidates) {
@@ -1704,13 +1737,14 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         }
         if (!already_down && trace_callback_) {
             trace(TraceEvent::Kind::TriggerCombo,
-                  "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
+                  "TRIGGER COMBO: " + comboTriggerText(all_combos_[i]));
         }
         writeComboDownKeys(all_combos_[i]);
         writeComboUpKeys(all_combos_[i]);
         break;
     }
     if (found) {
+        stopComboWait();
         return true;
     }
 
@@ -1731,15 +1765,38 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         if (already) {
             continue;
         }
+        if (wait_for_longer_combos_) {
+            // A longer combo still waiting for its next key (within its gap) contains all held
+            // keys: wait for it before triggering this one
+            longer_combo_keys_.clear();
+            for (const auto& other : candidates) {
+                if (other.priority >= 0 && codes[other.index] == EvalResult::ComboNotFinished &&
+                    all_combos_[other.index].keys.size() > all_combos_[i].keys.size()) {
+                    for (KeyCode k : all_combos_[other.index].keys)
+                        longer_combo_keys_.push_back(k);
+                }
+            }
+            if (!longer_combo_keys_.empty()) {
+                combo_waiting_ = true;
+                waiting_combo_ = all_combos_[i];
+                waiting_len_ = buf_.size();
+                if (trace_callback_)
+                    trace(TraceEvent::Kind::ChordCandidate,
+                          "CHORD CANDIDATE: " + comboTriggerText(all_combos_[i]) +
+                              " waits for a longer combo");
+                return true;
+            }
+        }
         if (trace_callback_) {
             trace(TraceEvent::Kind::TriggerCombo,
-                  "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
+                  "TRIGGER COMBO: " + comboTriggerText(all_combos_[i]));
         }
         writeComboDownKeys(all_combos_[i]);
         down_keys_written_.push_back(all_combos_[i]);
         break;
     }
     if (found) {
+        stopComboWait();
         return true;
     }
 
@@ -1759,6 +1816,7 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         }
     }
     if (already_written) {
+        stopComboWait();
         return true;
     }
     if (has_candidate) {
@@ -1781,8 +1839,45 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         return true;
     }
 
-    // 6. No match: flush buffer
+    // 6. No match. A held combo that waited for a longer combo triggers now, and the keys after
+    // it are handled again
+    if (triggerWaitingCombo()) {
+        return true;
+    }
     flushBuffer("Eval>No-match");
+    return true;
+}
+
+void TFFEngine::stopComboWait() {
+    combo_waiting_ = false;
+    longer_combo_keys_.clear();
+}
+
+bool TFFEngine::triggerWaitingCombo() {
+    if (!combo_waiting_ || buf_.size() < waiting_len_) {
+        stopComboWait();
+        return false;
+    }
+    const Combo combo = waiting_combo_;
+    std::vector<Event> rest(buf_.begin() + static_cast<std::ptrdiff_t>(waiting_len_), buf_.end());
+    buf_.resize(waiting_len_);
+    stopComboWait();
+    std::string msg;
+    if (evalCombo(combo, rest.empty() ? buf_.back().time : rest.front().time, msg) !=
+        EvalResult::AllDownKeysSeen) {
+        buf_.insert(buf_.end(), rest.begin(), rest.end());
+        return false;
+    }
+    if (trace_callback_)
+        trace(TraceEvent::Kind::TriggerCombo, "TRIGGER COMBO: " + comboTriggerText(combo));
+    writeComboDownKeys(combo);
+    down_keys_written_.push_back(combo);
+    for (const auto& ev : rest) {
+        if (ev.value == KEY_VAL_DOWN)
+            handleDownChar(ev);
+        else
+            handleUpChar(ev);
+    }
     return true;
 }
 
@@ -1806,6 +1901,7 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     const Event* first_up_event = nullptr;
     bool has_unknown = false;
     bool gap_too_long = false;
+    bool repeat = false;
     const Event* prev_fresh_down = nullptr;
 
     for (const auto& ev : buf_) {
@@ -1829,6 +1925,9 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
                 gap_too_long = true;
             if (fresh)
                 prev_fresh_down = &ev;
+            else if (std::any_of(repeatable_combos_.begin(), repeatable_combos_.end(),
+                                 [&](const Combo& c) { return sameComboAnyOrder(c, combo); }))
+                repeat = true;
             last_down_event = &ev;
             seen_down.push_back(ev.code);
         } else if (ev.value == KEY_VAL_UP) {
@@ -1872,9 +1971,11 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
         }
     }
 
-    // All down keys seen
-    if (first_up_event && last_down_event && last_down_event->time <= first_up_event->time &&
-        last_down_event->code != first_up_event->code) {
+    // All down keys seen. The overlap is the time all keys were held together, whichever key is
+    // released first. A repeat (tapping a key of this combo again while its other keys are still
+    // held after it triggered) needs no overlap.
+    if (!repeat && first_up_event && last_down_event &&
+        last_down_event->time <= first_up_event->time) {
         int64_t overlap = timeSubMicros(last_down_event->time, first_up_event->time);
         if (overlap < comboOverlapUs(combo)) {
             msg = "Overlap too short";
@@ -1985,6 +2086,10 @@ void TFFEngine::writeComboUpKeys(const Combo& combo) {
         if (std::find(swallow_keys_.begin(), swallow_keys_.end(), mu) == swallow_keys_.end()) {
             swallow_keys_.push_back(mu);
         }
+    }
+    if (!missing_up.empty() && std::find(repeatable_combos_.begin(), repeatable_combos_.end(),
+                                         combo) == repeatable_combos_.end()) {
+        repeatable_combos_.push_back(combo);
     }
     for (size_t k = 0; k < seen_up.size(); ++k) {
         trace(TraceEvent::Kind::KeySwallowed, "(swallowed)");
@@ -2414,6 +2519,7 @@ void TFFEngine::flushBuffer(const std::string& reason) {
         }
     }
     buf_.clear();
+    stopComboWait();
     fake_active_timer_next_time_ = TimeVal::maxTime();
 }
 

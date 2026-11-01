@@ -224,6 +224,15 @@ private:
     };
     std::vector<PendingComboRelease> pending_combo_releases_;
     std::vector<KeyCode> swallow_keys_;
+    // A complete, held combo (waiting_combo_, the first waiting_len_ events of buf_) waits while
+    // a longer combo with all its keys (longer_combo_keys_) can still be completed
+    bool combo_waiting_ = false;
+    Combo waiting_combo_;
+    size_t waiting_len_ = 0;
+    std::vector<KeyCode> longer_combo_keys_;
+    bool wait_for_longer_combos_ = true;
+    // Triggered combos with keys still held: tapping one of their keys again repeats them
+    std::vector<Combo> repeatable_combos_;
     std::unordered_set<KeyCode> physical_keys_down_;
     // How often each output key is pressed by different sources (a combo, a tap-hold, a passed
     // through key). A key that is already down is released and pressed again instead of getting
@@ -301,6 +310,8 @@ private:
     bool eval(TimeVal curr_time, const std::string& reason);
     EvalResult evalCombo(const Combo& combo, TimeVal curr_time, std::string& msg);
     std::string tooYoung(const Combo& combo, const Event& last_down, TimeVal curr_time);
+    void stopComboWait();
+    bool triggerWaitingCombo();
     int64_t comboOverlapUs(const Combo& combo) const;
     int64_t comboGapUs(const Combo& combo) const;
     TimeVal nextComboDeadline(const Event& last_down, TimeVal after) const;

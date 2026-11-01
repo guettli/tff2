@@ -624,8 +624,8 @@ layers:
     // 1. Press f + space (combo to toggle numpad on)
     engine.processEvent(Event{TimeVal{0, 10000}, EV_KEY, Keys::KEY_F, KEY_VAL_DOWN});
     engine.processEvent(Event{TimeVal{0, 20000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_DOWN});
-    engine.processEvent(Event{TimeVal{0, 40000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
-    engine.processEvent(Event{TimeVal{0, 50000}, EV_KEY, Keys::KEY_F, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 80000}, EV_KEY, Keys::KEY_SPACE, KEY_VAL_UP});
+    engine.processEvent(Event{TimeVal{0, 90000}, EV_KEY, Keys::KEY_F, KEY_VAL_UP});
 
     // Numpad layer must now be locked ON!
     assert(engine.isLayerActive("numpad"));
