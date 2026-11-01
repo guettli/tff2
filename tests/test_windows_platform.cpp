@@ -355,6 +355,33 @@ void test_key_during_injection_is_deferred() {
     std::cout << "PASSED\n";
 }
 
+void test_hook_probe_is_swallowed() {
+    std::cout << "Test 11: The watchdog's own probe key is swallowed, not sent to the engine... "
+              << std::flush;
+    WindowsPlatform p;
+    SendRecorder rec;
+    p.setSendInputFn(rec.fn());
+    std::string err;
+    bool ok = p.loadConfiguration(writeConfig("probe.yaml", kConfig), err);
+    assert(ok);
+    HookEvent probe;
+    probe.vk = tff::win::kProbeVk;
+    probe.flags = tff::win::kLlkhfInjected | kLlkhfUp;
+    // Another TFF instance's probe is passed on
+    probe.extra_info = static_cast<uintptr_t>(tff::win::probeTag(GetCurrentProcessId() + 1));
+    CHECK(!p.handleHookEvent(probe));
+    probe.extra_info = static_cast<uintptr_t>(tff::win::probeTag(GetCurrentProcessId()));
+    CHECK(p.handleHookEvent(probe));
+    p.handleTimers();
+    assert(rec.inputs.empty());
+    // Keys still work afterwards
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, false)));
+    CHECK(p.handleHookEvent(key(0x41, 0x1E, true)));
+    waitAndFireTimers(p, 80);
+    assert(rec.keys().size() == 2);
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -369,6 +396,7 @@ int main() {
     test_run_and_stop();
     test_sendinput_reentrancy();
     test_key_during_injection_is_deferred();
+    test_hook_probe_is_swallowed();
     std::cout << "All Windows platform tests PASSED!\n";
     return 0;
 }

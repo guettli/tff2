@@ -496,6 +496,53 @@ void test_output_builder_text() {
     std::cout << "PASSED\n";
 }
 
+void test_hook_watchdog() {
+    std::cout << "Test: hook watchdog probes before reinstalling... " << std::flush;
+    using tff::win::HookWatchdog;
+    using Action = HookWatchdog::Action;
+    HookWatchdog w;
+    w.reset(10000);
+    // A raw key soon after a hook call is fine
+    w.hookCalled(20000);
+    CHECK(w.rawKey(20500) == Action::None);
+    CHECK(w.rawKey(21000) == Action::None);
+    assert(w.deadline() == 0);
+    CHECK(w.poll(30000) == Action::None);
+
+    // No hook call for longer than kDeadAfterMs: probe, once
+    CHECK(w.rawKey(21001) == Action::SendProbe);
+    assert(w.deadline() == 21001 + HookWatchdog::kProbeTimeoutMs);
+    CHECK(w.rawKey(21100) == Action::None);
+    CHECK(w.poll(21200) == Action::None);
+    // The hook sees the probe: still alive, nothing pending
+    w.hookCalled(21210);
+    CHECK(w.poll(21220) == Action::Alive);
+    assert(w.deadline() == 0);
+    CHECK(w.poll(21230) == Action::None);
+
+    // The probe is seen synchronously, inside SendInput
+    CHECK(w.rawKey(30000) == Action::SendProbe);
+    w.hookCalled(30000);
+    CHECK(w.poll(30000) == Action::Alive);
+
+    // No hook call within kProbeTimeoutMs: reinstall
+    CHECK(w.rawKey(40000) == Action::SendProbe);
+    CHECK(w.poll(40000 + HookWatchdog::kProbeTimeoutMs - 1) == Action::None);
+    CHECK(w.poll(40000 + HookWatchdog::kProbeTimeoutMs) == Action::Reinstall);
+    assert(w.deadline() == 0);
+    w.reset(40510);
+    CHECK(w.rawKey(40600) == Action::None);
+
+    // The probe can't be injected: reinstall
+    CHECK(w.rawKey(50000) == Action::SendProbe);
+    CHECK(w.probeFailed() == Action::Reinstall);
+    assert(w.deadline() == 0);
+    assert(tff::win::isProbeTag(tff::win::probeTag(1234)));
+    assert(!tff::win::isProbeTag(tff::win::kInjectedMagic));
+    assert(tff::win::probeTag(1234) != tff::win::probeTag(1235));
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -514,6 +561,7 @@ int main() {
     test_output_builder_reentrant_flush();
     test_utf8_to_utf16();
     test_output_builder_text();
+    test_hook_watchdog();
     std::cout << "All Windows input translation tests PASSED!\n";
     return 0;
 }

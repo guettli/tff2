@@ -18,9 +18,6 @@ constexpr UINT WM_TFF_PAUSE = WM_APP + 3;
 constexpr UINT WM_TFF_RESUME = WM_APP + 4;
 constexpr UINT WM_TFF_DUMP = WM_APP + 5;
 
-/// Raw keyboard input without a hook callback for this long means the hook is gone.
-constexpr ULONGLONG kHookDeadAfterMs = 1000;
-
 /// An engine timer that is still due right after firing (the engine didn't advance it) is
 /// retried after this delay instead of in a busy loop.
 constexpr int64_t kStuckTimerRetryUs = 10 * 1000;
@@ -29,6 +26,20 @@ constexpr int64_t kStuckTimerRetryUs = 10 * 1000;
 constexpr ULONGLONG kConfigReloadDelayMs = 150;
 
 const wchar_t kMessageWindowClass[] = L"TffMessageWindow";
+
+/// Windows doesn't call the hook for keys that go to a window of this process (the tray menu,
+/// the hidden tray window after the menu closed), so those don't mean the hook is gone.
+bool ownWindowInForeground() {
+    DWORD pid = 0;
+    const HWND fg = GetForegroundWindow();
+    return fg != nullptr && GetWindowThreadProcessId(fg, &pid) != 0 && pid == GetCurrentProcessId();
+}
+
+std::string hex(unsigned value) {
+    std::ostringstream out;
+    out << "0x" << std::hex << value;
+    return out.str();
+}
 
 int64_t fileMtime(const std::string& path) {
     std::error_code ec;
@@ -227,7 +238,7 @@ bool WindowsPlatform::installHook() {
             std::to_string(GetLastError()));
         return false;
     }
-    last_hook_tick_ = GetTickCount64();
+    watchdog_.reset(GetTickCount64());
     return true;
 }
 
@@ -243,7 +254,11 @@ void WindowsPlatform::removeHook() {
 
 bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
     initialize();
-    last_hook_tick_ = GetTickCount64();
+    watchdog_.hookCalled(GetTickCount64());
+    if (tff::win::isProbeTag(ev.extra_info)) {
+        // The watchdog's probe: the hook works. Another TFF instance's probe is passed on.
+        return ev.extra_info == probe_tag_;
+    }
     if (ev.extra_info == tff::win::kInjectedMagic) {
         // Our own output. SendInput may deliver it to this hook re-entrantly, while the
         // outer call is still sending: touch nothing (no timers, no flush).
@@ -507,26 +522,56 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
             return 0;
         }
         if (msg == WM_INPUT) {
-            RAWINPUTHEADER header;
-            UINT size = sizeof(header);
-            if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lparam), RID_HEADER, &header, &size,
-                                sizeof(RAWINPUTHEADER)) == sizeof(RAWINPUTHEADER) &&
-                header.dwType == RIM_TYPEKEYBOARD && header.hDevice != nullptr) {
-                // A physical key event. The hook sees input before raw input does, so a
-                // hook that hasn't been called for a while has been removed by Windows.
-                self->raw_input_tick_ = GetTickCount64();
-                self->checkHookAlive();
+            RAWINPUT raw;
+            UINT size = sizeof(raw);
+            if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lparam), RID_INPUT, &raw, &size,
+                                sizeof(RAWINPUTHEADER)) != static_cast<UINT>(-1) &&
+                raw.header.dwType == RIM_TYPEKEYBOARD && raw.header.hDevice != nullptr &&
+                self->hook_ != nullptr && !self->paused_.load() && ownWindowInForeground()) {
+                // A key to a TFF window: the hook doesn't see it. A key released here (e.g.
+                // Shift of Shift+F10, which opened the tray menu) would stay held in the engine.
+                if ((raw.data.keyboard.Flags & RI_KEY_BREAK) != 0 &&
+                    (self->output_.heldCount() > 0 || self->engine_->hasActiveTimer())) {
+                    self->resetState("key released in a TFF window");
+                }
+            } else if (raw.header.dwType == RIM_TYPEKEYBOARD && raw.header.hDevice != nullptr &&
+                       self->hook_ != nullptr && !self->paused_.load()) {
+                // A physical key event. The hook sees input before raw input does.
+                const ULONGLONG t = GetTickCount64();
+                const ULONGLONG since_hook = t - self->watchdog_.lastHookCall();
+                if (self->watchdog_.rawKey(t) == tff::win::HookWatchdog::Action::SendProbe) {
+                    const RAWKEYBOARD& k = raw.data.keyboard;
+                    self->sendHookProbe("VKey " + hex(k.VKey) + ", MakeCode " + hex(k.MakeCode) +
+                                            ", Flags " + hex(k.Flags),
+                                        since_hook);
+                }
             }
         }
     }
     return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
-void WindowsPlatform::checkHookAlive() {
-    if (hook_ == nullptr || paused_.load() || raw_input_tick_ == 0) {
-        return;
-    }
-    if (raw_input_tick_ > last_hook_tick_ + kHookDeadAfterMs) {
+void WindowsPlatform::sendHookProbe(const std::string& raw_key, ULONGLONG since_hook_ms) {
+    log("[TFF] Keyboard hook wasn't called for a key (" + raw_key + ", last hook call " +
+        std::to_string(since_hook_ms) + " ms ago), checking it with a probe key");
+    static_assert(sizeof(ULONG_PTR) == 8, "the probe tag needs a 64-bit dwExtraInfo");
+    INPUT probe{};
+    probe.type = INPUT_KEYBOARD;
+    probe.ki.wVk = tff::win::kProbeVk;
+    probe.ki.dwFlags = KEYEVENTF_KEYUP;
+    probe.ki.dwExtraInfo = static_cast<ULONG_PTR>(probe_tag_);
+    const UINT sent = send_input_ ? send_input_(1, &probe) : SendInput(1, &probe, sizeof(INPUT));
+    const ULONGLONG probe_sent = watchdog_.probeSent();
+    handleWatchdog(probe_sent,
+                   sent == 1 ? watchdog_.poll(GetTickCount64()) : watchdog_.probeFailed());
+}
+
+void WindowsPlatform::handleWatchdog(ULONGLONG probe_sent, tff::win::HookWatchdog::Action action) {
+    using Action = tff::win::HookWatchdog::Action;
+    if (action == Action::Alive) {
+        log("[TFF] Keyboard hook still works (called " +
+            std::to_string(watchdog_.lastHookCall() - probe_sent) + " ms after the probe)");
+    } else if (action == Action::Reinstall) {
         log("[TFF] Keyboard hook was removed by Windows (callback too slow?), reinstalling");
         removeHook();
         resetState("hook reinstalled");
@@ -535,7 +580,6 @@ void WindowsPlatform::checkHookAlive() {
         // key-ups injected by resetState() above have been processed (next loop iteration).
         snapshot_pending_ = true;
     }
-    raw_input_tick_ = 0;
 }
 
 void WindowsPlatform::createMessageWindow() {
@@ -559,7 +603,10 @@ void WindowsPlatform::createMessageWindow() {
         rid.usUsage = 0x06;      // keyboard
         rid.dwFlags = RIDEV_INPUTSINK;
         rid.hwndTarget = msg_window_;
-        RegisterRawInputDevices(&rid, 1, sizeof(rid));
+        if (!RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+            log("[TFF] RegisterRawInputDevices failed, error " + std::to_string(GetLastError()) +
+                " (no hook watchdog)");
+        }
     }
 }
 
@@ -676,10 +723,11 @@ int WindowsPlatform::run() {
                 timeout = 0;  // due now: handled below, after pumping messages
             }
         }
-        if (reload_due_tick_ != 0) {
-            const ULONGLONG t = GetTickCount64();
-            const DWORD wait = reload_due_tick_ > t ? static_cast<DWORD>(reload_due_tick_ - t) : 0;
-            timeout = std::min(timeout, wait);
+        for (const ULONGLONG due : {reload_due_tick_, watchdog_.deadline()}) {
+            if (due != 0) {
+                const ULONGLONG t = GetTickCount64();
+                timeout = std::min(timeout, due > t ? static_cast<DWORD>(due - t) : 0);
+            }
         }
 
         HANDLE handles[1];
@@ -719,6 +767,12 @@ int WindowsPlatform::run() {
             DispatchMessageW(&msg);
         }
         handleTimers();
+        if (ownWindowInForeground()) {
+            watchdog_.reset(GetTickCount64());  // a probe sent meanwhile isn't seen either
+        } else {
+            const ULONGLONG probe_sent = watchdog_.probeSent();
+            handleWatchdog(probe_sent, watchdog_.poll(GetTickCount64()));
+        }
         if (snapshot_pending_) {
             snapshot_pending_ = false;
             snapshotHeldKeys();

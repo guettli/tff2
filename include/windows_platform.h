@@ -122,7 +122,8 @@ private:
     void setupConfigWatch();
     void teardownConfigWatch();
     void onConfigDirChanged();
-    void checkHookAlive();
+    void sendHookProbe(const std::string& raw_key, ULONGLONG since_hook_ms);
+    void handleWatchdog(ULONGLONG probe_sent, tff::win::HookWatchdog::Action action);
     bool sendInputs(const std::vector<tff::win::OutputInput>& inputs);
     void snapshotHeldKeys();
     void processDeferred();
@@ -155,10 +156,10 @@ private:
     tff::TimeVal stuck_timer_{-1, 0};  ///< engine timer that stayed due after firing
     tff::TimeVal stuck_since_{};
 
-    // Hook watchdog: raw input proves a key was pressed; if the hook didn't see it, the hook
-    // was removed (LowLevelHooksTimeout) and gets reinstalled.
-    ULONGLONG last_hook_tick_ = 0;
-    ULONGLONG raw_input_tick_ = 0;
+    // Hook watchdog: raw input proves a key was pressed; if the hook didn't see it, a probe key
+    // checks whether the hook was removed (LowLevelHooksTimeout) before it is reinstalled.
+    tff::win::HookWatchdog watchdog_;
+    uint64_t probe_tag_ = tff::win::probeTag(GetCurrentProcessId());  ///< this instance's probe
 
     LARGE_INTEGER qpc_freq_{};
     LARGE_INTEGER qpc_start_{};
