@@ -779,10 +779,14 @@ bool TFFEngine::processEventNow(const Event& ev) {
         return true;
     }
 
-    if (combo_waiting_ && std::find(longer_combo_keys_.begin(), longer_combo_keys_.end(),
-                                    ev.code) == longer_combo_keys_.end()) {
-        // A held combo waits for a longer one, but this key doesn't belong to it: decide the
-        // held combo first, so the key comes after it
+    if (combo_waiting_ &&
+        (std::find(longer_combo_keys_.begin(), longer_combo_keys_.end(), ev.code) ==
+             longer_combo_keys_.end() ||
+         (ev.value == KEY_VAL_UP &&
+          std::find(swallow_keys_.begin(), swallow_keys_.end(), ev.code) != swallow_keys_.end()))) {
+        // A held combo waits for a longer one, but this key doesn't belong to it (or it's the
+        // release of a key still held from before, which ends the repeat): decide the held combo
+        // first, so the key comes after it
         wait_for_longer_combos_ = false;
         eval(ev.time, "before-key");
         wait_for_longer_combos_ = true;
@@ -1528,6 +1532,15 @@ void TFFEngine::onTimerNow(TimeVal time) {
     }
 }
 
+// Unordered combos have one entry per key order: a repeat may press the keys in another order
+static bool sameComboAnyOrder(const Combo& a, const Combo& b) {
+    Combo sorted_a = a;
+    Combo sorted_b = b;
+    std::sort(sorted_a.keys.begin(), sorted_a.keys.end());
+    std::sort(sorted_b.keys.begin(), sorted_b.keys.end());
+    return sorted_a == sorted_b;
+}
+
 static std::string comboTriggerText(const Combo& c) {
     std::string desc;
     if (!c.layer.empty()) {
@@ -1912,8 +1925,8 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
                 gap_too_long = true;
             if (fresh)
                 prev_fresh_down = &ev;
-            else if (std::find(repeatable_combos_.begin(), repeatable_combos_.end(), combo) !=
-                     repeatable_combos_.end())
+            else if (std::any_of(repeatable_combos_.begin(), repeatable_combos_.end(),
+                                 [&](const Combo& c) { return sameComboAnyOrder(c, combo); }))
                 repeat = true;
             last_down_event = &ev;
             seen_down.push_back(ev.code);

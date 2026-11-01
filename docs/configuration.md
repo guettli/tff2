@@ -112,9 +112,10 @@ Both can be set for one combo with `overlap_ms` and `gap_ms` (a number of millis
 duration like `80ms`). For a combo that is hard to press at once (such as `d + f + j`, or a
 stretch), give it a larger `gap_ms`. While its keys are held, a smaller combo with some of them
 (`f j`) waits until the larger combo's gap is over, so a late `d` still triggers `d + f + j`.
-Releasing a key, pressing a key that isn't part of the larger combo, or a `d` that is too short
-for the larger combo triggers `f j` right away, and the other keys come after it. A larger `overlap_ms` makes a combo harder to trigger by accident while typing fast.
-`timeout_ms` and `timeout` are old names of `overlap_ms`.
+Releasing a key, pressing a key that isn't part of the larger combo, or a `d` that is too
+short for the larger combo triggers `f j` right away, and the other keys come after it. A
+larger `overlap_ms` makes a combo harder to trigger by accident while typing fast. `timeout_ms`
+and `timeout` are old names of `overlap_ms`.
 
 ```yaml
 combos:
