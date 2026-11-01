@@ -432,9 +432,12 @@ void showMenu(HWND hwnd) {
     DestroyMenu(menu);  // also destroys the submenu
     PostMessageW(hwnd, WM_NULL, 0, 0);
     // The hidden tray window would keep the keyboard focus (and Windows doesn't call the hook
-    // for keys to TFF's own windows): give it back to the window that had it
-    if (previous != nullptr && previous != hwnd && IsWindow(previous) &&
-        GetForegroundWindow() == hwnd) {
+    // for keys to TFF's own windows): give it back to the window in front before, unless the
+    // command opens a window of its own (which needs TFF to still have the foreground)
+    const bool opens_window = cmd == ID_EDIT_CONFIG || cmd == ID_OPEN_CONFIG_DIR ||
+                              cmd == ID_CHEATSHEET || cmd == ID_AUTOSTART || cmd == ID_OPEN_LOG;
+    if (!opens_window && previous != nullptr && previous != hwnd && IsWindow(previous) &&
+        IsWindowVisible(previous) && GetForegroundWindow() == hwnd) {
         SetForegroundWindow(previous);
     }
 

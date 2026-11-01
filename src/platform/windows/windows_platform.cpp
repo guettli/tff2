@@ -527,7 +527,15 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
             if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lparam), RID_INPUT, &raw, &size,
                                 sizeof(RAWINPUTHEADER)) != static_cast<UINT>(-1) &&
                 raw.header.dwType == RIM_TYPEKEYBOARD && raw.header.hDevice != nullptr &&
-                self->hook_ != nullptr && !self->paused_.load() && !ownWindowInForeground()) {
+                self->hook_ != nullptr && !self->paused_.load() && ownWindowInForeground()) {
+                // A key to a TFF window: the hook doesn't see it. A key released here (e.g.
+                // Shift of Shift+F10, which opened the tray menu) would stay held in the engine.
+                if ((raw.data.keyboard.Flags & RI_KEY_BREAK) != 0 &&
+                    (self->output_.heldCount() > 0 || self->engine_->hasActiveTimer())) {
+                    self->resetState("key released in a TFF window");
+                }
+            } else if (raw.header.dwType == RIM_TYPEKEYBOARD && raw.header.hDevice != nullptr &&
+                       self->hook_ != nullptr && !self->paused_.load()) {
                 // A physical key event. The hook sees input before raw input does.
                 const ULONGLONG t = GetTickCount64();
                 const ULONGLONG since_hook = t - self->watchdog_.lastHookCall();
@@ -546,6 +554,7 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
 void WindowsPlatform::sendHookProbe(const std::string& raw_key, ULONGLONG since_hook_ms) {
     log("[TFF] Keyboard hook wasn't called for a key (" + raw_key + ", last hook call " +
         std::to_string(since_hook_ms) + " ms ago), checking it with a probe key");
+    static_assert(sizeof(ULONG_PTR) == 8, "the probe tag needs a 64-bit dwExtraInfo");
     INPUT probe{};
     probe.type = INPUT_KEYBOARD;
     probe.ki.wVk = tff::win::kProbeVk;
