@@ -1354,6 +1354,15 @@ bool TFFEngine::keepSwallowedKeyHeld(const Event& ev) {
 }
 
 bool TFFEngine::handleDownChar(const Event& ev) {
+    if (!longer_combo_keys_.empty() &&
+        std::find(longer_combo_keys_.begin(), longer_combo_keys_.end(), ev.code) ==
+            longer_combo_keys_.end()) {
+        // A held combo waits for a longer one, but this key doesn't belong to it: decide the
+        // held combo first, so the key comes after it
+        wait_for_longer_combos_ = false;
+        eval(ev.time, "before-down");
+        wait_for_longer_combos_ = true;
+    }
     if (fake_active_timer_) {
         fake_active_timer_next_time_ = nextComboDeadline(ev, ev.time);
     }
@@ -1538,6 +1547,7 @@ TimeVal TFFEngine::nextComboDeadline(const Event& last_down, TimeVal after) cons
 }
 
 bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
+    longer_combo_keys_.clear();
     // 1. Check for swallowed key releases (held keys from finished combos)
     if (!swallow_keys_.empty()) {
         for (auto it = swallow_keys_.begin(); it != swallow_keys_.end();) {
@@ -1731,6 +1741,24 @@ bool TFFEngine::eval(TimeVal curr_time, const std::string& /*reason*/) {
         if (already) {
             continue;
         }
+        if (wait_for_longer_combos_) {
+            // A longer combo still waiting for its next key (within its gap) contains all held
+            // keys: wait for it before triggering this one
+            for (const auto& other : candidates) {
+                if (other.priority >= 0 && codes[other.index] == EvalResult::ComboNotFinished &&
+                    all_combos_[other.index].keys.size() > all_combos_[i].keys.size()) {
+                    for (KeyCode k : all_combos_[other.index].keys)
+                        longer_combo_keys_.push_back(k);
+                }
+            }
+            if (!longer_combo_keys_.empty()) {
+                if (trace_callback_)
+                    trace(TraceEvent::Kind::ChordCandidate,
+                          "CHORD CANDIDATE: " + formatComboTrigger(all_combos_[i]) +
+                              " waits for a longer combo");
+                return true;
+            }
+        }
         if (trace_callback_) {
             trace(TraceEvent::Kind::TriggerCombo,
                   "TRIGGER COMBO: " + formatComboTrigger(all_combos_[i]));
@@ -1806,6 +1834,7 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
     const Event* first_up_event = nullptr;
     bool has_unknown = false;
     bool gap_too_long = false;
+    bool repeat = false;
     const Event* prev_fresh_down = nullptr;
 
     for (const auto& ev : buf_) {
@@ -1829,6 +1858,8 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
                 gap_too_long = true;
             if (fresh)
                 prev_fresh_down = &ev;
+            else
+                repeat = true;
             last_down_event = &ev;
             seen_down.push_back(ev.code);
         } else if (ev.value == KEY_VAL_UP) {
@@ -1872,9 +1903,11 @@ EvalResult TFFEngine::evalCombo(const Combo& combo, TimeVal curr_time, std::stri
         }
     }
 
-    // All down keys seen
-    if (first_up_event && last_down_event && last_down_event->time <= first_up_event->time &&
-        last_down_event->code != first_up_event->code) {
+    // All down keys seen. The overlap is the time all keys were held together, whichever key is
+    // released first. A repeat (tapping again while a key of a triggered combo is still held)
+    // needs no overlap.
+    if (!repeat && first_up_event && last_down_event &&
+        last_down_event->time <= first_up_event->time) {
         int64_t overlap = timeSubMicros(last_down_event->time, first_up_event->time);
         if (overlap < comboOverlapUs(combo)) {
             msg = "Overlap too short";

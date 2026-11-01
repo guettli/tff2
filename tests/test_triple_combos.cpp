@@ -446,6 +446,14 @@ void test_combo_overlap_and_gap() {
     runTimed(combo, "a_ 20 s_ a/ 20 s/", raw, "no overlap types the keys");
     runTimed(combo, "a_ 20 s_ 30 a/ 20 s/", raw, "30ms overlap < 40ms");
     runTimed(combo, "a_ 20 s_ 50 a/ 20 s/", esc, "50ms overlap >= 40ms");
+    // The overlap counts whichever key is released first
+    runTimed(combo, "a_ 20 s_ 30 s/ 20 a/", "A-down\nS-down\nS-up\nA-up\n",
+             "30ms overlap < 40ms, last pressed key released first");
+    runTimed(combo, "a_ 20 s_ 50 s/ 20 a/", esc, "50ms overlap, last pressed key released first");
+    runTimed(combo, "a_ 20 s_ s/ 20 a/", "A-down\nS-down\nS-up\nA-up\n",
+             "no overlap, last pressed key released first");
+    // Repeating a combo by tapping again while one of its keys is still held needs no overlap
+    runTimed(combo, "a_ 20 s_ 50 s/ 50 s_ 20 s/ 50 a/", esc + esc, "repeat with a short tap");
     runTimed("settings:\n  combo_overlap_ms: 60\n" + combo, "a_ 20 s_ 50 a/ 20 s/", raw,
              "50ms overlap < combo_overlap_ms 60");
     runTimed("settings:\n  combo_timeout_ms: 60\n" + combo, "a_ 20 s_ 50 a/ 20 s/", raw,
@@ -476,7 +484,18 @@ void test_combo_overlap_and_gap() {
     runTimed("settings:\n  combo_gap_ms: 400\n" + combo, "a_ 20 s_ 200 d_ 10 d/ 50 a/ s/",
              "ESC-down\nD-down\nD-up\nESC-up\n", "held combo with a long gap");
     runTimed(combo + "  a + s + d: { out: f1, gap_ms: 300 }\n", "a_ 20 s_ 200 x_ x/ 50 a/ s/",
-             "ESC-down\nX-down\nX-up\nESC-up\n", "longer combo's gap doesn't delay a held combo");
+             "ESC-down\nX-down\nX-up\nESC-up\n",
+             "a key outside the longer combo triggers the held combo");
+
+    // A held combo waits while a longer combo with all its keys can still be completed
+    const std::string longer = combo + "  a + s + d: { out: f1, gap_ms: 300 }\n";
+    runTimed(longer, "a_ 20 s_ 200 d_ 50 a/ s/ d/", "F1-down\nF1-up\n",
+             "late key completes the longer combo");
+    runTimed(longer, "a_ 20 s_ 400 a/ s/", esc, "held combo triggers when the longer gap is over");
+    runTimed(longer, "a_ 20 s_ 200 a/ s/", esc, "release triggers the held combo");
+    runTimed(longer, "a_ 20 s_ 50 a/ s/", esc, "tap isn't delayed by the longer combo");
+    runTimed(longer, "a_ 20 s_ 400 d_ d/ 50 a/ s/", "ESC-down\nD-down\nD-up\nESC-up\n",
+             "key after the longer gap comes with the held combo");
 
     // A per-combo timeout_ms (= overlap_ms) used to shrink the gap to the same value
     runTimed("combos:\n  a + s: { out: esc, timeout_ms: 80 }\n", "a_ 120 s_ 90 a/ 20 s/", esc,

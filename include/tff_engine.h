@@ -224,6 +224,9 @@ private:
     };
     std::vector<PendingComboRelease> pending_combo_releases_;
     std::vector<KeyCode> swallow_keys_;
+    // Keys of longer combos that a complete, held combo waits for (empty = not waiting)
+    std::vector<KeyCode> longer_combo_keys_;
+    bool wait_for_longer_combos_ = true;
     std::unordered_set<KeyCode> physical_keys_down_;
     // How often each output key is pressed by different sources (a combo, a tap-hold, a passed
     // through key). A key that is already down is released and pressed again instead of getting

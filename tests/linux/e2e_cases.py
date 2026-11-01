@@ -41,6 +41,16 @@ CASES += [
     dict(name="combo gap from settings", config=DE + '  combo_gap_ms: 300\ncombos:\n  d + k: "hä?1"\n',
          xkb=("de", ""),
          steps="d:d 200 d:k 60 u:d u:k 300", text="hä?1"),
+    dict(name="combo last key released first without overlap", config=TIMING, xkb=("de", ""),
+         steps="d:d d:k,u:k 10 u:d 300", text="dk"),
+    dict(name="combo last key released first", config=TIMING, xkb=("de", ""),
+         steps="d:d d:k 120 u:k u:d 300", text="hä?1"),
+    dict(name="held combo waits for longer combo",
+         config="combos:\n  f + j: esc\n  d + f + j: { out: tab, gap_ms: 400 }\n",
+         steps="d:f d:j 250 d:d 80 u:f u:j u:d 300", trace="tab_ tab/"),
+    dict(name="held combo after longer gap",
+         config="combos:\n  f + j: esc\n  d + f + j: { out: tab, gap_ms: 300 }\n",
+         steps="d:f d:j 450 u:f u:j 300", trace="esc_ esc/"),
 ]
 
 FULL = """

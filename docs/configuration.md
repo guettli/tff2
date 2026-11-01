@@ -101,17 +101,20 @@ combos:
 A combo triggers when both are true:
 
 - **Gap**: each key comes less than `combo_gap_ms` (default: 150ms) after the previous one.
-- **Overlap**: all keys are held together for at least `combo_overlap_ms` (default: 40ms). Keys
-  that are released sooner, e.g. `d` and `f` while typing "df" fast, are typed normally. Keys
-  still held after 140ms (or `combo_overlap_ms`, if that's longer) trigger the combo without
-  waiting for the release.
+- **Overlap**: all keys are held together for at least `combo_overlap_ms` (default: 40ms),
+  from the last key press to the first key release, whichever key that is. Keys that are
+  released sooner, e.g. `d` and `f` while typing "df" fast, are typed normally. Keys still held
+  after 140ms (or `combo_overlap_ms`, if that's longer) trigger the combo without waiting for
+  the release. Tapping a combo key again while the others are still held repeats the combo
+  without a minimum overlap.
 
 Both can be set for one combo with `overlap_ms` and `gap_ms` (a number of milliseconds, or a
 duration like `80ms`). For a combo that is hard to press at once (such as `d + f + j`, or a
-stretch), give it a larger `gap_ms`. That doesn't help while a smaller combo with some of its
-keys is complete: with `f j` and `d + f + j`, holding `f` and `j` for 140ms triggers `f j`
-before a late `d` arrives. A larger `overlap_ms` makes a combo harder to trigger by accident
-while typing fast. `timeout_ms` and `timeout` are old names of `overlap_ms`.
+stretch), give it a larger `gap_ms`. While its keys are held, a smaller combo with some of them
+(`f j`) waits until the larger combo's gap is over, so a late `d` still triggers `d + f + j`.
+Releasing a key, or pressing a key that isn't part of the larger combo, triggers `f j` right
+away. A larger `overlap_ms` makes a combo harder to trigger by accident while typing fast.
+`timeout_ms` and `timeout` are old names of `overlap_ms`.
 
 ```yaml
 combos:
