@@ -27,6 +27,14 @@ constexpr ULONGLONG kConfigReloadDelayMs = 150;
 
 const wchar_t kMessageWindowClass[] = L"TffMessageWindow";
 
+/// Windows doesn't call the hook for keys that go to a window of this process (the tray menu,
+/// the hidden tray window after the menu closed), so those don't mean the hook is gone.
+bool ownWindowInForeground() {
+    DWORD pid = 0;
+    const HWND fg = GetForegroundWindow();
+    return fg != nullptr && GetWindowThreadProcessId(fg, &pid) != 0 && pid == GetCurrentProcessId();
+}
+
 std::string hex(unsigned value) {
     std::ostringstream out;
     out << "0x" << std::hex << value;
@@ -247,8 +255,9 @@ void WindowsPlatform::removeHook() {
 bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
     initialize();
     watchdog_.hookCalled(GetTickCount64());
-    if (ev.extra_info == tff::win::kProbeMagic) {
-        return true;  // the watchdog's probe: the hook works, no program needs to see it
+    if (tff::win::isProbeTag(ev.extra_info)) {
+        // The watchdog's probe: the hook works. Another TFF instance's probe is passed on.
+        return ev.extra_info == probe_tag_;
     }
     if (ev.extra_info == tff::win::kInjectedMagic) {
         // Our own output. SendInput may deliver it to this hook re-entrantly, while the
@@ -518,13 +527,15 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
             if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lparam), RID_INPUT, &raw, &size,
                                 sizeof(RAWINPUTHEADER)) != static_cast<UINT>(-1) &&
                 raw.header.dwType == RIM_TYPEKEYBOARD && raw.header.hDevice != nullptr &&
-                self->hook_ != nullptr && !self->paused_.load()) {
+                self->hook_ != nullptr && !self->paused_.load() && !ownWindowInForeground()) {
                 // A physical key event. The hook sees input before raw input does.
-                const auto action = self->watchdog_.rawKey(GetTickCount64());
-                if (action == tff::win::HookWatchdog::Action::SendProbe) {
+                const ULONGLONG t = GetTickCount64();
+                const ULONGLONG since_hook = t - self->watchdog_.lastHookCall();
+                if (self->watchdog_.rawKey(t) == tff::win::HookWatchdog::Action::SendProbe) {
                     const RAWKEYBOARD& k = raw.data.keyboard;
                     self->sendHookProbe("VKey " + hex(k.VKey) + ", MakeCode " + hex(k.MakeCode) +
-                                        ", Flags " + hex(k.Flags));
+                                            ", Flags " + hex(k.Flags),
+                                        since_hook);
                 }
             }
         }
@@ -532,21 +543,25 @@ LRESULT CALLBACK WindowsPlatform::windowProc(HWND hwnd, UINT msg, WPARAM wparam,
     return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
-void WindowsPlatform::sendHookProbe(const std::string& raw_key) {
-    log("[TFF] Keyboard hook didn't see a key (" + raw_key + "), checking it with a probe key");
+void WindowsPlatform::sendHookProbe(const std::string& raw_key, ULONGLONG since_hook_ms) {
+    log("[TFF] Keyboard hook wasn't called for a key (" + raw_key + ", last hook call " +
+        std::to_string(since_hook_ms) + " ms ago), checking it with a probe key");
     INPUT probe{};
     probe.type = INPUT_KEYBOARD;
     probe.ki.wVk = tff::win::kProbeVk;
     probe.ki.dwFlags = KEYEVENTF_KEYUP;
-    probe.ki.dwExtraInfo = tff::win::kProbeMagic;
+    probe.ki.dwExtraInfo = static_cast<ULONG_PTR>(probe_tag_);
     const UINT sent = send_input_ ? send_input_(1, &probe) : SendInput(1, &probe, sizeof(INPUT));
-    handleWatchdog(sent == 1 ? watchdog_.poll(GetTickCount64()) : watchdog_.probeFailed());
+    const ULONGLONG probe_sent = watchdog_.probeSent();
+    handleWatchdog(probe_sent,
+                   sent == 1 ? watchdog_.poll(GetTickCount64()) : watchdog_.probeFailed());
 }
 
-void WindowsPlatform::handleWatchdog(tff::win::HookWatchdog::Action action) {
+void WindowsPlatform::handleWatchdog(ULONGLONG probe_sent, tff::win::HookWatchdog::Action action) {
     using Action = tff::win::HookWatchdog::Action;
     if (action == Action::Alive) {
-        log("[TFF] Keyboard hook still works (Windows skipped it for one key)");
+        log("[TFF] Keyboard hook still works (called " +
+            std::to_string(watchdog_.lastHookCall() - probe_sent) + " ms after the probe)");
     } else if (action == Action::Reinstall) {
         log("[TFF] Keyboard hook was removed by Windows (callback too slow?), reinstalling");
         removeHook();
@@ -579,7 +594,10 @@ void WindowsPlatform::createMessageWindow() {
         rid.usUsage = 0x06;      // keyboard
         rid.dwFlags = RIDEV_INPUTSINK;
         rid.hwndTarget = msg_window_;
-        RegisterRawInputDevices(&rid, 1, sizeof(rid));
+        if (!RegisterRawInputDevices(&rid, 1, sizeof(rid))) {
+            log("[TFF] RegisterRawInputDevices failed, error " + std::to_string(GetLastError()) +
+                " (no hook watchdog)");
+        }
     }
 }
 
@@ -740,7 +758,12 @@ int WindowsPlatform::run() {
             DispatchMessageW(&msg);
         }
         handleTimers();
-        handleWatchdog(watchdog_.poll(GetTickCount64()));
+        if (ownWindowInForeground()) {
+            watchdog_.reset(GetTickCount64());  // a probe sent meanwhile isn't seen either
+        } else {
+            const ULONGLONG probe_sent = watchdog_.probeSent();
+            handleWatchdog(probe_sent, watchdog_.poll(GetTickCount64()));
+        }
         if (snapshot_pending_) {
             snapshot_pending_ = false;
             snapshotHeldKeys();

@@ -356,7 +356,7 @@ void test_key_during_injection_is_deferred() {
 }
 
 void test_hook_probe_is_swallowed() {
-    std::cout << "Test 11: The watchdog's probe key is swallowed, not sent to the engine... "
+    std::cout << "Test 11: The watchdog's own probe key is swallowed, not sent to the engine... "
               << std::flush;
     WindowsPlatform p;
     SendRecorder rec;
@@ -367,7 +367,10 @@ void test_hook_probe_is_swallowed() {
     HookEvent probe;
     probe.vk = tff::win::kProbeVk;
     probe.flags = tff::win::kLlkhfInjected | kLlkhfUp;
-    probe.extra_info = tff::win::kProbeMagic;
+    // Another TFF instance's probe is passed on
+    probe.extra_info = static_cast<uintptr_t>(tff::win::probeTag(GetCurrentProcessId() + 1));
+    CHECK(!p.handleHookEvent(probe));
+    probe.extra_info = static_cast<uintptr_t>(tff::win::probeTag(GetCurrentProcessId()));
     CHECK(p.handleHookEvent(probe));
     p.handleTimers();
     assert(rec.inputs.empty());

@@ -25,9 +25,17 @@ namespace win {
 
 /// dwExtraInfo tag on every event TFF injects ("TFF2"); the hook passes these through.
 constexpr uintptr_t kInjectedMagic = 0x54464632;
-/// dwExtraInfo tag of the watchdog's probe key ("TFFP"); the hook swallows it.
-constexpr uintptr_t kProbeMagic = 0x54464650;
-/// Virtual-key code of the probe key (0xE8 is unassigned, no program reacts to it).
+/// dwExtraInfo of the watchdog's probe key: "TFFP" in the upper 32 bits and the process id in
+/// the lower ones, so each TFF instance swallows only its own probe.
+constexpr uint64_t kProbeMagic = 0x54464650;
+inline uint64_t probeTag(uint32_t process_id) {
+    return (kProbeMagic << 32) | process_id;
+}
+inline bool isProbeTag(uint64_t extra_info) {
+    return (extra_info >> 32) == kProbeMagic;
+}
+/// Virtual-key code of the probe key, a key-up of an unassigned key: programs ignore it
+/// (AutoHotkey uses it as its default menu mask key, a key-up does no harm there either).
 constexpr uint16_t kProbeVk = 0xE8;
 
 /// Subset of the KBDLLHOOKSTRUCT::flags bits (LLKHF_*), duplicated to stay <windows.h>-free.
@@ -214,11 +222,11 @@ private:
 /**
  * @brief Decides whether Windows removed the keyboard hook.
  *
- * Raw input proves a physical key was pressed. Windows calls the hook before raw input is
- * delivered, so a hook that wasn't called for a while before such a key may have been removed
- * (LowLevelHooksTimeout). Windows also skips a slow hook for single keys without removing it, so
- * the watchdog first injects a probe key: the hook is reinstalled only if no hook call (the probe
- * or any other key) arrives within kProbeTimeoutMs.
+ * Raw input reports the physical keys the hook didn't swallow. A key the hook wasn't called for
+ * means the hook may have been removed (LowLevelHooksTimeout), but Windows also skips the hook
+ * without removing it (it isn't called for keys that go to a window of TFF itself). So the
+ * watchdog first injects a probe key: the hook is reinstalled only if no hook call (the probe or
+ * any other key) arrives within kProbeTimeoutMs.
  *
  * Times are milliseconds from a monotonic clock (GetTickCount64).
  */
@@ -231,7 +239,7 @@ public:
         Reinstall   ///< the hook is gone: reinstall it
     };
     static constexpr uint64_t kDeadAfterMs = 1000;
-    static constexpr uint64_t kProbeTimeoutMs = 500;
+    static constexpr uint64_t kProbeTimeoutMs = 200;
 
     /// The hook was (re)installed.
     void reset(uint64_t now) {
@@ -270,6 +278,9 @@ public:
     }
     /// When poll() must be called next (0 = no probe pending).
     uint64_t deadline() const { return probe_sent_ != 0 ? probe_sent_ + kProbeTimeoutMs : 0; }
+    /// Last hook call, and when the pending probe was sent (0 = none), for the log.
+    uint64_t lastHookCall() const { return last_hook_; }
+    uint64_t probeSent() const { return probe_sent_; }
 
 private:
     uint64_t last_hook_ = 0;

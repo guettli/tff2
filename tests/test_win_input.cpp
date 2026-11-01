@@ -527,8 +527,8 @@ void test_hook_watchdog() {
 
     // No hook call within kProbeTimeoutMs: reinstall
     assert(w.rawKey(40000) == Action::SendProbe);
-    assert(w.poll(40499) == Action::None);
-    assert(w.poll(40500) == Action::Reinstall);
+    assert(w.poll(40000 + HookWatchdog::kProbeTimeoutMs - 1) == Action::None);
+    assert(w.poll(40000 + HookWatchdog::kProbeTimeoutMs) == Action::Reinstall);
     assert(w.deadline() == 0);
     w.reset(40510);
     assert(w.rawKey(40600) == Action::None);
@@ -537,6 +537,9 @@ void test_hook_watchdog() {
     assert(w.rawKey(50000) == Action::SendProbe);
     assert(w.probeFailed() == Action::Reinstall);
     assert(w.deadline() == 0);
+    assert(tff::win::isProbeTag(tff::win::probeTag(1234)));
+    assert(!tff::win::isProbeTag(tff::win::kInjectedMagic));
+    assert(tff::win::probeTag(1234) != tff::win::probeTag(1235));
     std::cout << "PASSED\n";
 }
 

@@ -425,11 +425,18 @@ void showMenu(HWND hwnd) {
 
     POINT pt;
     GetCursorPos(&pt);
+    const HWND previous = GetForegroundWindow();
     SetForegroundWindow(hwnd);  // so the menu closes when clicking elsewhere
     const UINT cmd = static_cast<UINT>(TrackPopupMenu(
         menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, nullptr));
     DestroyMenu(menu);  // also destroys the submenu
     PostMessageW(hwnd, WM_NULL, 0, 0);
+    // The hidden tray window would keep the keyboard focus (and Windows doesn't call the hook
+    // for keys to TFF's own windows): give it back to the window that had it
+    if (previous != nullptr && previous != hwnd && IsWindow(previous) &&
+        GetForegroundWindow() == hwnd) {
+        SetForegroundWindow(previous);
+    }
 
     switch (cmd) {
         case ID_PAUSE:
