@@ -25,6 +25,10 @@ namespace win {
 
 /// dwExtraInfo tag on every event TFF injects ("TFF2"); the hook passes these through.
 constexpr uintptr_t kInjectedMagic = 0x54464632;
+/// dwExtraInfo tag of the watchdog's probe key ("TFFP"); the hook swallows it.
+constexpr uintptr_t kProbeMagic = 0x54464650;
+/// Virtual-key code of the probe key (0xE8 is unassigned, no program reacts to it).
+constexpr uint16_t kProbeVk = 0xE8;
 
 /// Subset of the KBDLLHOOKSTRUCT::flags bits (LLKHF_*), duplicated to stay <windows.h>-free.
 constexpr uint32_t kLlkhfExtended = 0x01;
@@ -205,6 +209,71 @@ private:
     std::vector<OutputInput> pending_;
     std::vector<KeyCode> held_;  ///< keys and mouse buttons currently down, in press order
     KeyCode repeat_key_ = 0;     ///< last pressed non-modifier key still held (0 = none)
+};
+
+/**
+ * @brief Decides whether Windows removed the keyboard hook.
+ *
+ * Raw input proves a physical key was pressed. Windows calls the hook before raw input is
+ * delivered, so a hook that wasn't called for a while before such a key may have been removed
+ * (LowLevelHooksTimeout). Windows also skips a slow hook for single keys without removing it, so
+ * the watchdog first injects a probe key: the hook is reinstalled only if no hook call (the probe
+ * or any other key) arrives within kProbeTimeoutMs.
+ *
+ * Times are milliseconds from a monotonic clock (GetTickCount64).
+ */
+class HookWatchdog {
+public:
+    enum class Action {
+        None,
+        SendProbe,  ///< inject the probe key (kProbeVk with kProbeMagic)
+        Alive,      ///< the hook missed a key but still works
+        Reinstall   ///< the hook is gone: reinstall it
+    };
+    static constexpr uint64_t kDeadAfterMs = 1000;
+    static constexpr uint64_t kProbeTimeoutMs = 500;
+
+    /// The hook was (re)installed.
+    void reset(uint64_t now) {
+        last_hook_ = now;
+        probe_sent_ = 0;
+    }
+    /// The hook was called (for any event, including the probe).
+    void hookCalled(uint64_t now) { last_hook_ = now; }
+    /// Raw input reported a physical key event.
+    Action rawKey(uint64_t now) {
+        if (probe_sent_ != 0 || now <= last_hook_ + kDeadAfterMs) {
+            return Action::None;
+        }
+        probe_sent_ = now;
+        return Action::SendProbe;
+    }
+    /// The probe couldn't be injected (e.g. secure desktop): no way to check, reinstall.
+    Action probeFailed() {
+        probe_sent_ = 0;
+        return Action::Reinstall;
+    }
+    /// Call regularly while a probe is pending (see deadline()).
+    Action poll(uint64_t now) {
+        if (probe_sent_ == 0) {
+            return Action::None;
+        }
+        if (last_hook_ >= probe_sent_) {
+            probe_sent_ = 0;
+            return Action::Alive;
+        }
+        if (now >= probe_sent_ + kProbeTimeoutMs) {
+            probe_sent_ = 0;
+            return Action::Reinstall;
+        }
+        return Action::None;
+    }
+    /// When poll() must be called next (0 = no probe pending).
+    uint64_t deadline() const { return probe_sent_ != 0 ? probe_sent_ + kProbeTimeoutMs : 0; }
+
+private:
+    uint64_t last_hook_ = 0;
+    uint64_t probe_sent_ = 0;  ///< 0 = no probe pending
 };
 
 }  // namespace win
