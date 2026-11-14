@@ -332,7 +332,7 @@ private:
 
     bool handleIncomingKeyEvent(const tff::Event& ev);
     void emitUinputRaw(uint16_t type, uint16_t code, int32_t value);
-    int createVirtualKeyboard(const std::string& device_name = "TFF Virtual Keyboard");
+    static int createVirtualKeyboard(const std::string& device_name = "TFF Virtual Keyboard");
     void setupInotify();
     void teardownInotify();
     void setupConfigWatch();
