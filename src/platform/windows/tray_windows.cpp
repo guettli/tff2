@@ -686,7 +686,7 @@ std::wstring restartCommandLine() {
     // Remove the flags from the original string (they are always appended as " <flag>"), so
     // the other arguments keep their exact quoting.
     std::wstring cmd = GetCommandLineW();
-    for (const std::wstring flag :
+    for (const std::wstring& flag :
          {std::wstring(L" ") + kAfterUpdateArg, std::wstring(L" ") + kInactiveArg}) {
         for (size_t pos = cmd.find(flag); pos != std::wstring::npos; pos = cmd.find(flag, pos)) {
             const size_t end = pos + flag.size();
