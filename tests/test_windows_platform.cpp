@@ -435,17 +435,23 @@ void test_auto_pause_when_silent() {
     bool ok = p.loadConfiguration(writeConfig("silent.yaml", config), err);
     assert(ok);
     const int toggles = tff::win::SilenceGuard::kMaxSilentPresses / 2;
-    for (int i = 0; i < toggles; ++i) {
-        assert(!p.isPaused());
+    for (int i = 0; i < toggles - 1; ++i) {
         CHECK(p.handleHookEvent(key(0x46, 0x21, false)));
         CHECK(p.handleHookEvent(key(0x4A, 0x24, false)));
         waitAndFireTimers(p, 60);
         CHECK(p.handleHookEvent(key(0x46, 0x21, true)));
         CHECK(p.handleHookEvent(key(0x4A, 0x24, true)));
+        assert(!p.isPaused());
     }
-    assert(rec.keys().empty());
+    CHECK(p.handleHookEvent(key(0x46, 0x21, false)));
+    assert(!p.isPaused());
+    CHECK(p.handleHookEvent(key(0x4A, 0x24, false)));  // the last silent press
     assert(p.isPaused());
     assert(!reason.empty());
+    // Paused while F and J are down: their key-ups go to Windows
+    CHECK(!p.handleHookEvent(key(0x46, 0x21, true)));
+    CHECK(!p.handleHookEvent(key(0x4A, 0x24, true)));
+    assert(rec.keys().empty());
     // Paused: keys reach Windows unchanged
     CHECK(!p.handleHookEvent(key(0x41, 0x1E, false)));
     CHECK(!p.handleHookEvent(key(0x41, 0x1E, true)));
