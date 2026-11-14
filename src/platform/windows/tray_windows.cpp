@@ -26,6 +26,8 @@ constexpr UINT WM_TFF_TRAY = WM_APP + 10;
 constexpr UINT WM_TFF_LAYER = WM_APP + 11;     // wparam: active, lparam: std::wstring* name
 constexpr UINT WM_TFF_RELOADED = WM_APP + 12;  // wparam: ok, lparam: std::wstring* message
 constexpr UINT WM_TFF_ENGINE_EXIT = WM_APP + 13;
+constexpr UINT WM_TFF_AUTO_PAUSED = WM_APP + 14;  // lparam: std::wstring* reason
+constexpr UINT WM_TFF_ACTIVATE = WM_APP + 15;     // from a second tffw.exe; result 1: activated
 constexpr UINT kTrayId = 1;
 constexpr UINT_PTR kOsdTimer = 1;
 constexpr UINT_PTR kTrayRetryTimer = 2;
@@ -33,11 +35,13 @@ constexpr UINT_PTR kExeCheckTimer = 3;
 constexpr UINT kExeCheckMs = 3000;
 constexpr int kExeStableChecks = 2;  // the new file must stay unchanged this often (installer done)
 const wchar_t kAfterUpdateArg[] = L"--after-update";
+const wchar_t kInactiveArg[] = L"--inactive";  // after an update: still wait for activation
 constexpr UINT kTrayRetryMs = 2000;
 constexpr int kTrayRetries = 90;  // 3 minutes: the taskbar may come up late after sign-in
 constexpr UINT kOsdMs = 1200;
 
 enum MenuId : UINT {
+    ID_ACTIVATE = 99,
     ID_PAUSE = 100,
     ID_RELOAD,
     ID_EDIT_CONFIG,
@@ -47,7 +51,9 @@ enum MenuId : UINT {
     ID_NOTIFY_OSD,
     ID_NOTIFY_TOAST,
     ID_AUTOSTART,
-    ID_CONFIRM_AT_SIGN_IN,
+    ID_CONFIRM_NEVER,
+    ID_CONFIRM_ALWAYS,
+    ID_CONFIRM_AFTER_PROBLEM,
     ID_OPEN_LOG,
     ID_QUIT,
 };
@@ -56,6 +62,17 @@ enum class NotifyMode : DWORD { Off = 0, Osd = 1, Toast = 2 };
 
 const wchar_t kSettingsKey[] = L"Software\\TFF2";
 const wchar_t kConfirmAtSignInSetting[] = L"ConfirmAtSignIn";
+const wchar_t kSessionSetting[] = L"Session";
+
+/// When TFF started at sign-in waits for the user before it hooks the keyboard.
+enum class Confirm : DWORD { Never = 0, Always = 1, AfterProblem = 2 };
+
+/// How the last run ended, so the next start knows whether something went wrong.
+enum class Session : DWORD {
+    Clean = 0,    ///< quit, update, sign-out or shutdown
+    Running = 1,  ///< still set at the next start: crash, killed or power loss
+    Problem = 2,  ///< emergency keys or auto-pause
+};
 const wchar_t kTrayClass[] = L"TffTrayWindow";
 const wchar_t kOsdClass[] = L"TffOsdWindow";
 
@@ -105,6 +122,9 @@ struct App {
     std::atomic<int> engine_rc{0};
     std::thread task_query_thread;
     std::atomic<bool> autostart_task{false};  ///< cached: schtasks /Query is slow
+    bool waiting = false;       ///< hook not installed yet: waiting for the user to activate TFF
+    std::wstring waiting_text;  ///< why, for the notification
+    bool waiting_announced = false;  ///< notification shown (needs the tray icon)
     std::wstring exe_path;
     ExeFile exe_started;  ///< tffw.exe as it was when this process started
     ExeFile exe_seen;     ///< last differing state seen by the update check
@@ -112,6 +132,9 @@ struct App {
 };
 
 App g_app;
+
+void announceWaiting();
+bool hasArg(const wchar_t* wanted);
 
 DWORD readSetting(const wchar_t* name, DWORD fallback) {
     DWORD value = 0;
@@ -125,6 +148,26 @@ DWORD readSetting(const wchar_t* name, DWORD fallback) {
 
 void writeSetting(const wchar_t* name, DWORD value) {
     RegSetKeyValueW(HKEY_CURRENT_USER, kSettingsKey, name, REG_DWORD, &value, sizeof(value));
+}
+
+Session lastSession() {
+    return static_cast<Session>(readSetting(kSessionSetting, static_cast<DWORD>(Session::Clean)));
+}
+
+void setSession(Session session) {
+    writeSetting(kSessionSetting, static_cast<DWORD>(session));
+}
+
+/// Normal end of TFF: a recorded problem stays for the next start.
+void markCleanExit() {
+    if (lastSession() == Session::Running) {
+        setSession(Session::Clean);
+    }
+}
+
+Confirm confirmMode() {
+    return static_cast<Confirm>(
+        readSetting(kConfirmAtSignInSetting, static_cast<DWORD>(Confirm::Always)));
 }
 
 void logLine(const std::string& line) {
@@ -189,7 +232,9 @@ void openWithNotepad(const std::string& path) {
 
 std::wstring tooltipText() {
     std::wstring tip = L"TFF2 " + tff::win::widen(TFF_VERSION_STRING);
-    if (g_app.platform && g_app.platform->isPaused()) {
+    if (g_app.waiting) {
+        tip += L" - not active (click to activate)";
+    } else if (g_app.platform && g_app.platform->isPaused()) {
         tip += L" - paused";
     } else if (!g_app.active_layer.empty()) {
         tip += L" - layer: " + g_app.active_layer;
@@ -206,7 +251,7 @@ bool updateTrayIcon(DWORD action) {
     nid.uID = kTrayId;
     nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP;
     nid.uCallbackMessage = WM_TFF_TRAY;
-    const bool paused = g_app.platform && g_app.platform->isPaused();
+    const bool paused = g_app.waiting || (g_app.platform && g_app.platform->isPaused());
     nid.hIcon = paused ? g_app.icon_paused : g_app.icon_active;
     wcsncpy_s(nid.szTip, tooltipText().c_str(), _TRUNCATE);
     const bool ok = Shell_NotifyIconW(action, &nid) != FALSE;
@@ -242,6 +287,7 @@ bool ensureTrayIcon() {
 void addTrayIcon() {
     KillTimer(g_app.tray_window, kTrayRetryTimer);
     if (ensureTrayIcon()) {
+        announceWaiting();
         return;
     }
     logLine("[TFF] Tray icon not added (taskbar not ready?), retrying");
@@ -249,16 +295,28 @@ void addTrayIcon() {
     SetTimer(g_app.tray_window, kTrayRetryTimer, kTrayRetryMs, nullptr);
 }
 
-void showBalloon(const std::wstring& title, const std::wstring& text, DWORD icon_flags) {
+void showBalloon(const std::wstring& title, const std::wstring& text, DWORD icon_flags,
+                 bool respect_quiet_time = true) {
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = g_app.tray_window;
     nid.uID = kTrayId;
     nid.uFlags = NIF_INFO;
-    nid.dwInfoFlags = icon_flags | NIIF_RESPECT_QUIET_TIME;
+    nid.dwInfoFlags = icon_flags | (respect_quiet_time ? NIIF_RESPECT_QUIET_TIME : 0);
     wcsncpy_s(nid.szInfoTitle, title.c_str(), _TRUNCATE);
     wcsncpy_s(nid.szInfo, text.c_str(), _TRUNCATE);
     Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
+/// The notification for the waiting state, once the tray icon exists (it belongs to the icon).
+/// It ignores Focus Assist: TFF does nothing until the user reacts.
+void announceWaiting() {
+    if (!g_app.waiting || g_app.waiting_announced) {
+        return;
+    }
+    g_app.waiting_announced = true;
+    showBalloon(L"TFF is not active", g_app.waiting_text + L"\nClick here to activate remapping.",
+                NIIF_INFO, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -347,6 +405,96 @@ void notifyUser(const std::wstring& text) {
 }
 
 // ---------------------------------------------------------------------------
+// Engine start, waiting for activation
+// ---------------------------------------------------------------------------
+
+/// A platform with the current configuration. Its callbacks run on the engine thread and
+/// hand the data to the UI thread.
+std::unique_ptr<WindowsPlatform> makePlatform(std::string& err) {
+    auto platform = std::make_unique<WindowsPlatform>();
+    platform->setWatchConfig(true);
+    platform->setLogSink(logLine);
+    if (!platform->loadConfiguration(g_app.config_file, err)) {
+        return nullptr;
+    }
+    platform->setLayerCallback([](const std::string& layer, bool active) {
+        postString(g_app.tray_window, WM_TFF_LAYER, active ? 1 : 0, layer);
+    });
+    platform->setReloadCallback([](bool ok, const std::string& msg) {
+        postString(g_app.tray_window, WM_TFF_RELOADED, ok ? 1 : 0, msg);
+    });
+    platform->setAutoPauseCallback([](const std::string& reason) {
+        postString(g_app.tray_window, WM_TFF_AUTO_PAUSED, 0, reason);
+    });
+    return platform;
+}
+
+/// Installs the keyboard hook (engine thread).
+void startEngine() {
+    g_app.waiting = false;
+    setSession(Session::Running);
+    WindowsPlatform* platform = g_app.platform.get();
+    g_app.engine_thread = std::thread([platform] {
+        g_app.engine_rc = platform->run();
+        PostMessageW(g_app.tray_window, WM_TFF_ENGINE_EXIT, 0, 0);
+    });
+    updateTrayIcon(NIM_MODIFY);
+}
+
+/// No keyboard hook until the user activates TFF (tray menu, notification, or starting
+/// tffw.exe again).
+void enterWaiting(const std::wstring& text) {
+    g_app.waiting = true;
+    g_app.waiting_text = text;
+    g_app.waiting_announced = false;
+    updateTrayIcon(NIM_MODIFY);
+    announceWaiting();
+}
+
+/// @return true if TFF was waiting and is active now.
+bool activate() {
+    if (!g_app.waiting) {
+        return false;
+    }
+    if (g_app.engine_thread.joinable()) {
+        g_app.engine_thread.join();  // ended by the emergency keys
+    }
+    std::string err;
+    if (g_app.platform->emergencyOff()) {
+        auto fresh = makePlatform(err);  // the emergency state is final for a platform
+        if (!fresh) {
+            showBalloon(L"TFF: configuration error", tff::win::widen(err), NIIF_WARNING);
+            return false;
+        }
+        g_app.platform = std::move(fresh);
+    } else if (!g_app.platform->reloadConfiguration(err)) {
+        logLine("[TFF] " + err);  // the configuration loaded at start stays
+    }
+    logLine("[TFF] Remapping activated");
+    startEngine();
+    return true;
+}
+
+/// Whether TFF waits for activation instead of hooking the keyboard right away.
+bool waitAtStart(std::wstring& text) {
+    if (hasArg(kInactiveArg)) {
+        text = L"TFF was updated while it wasn't active.";
+        return true;
+    }
+    if (!hasArg(tff::win::kAutostartArg) || hasArg(kAfterUpdateArg)) {
+        return false;  // started by the user, or restarted by an update while active
+    }
+    const Confirm mode = confirmMode();
+    const bool problem = lastSession() != Session::Clean;
+    if (mode == Confirm::Never || (mode == Confirm::AfterProblem && !problem)) {
+        return false;
+    }
+    text = problem ? L"TFF didn't end normally last time (crash, emergency off or auto-pause)."
+                   : L"Started at sign-in.";
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // Menu actions
 // ---------------------------------------------------------------------------
 
@@ -408,12 +556,26 @@ void showMenu(HWND hwnd) {
                 MF_STRING | (g_app.notify_mode == NotifyMode::Toast ? MF_CHECKED : MF_UNCHECKED),
                 ID_NOTIFY_TOAST, L"Windows notification");
 
+    const Confirm confirm = confirmMode();
+    HMENU ask = CreatePopupMenu();
+    AppendMenuW(ask, MF_STRING | (confirm == Confirm::Always ? MF_CHECKED : MF_UNCHECKED),
+                ID_CONFIRM_ALWAYS, L"Always");
+    AppendMenuW(ask, MF_STRING | (confirm == Confirm::AfterProblem ? MF_CHECKED : MF_UNCHECKED),
+                ID_CONFIRM_AFTER_PROBLEM, L"Only after a crash or emergency off");
+    AppendMenuW(ask, MF_STRING | (confirm == Confirm::Never ? MF_CHECKED : MF_UNCHECKED),
+                ID_CONFIRM_NEVER, L"Never");
+
     HMENU menu = CreatePopupMenu();
     const std::wstring title = L"TFF2 " + tff::win::widen(TFF_VERSION_STRING);
     AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, title.c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_PAUSE, paused ? L"&Resume remapping" : L"&Pause remapping");
-    AppendMenuW(menu, MF_STRING, ID_RELOAD, L"Re&load configuration");
+    if (g_app.waiting) {
+        AppendMenuW(menu, MF_STRING, ID_ACTIVATE, L"&Activate remapping");
+        SetMenuDefaultItem(menu, ID_ACTIVATE, FALSE);
+    } else {
+        AppendMenuW(menu, MF_STRING, ID_PAUSE, paused ? L"&Resume remapping" : L"&Pause remapping");
+        AppendMenuW(menu, MF_STRING, ID_RELOAD, L"Re&load configuration");
+    }
     AppendMenuW(menu, MF_STRING, ID_EDIT_CONFIG, L"&Edit configuration");
     AppendMenuW(menu, MF_STRING, ID_OPEN_CONFIG_DIR, L"Open configuration &folder");
     AppendMenuW(menu, MF_STRING, ID_CHEATSHEET, L"Show &cheat sheet");
@@ -421,9 +583,8 @@ void showMenu(HWND hwnd) {
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(notify), L"Layer &notifications");
     AppendMenuW(menu, MF_STRING | (autostart_on ? MF_CHECKED : MF_UNCHECKED), ID_AUTOSTART,
                 L"Start at &sign-in");
-    const bool confirm = readSetting(kConfirmAtSignInSetting, 1) != 0;
-    AppendMenuW(menu, MF_STRING | (confirm ? MF_CHECKED : MF_UNCHECKED), ID_CONFIRM_AT_SIGN_IN,
-                L"&Ask before remapping at sign-in");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(ask),
+                L"&Wait for activation at sign-in");
     AppendMenuW(menu, MF_STRING, ID_OPEN_LOG, L"Open lo&g");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_QUIT, L"&Quit");
@@ -434,7 +595,7 @@ void showMenu(HWND hwnd) {
     SetForegroundWindow(hwnd);  // so the menu closes when clicking elsewhere
     const UINT cmd = static_cast<UINT>(TrackPopupMenu(
         menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, nullptr));
-    DestroyMenu(menu);  // also destroys the submenu
+    DestroyMenu(menu);  // also destroys the submenus
     PostMessageW(hwnd, WM_NULL, 0, 0);
     // The hidden tray window would keep the keyboard focus (and Windows doesn't call the hook
     // for keys to TFF's own windows): give it back to the window in front before, unless the
@@ -447,9 +608,15 @@ void showMenu(HWND hwnd) {
     }
 
     switch (cmd) {
+        case ID_ACTIVATE:
+            activate();
+            break;
         case ID_PAUSE:
             g_app.platform->setPaused(!paused);
             logLine(paused ? "[TFF] Resumed" : "[TFF] Paused");
+            if (paused && lastSession() == Session::Problem) {
+                setSession(Session::Running);  // resumed after an auto-pause: deemed fine
+            }
             updateTrayIcon(NIM_MODIFY);
             break;
         case ID_RELOAD:
@@ -478,9 +645,14 @@ void showMenu(HWND hwnd) {
         case ID_AUTOSTART:
             toggleAutostart();
             break;
-        case ID_CONFIRM_AT_SIGN_IN:
-            writeSetting(kConfirmAtSignInSetting,
-                         readSetting(kConfirmAtSignInSetting, 1) != 0 ? 0 : 1);
+        case ID_CONFIRM_ALWAYS:
+        case ID_CONFIRM_AFTER_PROBLEM:
+        case ID_CONFIRM_NEVER:
+            writeSetting(
+                kConfirmAtSignInSetting,
+                static_cast<DWORD>(cmd == ID_CONFIRM_ALWAYS          ? Confirm::Always
+                                   : cmd == ID_CONFIRM_AFTER_PROBLEM ? Confirm::AfterProblem
+                                                                     : Confirm::Never));
             break;
         case ID_OPEN_LOG:
             openWithNotepad(g_app.log_file);
@@ -504,6 +676,29 @@ bool hasArg(const wchar_t* wanted) {
     }
     LocalFree(argv);
     return found;
+}
+
+/// The command line for the updated tffw.exe: the same arguments, plus kAfterUpdateArg and,
+/// while TFF waits for activation, kInactiveArg (so the new version waits too).
+std::wstring restartCommandLine() {
+    int argc = 0;
+    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    std::wstring cmd = L"\"" + g_app.exe_path + L"\"";
+    for (int i = 1; argv != nullptr && i < argc; ++i) {
+        const std::wstring arg = argv[i];
+        if (arg == kAfterUpdateArg || arg == kInactiveArg) {
+            continue;
+        }
+        cmd += arg.find_first_of(L" \t") == std::wstring::npos ? L" " + arg : L" \"" + arg + L"\"";
+    }
+    LocalFree(argv);
+    cmd += L" ";
+    cmd += kAfterUpdateArg;
+    if (g_app.waiting) {
+        cmd += L" ";
+        cmd += kInactiveArg;
+    }
+    return cmd;
 }
 
 /// An installer replaces or removes tffw.exe while it runs (Windows lets it rename the running
@@ -540,11 +735,7 @@ void checkExeUpdated(HWND hwnd) {
         g_app.exe_started = g_app.exe_seen = now;
         return;
     } else {
-        std::wstring cmd = GetCommandLineW();
-        if (!hasArg(kAfterUpdateArg)) {
-            cmd += L" ";
-            cmd += kAfterUpdateArg;
-        }
+        std::wstring cmd = restartCommandLine();
         STARTUPINFOW si{};
         si.cb = sizeof(si);
         PROCESS_INFORMATION pi{};
@@ -577,6 +768,7 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                 if (ensureTrayIcon()) {
                     KillTimer(hwnd, kTrayRetryTimer);
                     logLine("[TFF] Tray icon added");
+                    announceWaiting();
                 } else if (--g_app.tray_retries_left <= 0) {
                     KillTimer(hwnd, kTrayRetryTimer);
                     logLine("[TFF] Tray icon could not be added, giving up");
@@ -590,6 +782,9 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                 case NIN_SELECT:
                 case NIN_KEYSELECT:
                     showMenu(hwnd);
+                    break;
+                case NIN_BALLOONUSERCLICK:
+                    activate();  // only does something while waiting
                     break;
                 default:
                     break;
@@ -618,7 +813,36 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
             }
             return 0;
         }
+        case WM_TFF_AUTO_PAUSED: {
+            std::unique_ptr<std::wstring> reason(reinterpret_cast<std::wstring*>(lparam));
+            setSession(Session::Problem);
+            updateTrayIcon(NIM_MODIFY);
+            showBalloon(L"TFF paused itself",
+                        *reason + L". If that was intended, resume it in the tray menu.",
+                        NIIF_WARNING, false);
+            return 0;
+        }
+        case WM_TFF_ACTIVATE:
+            return activate() ? 1 : 0;
+        case WM_ENDSESSION:
+            if (wparam != 0) {
+                // Sign-out or shutdown: Windows may end the process right after this.
+                logLine("[TFF] Windows session ends");
+                stopEngine();
+                markCleanExit();
+            }
+            return 0;
         case WM_TFF_ENGINE_EXIT:
+            if (g_app.waiting) {
+                return 0;  // a stale notice of an engine run that ended already
+            }
+            if (g_app.engine_rc.load() == WindowsPlatform::kExitEmergency) {
+                setSession(Session::Problem);
+                enterWaiting(
+                    L"Switched off with the emergency keys (both Shift + Esc). The keyboard works "
+                    L"without remapping.");
+                return 0;
+            }
             if (g_app.engine_rc.load() != 0) {
                 MessageBoxW(hwnd, L"Could not install the keyboard hook. TFF will exit.", L"TFF",
                             MB_OK | MB_ICONERROR);
@@ -700,25 +924,15 @@ void firstRun() {
     }
 }
 
-/// Started at sign-in (autostart entry): asks before installing the keyboard hook, so a TFF
-/// bug that breaks the keyboard can't lock the user out after a reboot. Until the answer the
-/// hook isn't installed and the keyboard works unchanged. Default button is No: an Enter
-/// typed while signing in doesn't activate TFF.
-bool confirmAtSignIn() {
-    if (!hasArg(tff::win::kAutostartArg) || hasArg(kAfterUpdateArg) ||
-        readSetting(kConfirmAtSignInSetting, 1) == 0) {
-        return true;
-    }
-    const std::wstring text =
-        L"TFF was started at sign-in.\n\nActivate keyboard remapping now?\n\n"
-        L"No: TFF exits and your keyboard works without remapping.\n\n"
-        L"(Tray menu \u2192 \"Ask before remapping at sign-in\" turns this question off.)";
-    const int answer =
-        MessageBoxW(nullptr, text.c_str(), L"Ten Flying Fingers",
-                    MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2 | MB_SETFOREGROUND | MB_TOPMOST);
-    logLine(answer == IDYES ? "[TFF] Started at sign-in: remapping confirmed"
-                            : "[TFF] Started at sign-in: remapping declined, exiting");
-    return answer == IDYES;
+/// Another tffw.exe runs. If it waits for activation, activate it (starting TFF from the Start
+/// menu is the obvious way to turn it on). @return true if it was activated.
+bool activateRunningInstance() {
+    HWND other = FindWindowW(kTrayClass, nullptr);
+    DWORD_PTR result = 0;
+    return other != nullptr &&
+           SendMessageTimeoutW(other, WM_TFF_ACTIVATE, 0, 0, SMTO_ABORTIFHUNG, 3000, &result) !=
+               0 &&
+           result == 1;
 }
 
 }  // namespace
@@ -735,6 +949,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         }
         Sleep(200);
         mutex = tff::win::acquireInstanceMutex(already_running);
+    }
+    if (already_running && !hasArg(tff::win::kAutostartArg) && activateRunningInstance()) {
+        if (mutex != nullptr) {
+            CloseHandle(mutex);
+        }
+        return 0;
     }
     if (already_running) {
         MessageBoxW(nullptr,
@@ -758,27 +978,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
-    g_app.platform = std::make_unique<WindowsPlatform>();
-    WindowsPlatform& platform = *g_app.platform;
-    platform.setWatchConfig(true);
-    platform.setLogSink(logLine);
-    if (!platform.loadConfiguration(g_app.config_file, err)) {
+    g_app.platform = makePlatform(err);
+    if (!g_app.platform) {
         logLine("[TFF] " + err);
         MessageBoxW(nullptr, tff::win::widen(err + "\n\nFix the file and start TFF again.").c_str(),
                     L"TFF: configuration error", MB_OK | MB_ICONERROR);
         return 1;
     }
-    logLine("[TFF] Loaded " + platform.getConfigFile());
-
+    logLine("[TFF] Loaded " + g_app.platform->getConfigFile());
     tff::win::autostartUpgradeRunKey();  // Run entries of older versions lack --autostart
-    if (!confirmAtSignIn()) {
-        g_app.platform.reset();
-        g_app.log.reset();
-        if (mutex != nullptr) {
-            CloseHandle(mutex);
-        }
-        return 0;
-    }
 
     g_app.icon_active = loadIcon(IDI_TFF_ACTIVE);
     g_app.icon_paused = loadIcon(IDI_TFF_PAUSED);
@@ -792,30 +1000,29 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     if (g_app.tray_window == nullptr) {
         return 1;
     }
+    HWND tray = g_app.tray_window;
     // Explorer announces a new taskbar with TaskbarCreated. When TFF runs elevated (logon task
     // with highest privileges), UIPI drops that message from the non-elevated Explorer unless
-    // it is allowed explicitly.
-    ChangeWindowMessageFilterEx(g_app.tray_window, g_app.taskbar_created_msg, MSGFLT_ALLOW,
-                                nullptr);
-
-    // Callbacks run on the engine thread: hand the data to the UI thread.
-    HWND tray = g_app.tray_window;
-    platform.setLayerCallback([tray](const std::string& layer, bool active) {
-        postString(tray, WM_TFF_LAYER, active ? 1 : 0, layer);
-    });
-    platform.setReloadCallback([tray](bool ok, const std::string& msg) {
-        postString(tray, WM_TFF_RELOADED, ok ? 1 : 0, msg);
-    });
+    // it is allowed explicitly; the same holds for WM_TFF_ACTIVATE from a second tffw.exe.
+    ChangeWindowMessageFilterEx(tray, g_app.taskbar_created_msg, MSGFLT_ALLOW, nullptr);
+    ChangeWindowMessageFilterEx(tray, WM_TFF_ACTIVATE, MSGFLT_ALLOW, nullptr);
 
     // Keystrokes must never wait behind other processes' work.
     SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-    g_app.engine_thread = std::thread([tray, &platform] {
-        g_app.engine_rc = platform.run();
-        PostMessageW(tray, WM_TFF_ENGINE_EXIT, 0, 0);
-    });
+    std::wstring waiting_text;
+    if (waitAtStart(waiting_text)) {
+        // Safety net: if TFF breaks the keyboard, a reboot gets a working keyboard back.
+        logLine("[TFF] Waiting for activation (keyboard hook not installed)");
+        g_app.waiting = true;
+        g_app.waiting_text = waiting_text;
+    } else {
+        startEngine();
+    }
 
-    g_app.task_query_thread =
-        std::thread([] { g_app.autostart_task = tff::win::autostartStatus().task; });
+    g_app.task_query_thread = std::thread([] {
+        tff::win::autostartUpgradeTask();  // logon tasks of older versions lack --autostart
+        g_app.autostart_task = tff::win::autostartStatus().task;
+    });
     addTrayIcon();
     firstRun();
 
@@ -834,6 +1041,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
 
     stopEngine();
+    markCleanExit();
     if (g_app.task_query_thread.joinable()) {
         g_app.task_query_thread.join();
     }
@@ -843,5 +1051,5 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     if (mutex != nullptr) {
         CloseHandle(mutex);
     }
-    return g_app.engine_rc.load();
+    return g_app.waiting ? 0 : g_app.engine_rc.load();
 }

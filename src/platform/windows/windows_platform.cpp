@@ -222,7 +222,7 @@ LRESULT CALLBACK WindowsPlatform::hookProc(int code, WPARAM wparam, LPARAM lpara
         ev.scan = k->scanCode;
         ev.flags = k->flags;
         ev.extra_info = static_cast<uintptr_t>(k->dwExtraInfo);
-        if (active_->handleHookEvent(ev)) {
+        if (!active_->checkEmergency(ev) && active_->handleHookEvent(ev)) {
             return 1;
         }
     }
@@ -249,6 +249,32 @@ void WindowsPlatform::removeHook() {
     }
     if (active_ == this) {
         active_ = nullptr;
+    }
+}
+
+bool WindowsPlatform::checkEmergency(const tff::win::HookEvent& ev) {
+    if (emergency_off_.load()) {
+        return true;
+    }
+    if ((ev.flags & (tff::win::kLlkhfInjected | tff::win::kLlkhfLowerIlInjected)) != 0 ||
+        !emergency_keys_.onKey(ev.vk, (ev.flags & tff::win::kLlkhfUp) != 0)) {
+        return false;
+    }
+    // From here on every key passes untouched; run() releases what TFF holds, removes the
+    // hook and returns kExitEmergency.
+    emergency_off_ = true;
+    stop_requested_ = true;
+    log("[TFF] Emergency keys (both Shift + Esc): switching remapping off");
+    return true;
+}
+
+void WindowsPlatform::autoPause(const std::string& reason) {
+    silence_guard_.onOutput();
+    paused_ = true;
+    resetState("auto-paused");
+    log("[TFF] Paused: " + reason);
+    if (auto_pause_callback_) {
+        auto_pause_callback_(reason);
     }
 }
 
@@ -284,16 +310,31 @@ bool WindowsPlatform::handleHookEvent(const tff::win::HookEvent& ev) {
     handleTimers();
     const auto decision = translator_.translate(ev, now(), scratch_events_);
     if (decision == tff::win::HookDecision::PassThrough) {
+        silence_guard_.onOutput();
         return false;
     }
     if (decision == tff::win::HookDecision::Drop) {
         return !monitor_mode_;
+    }
+    // A new press (not auto-repeat) is counted before the engine runs: output it produces,
+    // now or later from a timer, resets the count.
+    bool press = false;
+    for (const auto& e : scratch_events_) {
+        press = press || (e.type == tff::EV_KEY && e.value == tff::KEY_VAL_DOWN);
+    }
+    press = press && !monitor_mode_;
+    if (press) {
+        silence_guard_.onSwallowedPress();
     }
     for (const auto& e : scratch_events_) {
         processEngineEvent(e);
     }
     output_.flush();
     processDeferred();
+    if (press && silence_guard_.silentPresses() >= tff::win::SilenceGuard::kMaxSilentPresses) {
+        autoPause(std::to_string(tff::win::SilenceGuard::kMaxSilentPresses) +
+                  " key presses in a row produced no output");
+    }
     return !monitor_mode_;
 }
 
@@ -474,6 +515,7 @@ bool WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
     if (scratch_inputs_.empty()) {
         return true;
     }
+    silence_guard_.onOutput();
     const UINT n = static_cast<UINT>(scratch_inputs_.size());
     const bool was_injecting = injecting_;
     injecting_ = true;
@@ -790,7 +832,7 @@ int WindowsPlatform::run() {
     timeEndPeriod(1);
     thread_id_ = 0;
     log("[TFF] Keyboard hook removed");
-    return 0;
+    return emergency_off_.load() ? kExitEmergency : 0;
 }
 
 void WindowsPlatform::requestStop() {

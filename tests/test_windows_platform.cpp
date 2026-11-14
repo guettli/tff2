@@ -389,6 +389,88 @@ void test_hook_probe_is_swallowed() {
     std::cout << "PASSED\n";
 }
 
+void test_emergency_keys() {
+    std::cout << "Test: both Shift + Esc switch remapping off... " << std::flush;
+    SendRecorder rec;
+    WindowsPlatform p;
+    p.setSendInputFn(rec.fn());
+    std::string err;
+    bool ok = p.loadConfiguration(writeConfig("emergency.yaml", kConfig), err);
+    assert(ok);
+    const uint32_t lshift = tff::win::EmergencyKeys::kVkLShift;
+    const uint32_t rshift = tff::win::EmergencyKeys::kVkRShift;
+    const uint32_t esc = tff::win::EmergencyKeys::kVkEscape;
+    // Injected keys (e.g. AutoHotkey) never trigger it
+    CHECK(!p.checkEmergency(key(lshift, 0x2A, false, tff::win::kLlkhfInjected)));
+    CHECK(!p.checkEmergency(key(rshift, 0x36, false, tff::win::kLlkhfInjected)));
+    CHECK(!p.checkEmergency(key(esc, 0x01, false, tff::win::kLlkhfInjected)));
+    CHECK(!p.checkEmergency(key(lshift, 0x2A, false)));
+    CHECK(!p.checkEmergency(key(rshift, 0x36, false, tff::win::kLlkhfExtended)));
+    assert(!p.emergencyOff());
+    CHECK(p.checkEmergency(key(esc, 0x01, false)));
+    assert(p.emergencyOff());
+    // From now on everything passes untouched
+    CHECK(p.checkEmergency(key(0x41, 0x1E, false)));
+    CHECK(p.checkEmergency(key(0x41, 0x1E, true)));
+    std::cout << "PASSED\n";
+}
+
+void test_auto_pause_when_silent() {
+    std::cout << "Test: key presses without any output pause TFF... " << std::flush;
+    // f+j toggles a layer: a key press that types nothing.
+    const char config[] =
+        "settings:\n"
+        "  combo_timeout_ms: 40\n"
+        "combos:\n"
+        "  f + j: toggle_layer(num)\n"
+        "layers:\n"
+        "  num:\n"
+        "    k: left\n";
+    SendRecorder rec;
+    WindowsPlatform p;
+    p.setSendInputFn(rec.fn());
+    std::string reason;
+    p.setAutoPauseCallback([&reason](const std::string& r) { reason = r; });
+    std::string err;
+    bool ok = p.loadConfiguration(writeConfig("silent.yaml", config), err);
+    assert(ok);
+    const int toggles = tff::win::SilenceGuard::kMaxSilentPresses / 2;
+    for (int i = 0; i < toggles; ++i) {
+        assert(!p.isPaused());
+        CHECK(p.handleHookEvent(key(0x46, 0x21, false)));
+        CHECK(p.handleHookEvent(key(0x4A, 0x24, false)));
+        waitAndFireTimers(p, 60);
+        CHECK(p.handleHookEvent(key(0x46, 0x21, true)));
+        CHECK(p.handleHookEvent(key(0x4A, 0x24, true)));
+    }
+    assert(rec.keys().empty());
+    assert(p.isPaused());
+    assert(!reason.empty());
+    // Paused: keys reach Windows unchanged
+    CHECK(!p.handleHookEvent(key(0x41, 0x1E, false)));
+    CHECK(!p.handleHookEvent(key(0x41, 0x1E, true)));
+
+    // Output in between resets the count
+    WindowsPlatform q;
+    q.setSendInputFn(rec.fn());
+    ok = q.loadConfiguration(writeConfig("silent2.yaml", config), err);
+    assert(ok);
+    for (int i = 0; i < toggles * 2; ++i) {
+        CHECK(q.handleHookEvent(key(0x46, 0x21, false)));
+        CHECK(q.handleHookEvent(key(0x4A, 0x24, false)));
+        waitAndFireTimers(q, 60);
+        CHECK(q.handleHookEvent(key(0x46, 0x21, true)));
+        CHECK(q.handleHookEvent(key(0x4A, 0x24, true)));
+        if (i % 4 == 3) {
+            CHECK(q.handleHookEvent(key(0x41, 0x1E, false)));  // 'a' types something
+            waitAndFireTimers(q, 60);
+            CHECK(q.handleHookEvent(key(0x41, 0x1E, true)));
+        }
+    }
+    assert(!q.isPaused());
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -404,6 +486,8 @@ int main() {
     test_sendinput_reentrancy();
     test_key_during_injection_is_deferred();
     test_hook_probe_is_swallowed();
+    test_emergency_keys();
+    test_auto_pause_when_silent();
     std::cout << "All Windows platform tests PASSED!\n";
     return 0;
 }

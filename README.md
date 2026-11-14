@@ -117,6 +117,10 @@ machine reset: clearing all active and toggle layers, releasing any held tap-hol
 modifiers, clearing leader sequences and buffers, and cleanly swallowing the `ESC` release event.
 This safeguard is always active by default without needing configuration.
 
+On Windows there are more safety nets: **both Shift keys + Esc** switches remapping off
+completely, TFF pauses itself when key presses produce no output at all, and after a reboot it
+waits for activation. See [docs/windows.md](docs/windows.md#safety-waiting-for-activation-at-sign-in).
+
 ## Platforms
 
 ### Linux Version

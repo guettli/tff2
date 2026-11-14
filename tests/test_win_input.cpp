@@ -545,6 +545,44 @@ void test_hook_watchdog() {
     std::cout << "PASSED\n";
 }
 
+void test_emergency_keys() {
+    std::cout << "Test: emergency keys (both Shift + Esc)... " << std::flush;
+    using tff::win::EmergencyKeys;
+    EmergencyKeys e;
+    CHECK(!e.onKey(EmergencyKeys::kVkEscape, false));  // Esc alone
+    CHECK(!e.onKey(EmergencyKeys::kVkLShift, false));
+    CHECK(!e.onKey(EmergencyKeys::kVkEscape, false));  // one Shift is not enough
+    CHECK(!e.onKey(EmergencyKeys::kVkEscape, true));
+    CHECK(!e.onKey(EmergencyKeys::kVkRShift, false));
+    CHECK(!e.onKey(EmergencyKeys::kVkEscape, true));  // Esc up doesn't trigger
+    CHECK(e.onKey(EmergencyKeys::kVkEscape, false));
+    // Released Shift: no longer armed
+    CHECK(!e.onKey(EmergencyKeys::kVkRShift, true));
+    CHECK(!e.onKey(EmergencyKeys::kVkEscape, false));
+    CHECK(!e.onKey(EmergencyKeys::kVkRShift, false));
+    CHECK(!e.onKey(0x41, false));  // other keys don't disarm
+    CHECK(e.onKey(EmergencyKeys::kVkEscape, false));
+    e.reset();
+    CHECK(!e.onKey(EmergencyKeys::kVkEscape, false));
+    std::cout << "PASSED\n";
+}
+
+void test_silence_guard() {
+    std::cout << "Test: silence guard... " << std::flush;
+    using tff::win::SilenceGuard;
+    SilenceGuard g;
+    for (int i = 1; i < SilenceGuard::kMaxSilentPresses; ++i) {
+        CHECK(!g.onSwallowedPress());
+    }
+    g.onOutput();
+    assert(g.silentPresses() == 0);
+    for (int i = 1; i < SilenceGuard::kMaxSilentPresses; ++i) {
+        CHECK(!g.onSwallowedPress());
+    }
+    CHECK(g.onSwallowedPress());
+    std::cout << "PASSED\n";
+}
+
 }  // namespace
 
 int main() {
@@ -564,6 +602,8 @@ int main() {
     test_utf8_to_utf16();
     test_output_builder_text();
     test_hook_watchdog();
+    test_emergency_keys();
+    test_silence_guard();
     std::cout << "All Windows input translation tests PASSED!\n";
     return 0;
 }

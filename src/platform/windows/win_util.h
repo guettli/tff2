@@ -87,6 +87,8 @@ bool autostartEnable(bool elevated, std::string& err_msg);
 bool autostartDisable(std::string& err_msg, bool this_install_only = false);
 /// Adds kAutostartArg to a Run entry of this installation written by an older TFF.
 void autostartUpgradeRunKey();
+/// The same for the elevated logon task; only works in an elevated process.
+void autostartUpgradeTask();
 /// query_task=false skips the (slow) schtasks query and reports task=false.
 AutostartStatus autostartStatus(bool query_task = true);
 

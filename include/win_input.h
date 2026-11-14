@@ -287,6 +287,56 @@ private:
     uint64_t probe_sent_ = 0;  ///< 0 = no probe pending
 };
 
+/**
+ * @brief Emergency off: both Shift keys held, then Esc.
+ *
+ * Fed with the raw hook data before the engine sees it, so it works even if the engine or the
+ * configuration makes the keyboard unusable. Only physical events count (not injected ones).
+ */
+class EmergencyKeys {
+public:
+    static constexpr uint32_t kVkEscape = 0x1B;
+    static constexpr uint32_t kVkLShift = 0xA0;
+    static constexpr uint32_t kVkRShift = 0xA1;
+
+    /// @return true when Esc goes down while both Shift keys are held.
+    bool onKey(uint32_t vk, bool up) {
+        if (vk == kVkLShift) {
+            lshift_ = !up;
+        } else if (vk == kVkRShift) {
+            rshift_ = !up;
+        } else if (vk == kVkEscape && !up && lshift_ && rshift_) {
+            return true;
+        }
+        return false;
+    }
+    void reset() { lshift_ = rshift_ = false; }
+
+private:
+    bool lshift_ = false;
+    bool rshift_ = false;
+};
+
+/**
+ * @brief Notices a keyboard that looks dead: many key presses in a row that the engine
+ * swallowed without any output (no injected key, nothing passed through).
+ *
+ * Only new presses count, not auto-repeat: holding a layer key alone is normal.
+ */
+class SilenceGuard {
+public:
+    static constexpr int kMaxSilentPresses = 30;
+
+    /// A physical key press went to the engine. @return true when the limit is reached.
+    bool onSwallowedPress() { return ++silent_presses_ >= kMaxSilentPresses; }
+    /// Something reached Windows (injected output or a passed-through key).
+    void onOutput() { silent_presses_ = 0; }
+    int silentPresses() const { return silent_presses_; }
+
+private:
+    int silent_presses_ = 0;
+};
+
 }  // namespace win
 }  // namespace tff
 

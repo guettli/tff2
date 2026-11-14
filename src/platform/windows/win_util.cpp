@@ -114,10 +114,9 @@ std::wstring xmlUnescape(std::wstring s) {
     return s;
 }
 
-/// Whether the logon task runs this installation's tffw.exe. Reads the task file (UTF-16),
-/// which only administrators can: false if it can't be read, true if it has no command we
-/// understand (an elevated caller then removes it, as before).
-bool taskStartsThisInstall() {
+/// The logon task's definition (UTF-16 XML), which only administrators can read.
+/// @return false if it can't be read (no task, or not elevated).
+bool readTaskXml(std::wstring& xml) {
     wchar_t sys_dir[MAX_PATH];
     if (GetSystemDirectoryW(sys_dir, MAX_PATH) == 0) {
         return false;
@@ -128,8 +127,18 @@ bool taskStartsThisInstall() {
         return false;
     }
     std::string bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    std::wstring xml(bytes.size() / sizeof(wchar_t), L'\0');
+    xml.assign(bytes.size() / sizeof(wchar_t), L'\0');
     std::memcpy(xml.data(), bytes.data(), xml.size() * sizeof(wchar_t));
+    return true;
+}
+
+/// Whether the logon task runs this installation's tffw.exe: false if the task can't be read,
+/// true if it has no command we understand (an elevated caller then removes it, as before).
+bool taskStartsThisInstall() {
+    std::wstring xml;
+    if (!readTaskXml(xml)) {
+        return false;
+    }
     const std::wstring tag = L"<Command>";
     const size_t begin = xml.find(tag);
     const size_t end = xml.find(L"</Command>", begin);
@@ -464,6 +473,16 @@ void autostartUpgradeRunKey() {
     const std::wstring value = runKeyValue();
     RegSetKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue, REG_SZ, value.c_str(),
                     static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
+}
+
+void autostartUpgradeTask() {
+    std::wstring xml;
+    if (!isElevated() || !readTaskXml(xml) || !taskStartsThisInstall() ||
+        xml.find(std::wstring(L"<Arguments>") + kAutostartArg) != std::wstring::npos) {
+        return;
+    }
+    std::string err;
+    autostartEnable(true, err);  // same task, now with kAutostartArg
 }
 
 AutostartStatus autostartStatus(bool query_task) {

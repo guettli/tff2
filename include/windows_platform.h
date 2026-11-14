@@ -51,6 +51,9 @@ public:
     using LayerCallback = std::function<void(const std::string& layer_name, bool active)>;
     using SendInputFn = std::function<UINT(UINT count, INPUT* inputs)>;
 
+    /// run() result after the emergency keys (both Shift + Esc) removed the hook.
+    static constexpr int kExitEmergency = 3;
+
     WindowsPlatform();
     ~WindowsPlatform();
     WindowsPlatform(const WindowsPlatform&) = delete;
@@ -81,6 +84,11 @@ public:
     void setReloadCallback(std::function<void(bool ok, const std::string& msg)> cb) {
         reload_callback_ = std::move(cb);
     }
+    /// Called on the engine thread when TFF paused itself because the keyboard looked dead
+    /// (see tff::win::SilenceGuard).
+    void setAutoPauseCallback(std::function<void(const std::string& reason)> cb) {
+        auto_pause_callback_ = std::move(cb);
+    }
     /// Replace SendInput (tests).
     void setSendInputFn(SendInputFn fn) { send_input_ = std::move(fn); }
 
@@ -94,6 +102,14 @@ public:
     void setPaused(bool paused);
     bool isPaused() const { return paused_.load(); }
     bool isRunning() const { return running_.load(); }
+    /// The emergency keys were pressed: the hook passes everything and run() returns.
+    bool emergencyOff() const { return emergency_off_.load(); }
+
+    /**
+     * @brief Emergency keys check on the raw hook data, before the engine.
+     * @return true if the event must pass to Windows untouched (emergency off).
+     */
+    bool checkEmergency(const tff::win::HookEvent& ev);
 
     /**
      * @brief Process one low-level hook event (what the hook callback does).
@@ -132,6 +148,8 @@ private:
     void triggerDebugDump();
     void log(const std::string& line);
 
+    void autoPause(const std::string& reason);
+
     static WindowsPlatform* active_;  ///< instance whose hook is installed
 
     bool initialized_ = false;
@@ -142,6 +160,9 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> stop_requested_{false};
     std::atomic<DWORD> thread_id_{0};
+    std::atomic<bool> emergency_off_{false};
+    tff::win::EmergencyKeys emergency_keys_;
+    tff::win::SilenceGuard silence_guard_;
 
     HHOOK hook_ = nullptr;
     HWND msg_window_ = nullptr;
@@ -181,6 +202,7 @@ private:
     LogSink log_sink_;
     LayerCallback layer_callback_;
     std::function<void(bool, const std::string&)> reload_callback_;
+    std::function<void(const std::string&)> auto_pause_callback_;
     SendInputFn send_input_;
 };
 
