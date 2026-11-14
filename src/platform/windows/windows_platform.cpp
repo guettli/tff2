@@ -272,7 +272,7 @@ void WindowsPlatform::autoPause(const std::string& reason) {
     silence_guard_.onOutput();
     paused_ = true;
     resetState("auto-paused");
-    log("[TFF] Paused: " + reason);
+    log("[TFF] Paused: " + reason + " (resume: tray menu, or restart tff.exe)");
     if (auto_pause_callback_) {
         auto_pause_callback_(reason);
     }
@@ -446,6 +446,8 @@ void WindowsPlatform::resetState(const char* reason) {
     engine_->reset();
     output_.releaseAll();
     translator_.reset();
+    // Key-ups may have gone where the hook doesn't see them (secure desktop, lock screen)
+    emergency_keys_.reset();
     if (verbose_) {
         log(std::string("[TFF] State reset (") + reason + ")");
     }
@@ -515,13 +517,15 @@ bool WindowsPlatform::sendInputs(const std::vector<tff::win::OutputInput>& input
     if (scratch_inputs_.empty()) {
         return true;
     }
-    silence_guard_.onOutput();
     const UINT n = static_cast<UINT>(scratch_inputs_.size());
     const bool was_injecting = injecting_;
     injecting_ = true;
     const UINT sent = send_input_ ? send_input_(n, scratch_inputs_.data())
                                   : SendInput(n, scratch_inputs_.data(), sizeof(INPUT));
     injecting_ = was_injecting;
+    if (sent > 0) {
+        silence_guard_.onOutput();  // not if nothing could be injected: keys look dead then
+    }
     if (sent != n) {
         // Typical causes: UIPI (the foreground window runs elevated and TFF does not), or the
         // secure desktop (lock screen, UAC prompt), which rejects all injected input.
@@ -807,6 +811,9 @@ int WindowsPlatform::run() {
                 continue;
             }
             DispatchMessageW(&msg);
+        }
+        if (stop_requested_.load()) {
+            break;  // e.g. emergency off: no more engine output
         }
         handleTimers();
         if (ownWindowInForeground()) {

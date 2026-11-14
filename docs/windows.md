@@ -99,7 +99,7 @@ or by starting TFF2 from the Start menu again. Starting TFF yourself activates i
 Tray menu → *Wait for activation at sign-in*:
 
 - **Always** (default)
-- **Only after a crash or emergency off**: waits only if the last run didn't end normally
+- **Only after a crash, emergency off or auto-pause**: waits only if the last run didn't end normally
   (crash, killed, power loss, emergency keys, auto-pause); otherwise remaps right away.
 - **Never**
 
@@ -149,7 +149,8 @@ active while a key is held are not announced. Tray menu → *Layer notifications
   above).
 - **"TFF paused itself"**: 30 key presses in a row produced no output at all (nothing typed,
   nothing passed through), which looks like a broken keyboard, so TFF paused. If that was
-  intended (e.g. a layer that maps keys to nothing), resume it in the tray menu.
+  intended (e.g. a layer that maps keys to nothing), click the notification or resume it in
+  the tray menu.
 - **Logs**: `%LOCALAPPDATA%\tff\tff.log`; run `tff -v` in a console for per-key logs.
 
 ## Building from source

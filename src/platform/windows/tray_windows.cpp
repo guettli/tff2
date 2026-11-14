@@ -125,6 +125,7 @@ struct App {
     bool waiting = false;       ///< hook not installed yet: waiting for the user to activate TFF
     std::wstring waiting_text;  ///< why, for the notification
     bool waiting_announced = false;  ///< notification shown (needs the tray icon)
+    bool auto_paused = false;        ///< paused by the silence guard (notification resumes)
     std::wstring exe_path;
     ExeFile exe_started;  ///< tffw.exe as it was when this process started
     ExeFile exe_seen;     ///< last differing state seen by the update check
@@ -561,7 +562,7 @@ void showMenu(HWND hwnd) {
     AppendMenuW(ask, MF_STRING | (confirm == Confirm::Always ? MF_CHECKED : MF_UNCHECKED),
                 ID_CONFIRM_ALWAYS, L"Always");
     AppendMenuW(ask, MF_STRING | (confirm == Confirm::AfterProblem ? MF_CHECKED : MF_UNCHECKED),
-                ID_CONFIRM_AFTER_PROBLEM, L"Only after a crash or emergency off");
+                ID_CONFIRM_AFTER_PROBLEM, L"Only after a crash, emergency off or auto-pause");
     AppendMenuW(ask, MF_STRING | (confirm == Confirm::Never ? MF_CHECKED : MF_UNCHECKED),
                 ID_CONFIRM_NEVER, L"Never");
 
@@ -612,6 +613,7 @@ void showMenu(HWND hwnd) {
             activate();
             break;
         case ID_PAUSE:
+            g_app.auto_paused = false;
             g_app.platform->setPaused(!paused);
             logLine(paused ? "[TFF] Resumed" : "[TFF] Paused");
             if (paused && lastSession() == Session::Problem) {
@@ -681,17 +683,20 @@ bool hasArg(const wchar_t* wanted) {
 /// The command line for the updated tffw.exe: the same arguments, plus kAfterUpdateArg and,
 /// while TFF waits for activation, kInactiveArg (so the new version waits too).
 std::wstring restartCommandLine() {
-    int argc = 0;
-    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    std::wstring cmd = L"\"" + g_app.exe_path + L"\"";
-    for (int i = 1; argv != nullptr && i < argc; ++i) {
-        const std::wstring arg = argv[i];
-        if (arg == kAfterUpdateArg || arg == kInactiveArg) {
-            continue;
+    // Remove the flags from the original string (they are always appended as " <flag>"), so
+    // the other arguments keep their exact quoting.
+    std::wstring cmd = GetCommandLineW();
+    for (const std::wstring flag :
+         {std::wstring(L" ") + kAfterUpdateArg, std::wstring(L" ") + kInactiveArg}) {
+        for (size_t pos = cmd.find(flag); pos != std::wstring::npos; pos = cmd.find(flag, pos)) {
+            const size_t end = pos + flag.size();
+            if (end == cmd.size() || cmd[end] == L' ') {
+                cmd.erase(pos, flag.size());
+            } else {
+                pos = end;
+            }
         }
-        cmd += arg.find_first_of(L" \t") == std::wstring::npos ? L" " + arg : L" \"" + arg + L"\"";
     }
-    LocalFree(argv);
     cmd += L" ";
     cmd += kAfterUpdateArg;
     if (g_app.waiting) {
@@ -784,7 +789,15 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     showMenu(hwnd);
                     break;
                 case NIN_BALLOONUSERCLICK:
-                    activate();  // only does something while waiting
+                    if (g_app.waiting) {
+                        activate();
+                    } else if (g_app.auto_paused && g_app.platform->isPaused()) {
+                        g_app.auto_paused = false;  // "TFF paused itself": resume
+                        g_app.platform->setPaused(false);
+                        setSession(Session::Running);
+                        logLine("[TFF] Resumed (notification)");
+                        updateTrayIcon(NIM_MODIFY);
+                    }
                     break;
                 default:
                     break;
@@ -816,10 +829,11 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
         case WM_TFF_AUTO_PAUSED: {
             std::unique_ptr<std::wstring> reason(reinterpret_cast<std::wstring*>(lparam));
             setSession(Session::Problem);
+            g_app.auto_paused = true;
             updateTrayIcon(NIM_MODIFY);
             showBalloon(L"TFF paused itself",
-                        *reason + L". If that was intended, resume it in the tray menu.",
-                        NIIF_WARNING, false);
+                        *reason + L". If that was intended, click here to resume.", NIIF_WARNING,
+                        false);
             return 0;
         }
         case WM_TFF_ACTIVATE:
@@ -830,6 +844,9 @@ LRESULT CALLBACK trayProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                 logLine("[TFF] Windows session ends");
                 stopEngine();
                 markCleanExit();
+                if (g_app.waiting) {
+                    DestroyWindow(hwnd);  // Restart Manager (installer) expects TFF to exit
+                }
             }
             return 0;
         case WM_TFF_ENGINE_EXIT:
