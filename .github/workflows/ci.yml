@@ -18,7 +18,8 @@ on:
     - cron: '17 4 * * 1'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Per event: the weekly run on main must not cancel a push run (that push would not release)
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
