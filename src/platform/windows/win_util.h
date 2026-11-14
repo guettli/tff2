@@ -72,6 +72,12 @@ struct AutostartStatus {
     std::string run_command;  ///< current Run entry value
 };
 
+/// Argument the autostart entries pass to tffw.exe, so it knows it was started at sign-in.
+extern const wchar_t* const kAutostartArg;
+
+/// The program of a command line: the quoted first part, or everything up to the first space.
+std::wstring commandProgram(const std::wstring& command_line);
+
 /// Starts tffw.exe at sign-in. elevated=false: HKCU Run key. elevated=true: Task Scheduler
 /// logon task with highest privileges (needs an elevated caller), so remapping also works in
 /// windows running as administrator.
@@ -79,6 +85,8 @@ bool autostartEnable(bool elevated, std::string& err_msg);
 /// this_install_only: remove only entries that start this installation's tffw.exe (used by
 /// the MSI uninstall, so a portable copy's autostart survives).
 bool autostartDisable(std::string& err_msg, bool this_install_only = false);
+/// Adds kAutostartArg to a Run entry of this installation written by an older TFF.
+void autostartUpgradeRunKey();
 /// query_task=false skips the (slow) schtasks query and reports task=false.
 AutostartStatus autostartStatus(bool query_task = true);
 

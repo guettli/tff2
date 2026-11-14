@@ -47,6 +47,7 @@ enum MenuId : UINT {
     ID_NOTIFY_OSD,
     ID_NOTIFY_TOAST,
     ID_AUTOSTART,
+    ID_CONFIRM_AT_SIGN_IN,
     ID_OPEN_LOG,
     ID_QUIT,
 };
@@ -54,6 +55,7 @@ enum MenuId : UINT {
 enum class NotifyMode : DWORD { Off = 0, Osd = 1, Toast = 2 };
 
 const wchar_t kSettingsKey[] = L"Software\\TFF2";
+const wchar_t kConfirmAtSignInSetting[] = L"ConfirmAtSignIn";
 const wchar_t kTrayClass[] = L"TffTrayWindow";
 const wchar_t kOsdClass[] = L"TffOsdWindow";
 
@@ -419,6 +421,9 @@ void showMenu(HWND hwnd) {
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(notify), L"Layer &notifications");
     AppendMenuW(menu, MF_STRING | (autostart_on ? MF_CHECKED : MF_UNCHECKED), ID_AUTOSTART,
                 L"Start at &sign-in");
+    const bool confirm = readSetting(kConfirmAtSignInSetting, 1) != 0;
+    AppendMenuW(menu, MF_STRING | (confirm ? MF_CHECKED : MF_UNCHECKED), ID_CONFIRM_AT_SIGN_IN,
+                L"&Ask before remapping at sign-in");
     AppendMenuW(menu, MF_STRING, ID_OPEN_LOG, L"Open lo&g");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, ID_QUIT, L"&Quit");
@@ -472,6 +477,10 @@ void showMenu(HWND hwnd) {
             break;
         case ID_AUTOSTART:
             toggleAutostart();
+            break;
+        case ID_CONFIRM_AT_SIGN_IN:
+            writeSetting(kConfirmAtSignInSetting,
+                         readSetting(kConfirmAtSignInSetting, 1) != 0 ? 0 : 1);
             break;
         case ID_OPEN_LOG:
             openWithNotepad(g_app.log_file);
@@ -691,6 +700,27 @@ void firstRun() {
     }
 }
 
+/// Started at sign-in (autostart entry): asks before installing the keyboard hook, so a TFF
+/// bug that breaks the keyboard can't lock the user out after a reboot. Until the answer the
+/// hook isn't installed and the keyboard works unchanged. Default button is No: an Enter
+/// typed while signing in doesn't activate TFF.
+bool confirmAtSignIn() {
+    if (!hasArg(tff::win::kAutostartArg) || hasArg(kAfterUpdateArg) ||
+        readSetting(kConfirmAtSignInSetting, 1) == 0) {
+        return true;
+    }
+    const std::wstring text =
+        L"TFF was started at sign-in.\n\nActivate keyboard remapping now?\n\n"
+        L"No: TFF exits and your keyboard works without remapping.\n\n"
+        L"(Tray menu \u2192 \"Ask before remapping at sign-in\" turns this question off.)";
+    const int answer =
+        MessageBoxW(nullptr, text.c_str(), L"Ten Flying Fingers",
+                    MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2 | MB_SETFOREGROUND | MB_TOPMOST);
+    logLine(answer == IDYES ? "[TFF] Started at sign-in: remapping confirmed"
+                            : "[TFF] Started at sign-in: remapping declined, exiting");
+    return answer == IDYES;
+}
+
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
@@ -739,6 +769,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
     logLine("[TFF] Loaded " + platform.getConfigFile());
+
+    tff::win::autostartUpgradeRunKey();  // Run entries of older versions lack --autostart
+    if (!confirmAtSignIn()) {
+        g_app.platform.reset();
+        g_app.log.reset();
+        if (mutex != nullptr) {
+            CloseHandle(mutex);
+        }
+        return 0;
+    }
 
     g_app.icon_active = loadIcon(IDI_TFF_ACTIVE);
     g_app.icon_paused = loadIcon(IDI_TFF_PAUSED);

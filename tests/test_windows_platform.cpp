@@ -259,6 +259,13 @@ void test_win_util() {
     assert(tff::win::userConfigPath().size() > 20);
     assert(tff::win::userConfigPath().find("\\tff\\tff-combos.yaml") != std::string::npos);
     assert(!tff::win::exeDir().empty());
+    using tff::win::commandProgram;
+    assert(commandProgram(L"\"C:\\Program Files\\TFF2\\tffw.exe\" --autostart") ==
+           L"C:\\Program Files\\TFF2\\tffw.exe");
+    assert(commandProgram(L"\"C:\\TFF2\\tffw.exe\"") == L"C:\\TFF2\\tffw.exe");
+    assert(commandProgram(L"C:\\TFF2\\tffw.exe --autostart") == L"C:\\TFF2\\tffw.exe");
+    assert(commandProgram(L"C:\\TFF2\\tffw.exe") == L"C:\\TFF2\\tffw.exe");
+    assert(commandProgram(L"").empty());
     std::string content;
     CHECK(tff::win::readTextFile(writeConfig(u8"\u00f6.yaml", "x: 1\n"), content));
     assert(content == "x: 1\n");

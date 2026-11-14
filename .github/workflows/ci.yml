@@ -232,6 +232,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $run = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
           if (-not (Get-ItemProperty $run).TFF2) { Write-Output "::error::autostart enable wrote no Run value"; exit 1 }
+          if ((Get-ItemProperty $run).TFF2 -notlike '*" --autostart') { Write-Output "::error::Run value lacks --autostart: $((Get-ItemProperty $run).TFF2)"; exit 1 }
           $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /l*v msi-x.log" -Wait -PassThru
           if ($p.ExitCode -ne 0) { Get-Content msi-x.log -Tail 60; exit 1 }
           if (Test-Path (Join-Path $dir "tff.exe")) { Write-Output "::error::uninstall left tff.exe"; exit 1 }

@@ -23,6 +23,7 @@ namespace tff {
 namespace win {
 
 const wchar_t* const kInstanceMutexName = L"Local\\TFF2-Remapper";
+const wchar_t* const kAutostartArg = L"--autostart";
 
 namespace {
 
@@ -142,7 +143,19 @@ bool taskStartsThisInstall() {
     return samePath(command, trayExePath());
 }
 
+std::wstring runKeyValue() {
+    return L"\"" + trayExePath() + L"\" " + kAutostartArg;
+}
+
 }  // namespace
+
+std::wstring commandProgram(const std::wstring& command_line) {
+    if (!command_line.empty() && command_line.front() == L'"') {
+        const size_t end = command_line.find(L'"', 1);
+        return command_line.substr(1, end == std::wstring::npos ? std::wstring::npos : end - 1);
+    }
+    return command_line.substr(0, command_line.find(L' '));
+}
 
 std::wstring widen(const std::string& utf8) {
     if (utf8.empty()) {
@@ -342,7 +355,7 @@ bool autostartEnable(bool elevated, std::string& err_msg) {
                 "instead, run 'tff autostart disable' from an administrator prompt first.";
             return false;
         }
-        const std::wstring value = L"\"" + exe + L"\"";
+        const std::wstring value = runKeyValue();
         LSTATUS st = RegSetKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue, REG_SZ, value.c_str(),
                                      static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
         if (st != ERROR_SUCCESS) {
@@ -387,8 +400,8 @@ bool autostartEnable(bool elevated, std::string& err_msg) {
         L"    <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd></IdleSettings>\n"
         L"  </Settings>\n"
         L"  <Actions Context=\"Author\"><Exec><Command>" +
-        xmlEscape(exe) +
-        L"</Command></Exec></Actions>\n"
+        xmlEscape(exe) + L"</Command><Arguments>" + std::wstring(kAutostartArg) +
+        L"</Arguments></Exec></Actions>\n"
         L"</Task>\n";
 
     wchar_t tmp_dir[MAX_PATH];
@@ -422,10 +435,7 @@ bool autostartDisable(std::string& err_msg, bool this_install_only) {
             return false;
         }
     }
-    std::wstring run_exe = widen(status.run_command);
-    if (run_exe.size() >= 2 && run_exe.front() == L'"' && run_exe.back() == L'"') {
-        run_exe = run_exe.substr(1, run_exe.size() - 2);
-    }
+    const std::wstring run_exe = commandProgram(widen(status.run_command));
     if (status.run_key && (!this_install_only || samePath(run_exe, trayExePath()))) {
         LSTATUS st = RegDeleteKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue);
         if (st != ERROR_SUCCESS && st != ERROR_FILE_NOT_FOUND) {
@@ -442,6 +452,18 @@ void* acquireInstanceMutex(bool& already_running) {
     already_running = (h != nullptr && err == ERROR_ALREADY_EXISTS) ||
                       (h == nullptr && err == ERROR_ACCESS_DENIED);
     return h;
+}
+
+void autostartUpgradeRunKey() {
+    const auto status = autostartStatus(false);
+    const std::wstring command = widen(status.run_command);
+    if (!status.run_key || command.find(kAutostartArg) != std::wstring::npos ||
+        !samePath(commandProgram(command), trayExePath())) {
+        return;
+    }
+    const std::wstring value = runKeyValue();
+    RegSetKeyValueW(HKEY_CURRENT_USER, kRunKey, kRunValue, REG_SZ, value.c_str(),
+                    static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
 }
 
 AutostartStatus autostartStatus(bool query_task) {
