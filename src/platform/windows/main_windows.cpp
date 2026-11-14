@@ -476,6 +476,10 @@ int main(int argc, char* argv[]) {
     SetConsoleCtrlHandler(consoleCtrlHandler, TRUE);
     const int rc = platform.run();
     g_platform = nullptr;
+    if (rc == WindowsPlatform::kExitEmergency) {
+        std::cout << "\nEmergency keys (both Shift + Esc): remapping switched off.\n";
+        return rc;
+    }
     if (rc != 0) {
         std::cerr << "Error: could not install the keyboard hook.\n";
         return rc;

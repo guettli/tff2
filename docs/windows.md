@@ -86,19 +86,25 @@ this once from an administrator terminal:
 tff autostart enable --elevated  # logon task with highest privileges, replaces the Run key
 ```
 
-### Confirmation after sign-in
+### Safety: waiting for activation at sign-in
 
-When TFF is started by autostart (after a reboot or sign-in), it asks *"Activate keyboard
-remapping now?"* before it hooks the keyboard. Until you answer, the keyboard works without
-TFF. **No** (the default button, so a stray Enter doesn't activate it) exits TFF. So if a
-TFF bug ever makes the keyboard unusable, a reboot gets you back to a working keyboard.
+When autostart starts TFF (after a reboot or sign-in), TFF doesn't hook the keyboard right
+away. It shows a grey tray icon and a notification *"TFF is not active"*. Until you activate it
+the keyboard works without TFF. So if a TFF bug ever makes the keyboard unusable, a reboot gets
+you back to a working keyboard.
 
-Starting TFF yourself (Start menu, `tffw.exe`) doesn't ask. To turn the question off: tray
-menu → *Ask before remapping at sign-in*.
+Activate remapping by clicking the notification, with *Activate remapping* in the tray menu,
+or by starting TFF2 from the Start menu again. Starting TFF yourself activates it right away.
 
-Autostart entries created by TFF 2.0.26 or older don't ask yet. The Run key entry is updated
-the next time `tffw.exe` starts; for the elevated logon task run
-`tff autostart enable --elevated` again.
+Tray menu → *Wait for activation at sign-in*:
+
+- **Always** (default)
+- **Only after a crash, emergency off or auto-pause**: waits only if the last run didn't end normally
+  (crash, killed, power loss, emergency keys, auto-pause); otherwise remaps right away.
+- **Never**
+
+Autostart entries of TFF 2.0.26 or older are updated automatically the next time `tffw.exe`
+starts (the elevated logon task only when TFF runs elevated).
 
 To go back to the Run key, run `tff autostart disable` from an administrator terminal first
 (removing the logon task needs administrator rights), then `tff autostart enable`.
@@ -137,6 +143,14 @@ active while a key is held are not announced. Tray menu → *Layer notifications
 - **Remapping stops working**: Windows removes keyboard hooks that respond too slowly. TFF
   detects this and reinstalls its hook (see the log). Please report it if it happens often.
 - **Stuck modifier**: hold `Esc` for 3 seconds (emergency reset), or pause/resume from the tray.
+- **Keyboard unusable**: hold **both Shift keys and press Esc**. This emergency off is checked
+  on the raw keys before TFF's engine, removes the keyboard hook and leaves TFF waiting for
+  activation (tray). If that doesn't help, reboot: TFF waits for activation at sign-in (see
+  above).
+- **"TFF paused itself"**: 30 key presses in a row produced no output at all (nothing typed,
+  nothing passed through), which looks like a broken keyboard, so TFF paused. If that was
+  intended (e.g. a layer that maps keys to nothing), click the notification or resume it in
+  the tray menu.
 - **Logs**: `%LOCALAPPDATA%\tff\tff.log`; run `tff -v` in a console for per-key logs.
 
 ## Building from source
