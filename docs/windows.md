@@ -86,6 +86,20 @@ this once from an administrator terminal:
 tff autostart enable --elevated  # logon task with highest privileges, replaces the Run key
 ```
 
+### Confirmation after sign-in
+
+When TFF is started by autostart (after a reboot or sign-in), it asks *"Activate keyboard
+remapping now?"* before it hooks the keyboard. Until you answer, the keyboard works without
+TFF. **No** (the default button, so a stray Enter doesn't activate it) exits TFF. So if a
+TFF bug ever makes the keyboard unusable, a reboot gets you back to a working keyboard.
+
+Starting TFF yourself (Start menu, `tffw.exe`) doesn't ask. To turn the question off: tray
+menu → *Ask before remapping at sign-in*.
+
+Autostart entries created by TFF 2.0.26 or older don't ask yet. The Run key entry is updated
+the next time `tffw.exe` starts; for the elevated logon task run
+`tff autostart enable --elevated` again.
+
 To go back to the Run key, run `tff autostart disable` from an administrator terminal first
 (removing the logon task needs administrator rights), then `tff autostart enable`.
 
