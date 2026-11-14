@@ -30,9 +30,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install clang-format 18
+        # Pinned: the runner's clang-format changes with the image and formats differently.
+        run: pip install --user clang-format==18.1.8
+
       - name: Check C/C++ code formatting
         run: |
-          find src include tests -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) -print0 | xargs -0 clang-format --dry-run --Werror
+          ~/.local/bin/clang-format --version
+          find src include tests -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) -print0 | xargs -0 ~/.local/bin/clang-format --dry-run --Werror
 
   build-and-test:
     name: Build & Test (${{ matrix.compiler-name }})

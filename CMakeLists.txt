@@ -478,6 +478,9 @@ if(NOT PICO_BUILD)
                 --suppress=useStlAlgorithm
                 --suppress=normalCheckLevelMaxBranches
                 --suppress=unusedPrivateFunction:*rp2040_platform.h
+                # Tests re-read writer.keyEvents() after feeding events; cppcheck >= 2.19
+                # takes the second read for the same value.
+                --suppress=redundantAssignment:*/tests/*
                 --error-exitcode=1
                 --std=c++17
                 --library=windows

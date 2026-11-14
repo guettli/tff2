@@ -85,9 +85,11 @@ void test_keymap_round_trip() {
     std::set<std::pair<uint16_t, bool>> seen_scans;
     std::set<KeyCode> seen_codes;
     for (const auto& m : keyMappings()) {
-        assert(seen_codes.insert(m.code).second);  // every evdev code once
+        const bool new_code = seen_codes.insert(m.code).second;
+        assert(new_code);  // every evdev code once
         if (m.code != Keys::KEY_PAUSE) {
-            assert(seen_scans.insert({m.scan, m.extended}).second);  // (scan, E0) unique
+            const bool new_scan = seen_scans.insert({m.scan, m.extended}).second;
+            assert(new_scan);  // (scan, E0) unique
         }
         KeyCode back = 0;
         CHECK(hookToKeyCode(m.vk, m.scan, m.extended, back));
