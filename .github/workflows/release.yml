@@ -17,7 +17,7 @@ permissions:
 jobs:
   build-linux:
     name: Build Linux Portable Binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
@@ -48,7 +48,7 @@ jobs:
 
   build-rp2040:
     name: Build RP2040 Firmware
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
@@ -103,7 +103,7 @@ jobs:
 
   build-windows:
     name: Build Windows Packages (ZIP + MSI)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 25
 
     steps:
@@ -147,7 +147,7 @@ jobs:
   publish-release:
     name: Publish GitHub Release
     needs: [build-linux, build-rp2040, build-windows]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
 
     steps:

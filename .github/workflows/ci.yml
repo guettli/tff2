@@ -12,6 +12,10 @@ on:
       - '**.md'
       - 'docs/**'
   workflow_dispatch:
+  # Weekly on main: notices when a new runner image or tool release breaks the build,
+  # before a pull request runs into it. (Auto Release only reacts to pushes.)
+  schedule:
+    - cron: '17 4 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,7 +27,7 @@ permissions:
 jobs:
   format-check:
     name: Code Formatting (clang-format)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
 
     steps:
@@ -41,7 +45,7 @@ jobs:
 
   build-and-test:
     name: Build & Test (${{ matrix.compiler-name }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -142,7 +146,7 @@ jobs:
 
   build-windows:
     name: Build & Test (Windows MSVC)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 25
 
     steps:
@@ -272,7 +276,7 @@ jobs:
     # Drives the real keyboard input stack of the runner: tff.exe with its low-level hook,
     # keys typed with SendInput, remapped output checked by a second hook.
     name: Windows End-to-End (real hook + SendInput)
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     timeout-minutes: 15
 
     steps:
@@ -302,7 +306,7 @@ jobs:
     # tff_linux reads a uinput keyboard and writes its virtual keyboard; the output is decoded
     # with xkbcommon into text, as a desktop would see it.
     name: Linux End-to-End (uinput + xkbcommon)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
 
     steps:
@@ -326,7 +330,7 @@ jobs:
 
   coverage:
     name: Code Coverage (gcov)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
 
     steps:
@@ -343,7 +347,7 @@ jobs:
 
   sanitizers:
     name: Sanitizers (ASan + UBSan)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
       ASAN_OPTIONS: 'detect_leaks=1:abort_on_error=1:fast_unwind_on_fatal=0'
@@ -377,7 +381,7 @@ jobs:
 
   cppcheck:
     name: Static Analysis (Cppcheck)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
 
     steps:
@@ -395,7 +399,7 @@ jobs:
 
   rp2040-firmware:
     name: RP2040 Firmware Cross-Compilation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
 
     steps:
