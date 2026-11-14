@@ -1,0 +1,11 @@
+# Pull requests for new versions of the GitHub Actions used in the workflows.
+# Runner images are pinned in the workflows (runs-on); move them on deliberately.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
