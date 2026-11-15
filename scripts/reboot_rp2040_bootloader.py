@@ -23,7 +23,9 @@ def find_serial_port():
     return candidates[0]
 
 def is_bootloader_active():
-    return bool(glob.glob('/dev/disk/by-label/RPI-RP2') or os.path.exists('/mnt/rpi-rp2'))
+    # Only the block device counts: deploy_rp2040.sh leaves /mnt/rpi-rp2 behind as an
+    # empty directory, so its existence says nothing about BOOTSEL mode.
+    return bool(glob.glob('/dev/disk/by-label/RPI-RP2'))
 
 def wait_for_bootloader(timeout_sec=5.0):
     t0 = time.time()
