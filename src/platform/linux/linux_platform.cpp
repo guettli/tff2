@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <climits>
+#include <chrono>
 
 namespace {
 
@@ -70,11 +71,37 @@ public:
             ie.code = ev.code;
             ie.value = ev.value;
             ssize_t bytes = write(uinput_fd_, &ie, sizeof(ie));
-            (void)bytes;
+            if (bytes == static_cast<ssize_t>(sizeof(ie))) {
+                paceBurst(ev.type == EV_SYN);
+            }
         }
     }
 
 private:
+    // The kernel queues only a few dozen events for each reader of the virtual keyboard. A
+    // snippet written in one go can overflow that queue when the reader (the desktop) isn't
+    // scheduled in time: the kernel then throws the queued events away (SYN_DROPPED) and
+    // characters go missing. So a long burst gets a short pause after every few packets.
+    static constexpr int kPaceEvents = 24;
+    static constexpr auto kBurstGap = std::chrono::milliseconds(3);
+    static constexpr auto kPause = std::chrono::milliseconds(2);
+
+    void paceBurst(bool end_of_packet) {
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_write_ > kBurstGap) {
+            burst_events_ = 0;
+        }
+        last_write_ = now;
+        ++burst_events_;
+        if (end_of_packet && burst_events_ >= kPaceEvents) {
+            std::this_thread::sleep_for(kPause);
+            burst_events_ = 0;
+            last_write_ = std::chrono::steady_clock::now();
+        }
+    }
+
+    std::chrono::steady_clock::time_point last_write_{};
+    int burst_events_ = 0;
     int uinput_fd_;
     std::vector<uint32_t>* received_keys_;
     bool verbose_;
