@@ -204,7 +204,7 @@ with Ten Flying Fingers on a board equipped with a USB Host port (such as the Ad
 RP2040 USB Host), it functions as a standalone hardware keyboard adapter that sits between your
 physical keyboard and your computer.
 
-- **Pure C++ Bare-Metal**: 100% compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` (zero
+- **Pure C++ Bare-Metal**: 100% compiled C++ using Pico SDK 2.2.0, TinyUSB, and `Pico-PIO-USB` (zero
   Python runtime, microsecond latency).
 - **Dual-Core Concurrency**: Dedicated Core 1 runs PIO USB Host (`tuh_task`) on GPIO 16/17; Core 0
   runs composite USB Device (`tud_task`), shared `tff::TFFEngine`, and hardware timers.

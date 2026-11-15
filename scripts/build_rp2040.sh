@@ -76,7 +76,7 @@ success "Found ARM toolchain: ${ARM_GCC_VERSION}"
 
 # 2. Check or set up Raspberry Pi Pico SDK
 step "Checking Raspberry Pi Pico SDK..."
-PICO_SDK_VERSION="2.1.1"
+PICO_SDK_VERSION="2.2.0"
 if [ -z "${PICO_SDK_PATH:-}" ]; then
     if [ -d "${ROOT_DIR}/pico-sdk" ]; then
         PICO_SDK_PATH="${ROOT_DIR}/pico-sdk"
@@ -100,11 +100,6 @@ if [ ! -f "${PICO_SDK_PATH}/lib/tinyusb/src/tusb.h" ]; then
     )
 fi
 success "Pico SDK ready at: ${PICO_SDK_PATH}"
-
-# The SDK builds pioasm with the host compiler; pioasm of SDK 2.1.1 misses #include <cstdint>,
-# which GCC >= 15 no longer pulls in indirectly. CXXFLAGS from the environment reaches that
-# build (and is harmless for the firmware).
-export CXXFLAGS="${CXXFLAGS:+${CXXFLAGS} }-include cstdint"
 
 # 3. Configure CMake for RP2040
 step "Configuring CMake for RP2040 (Board: ${BOARD})..."

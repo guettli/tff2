@@ -146,7 +146,7 @@ Every push and Pull Request triggers the GitHub Actions CI pipeline:
 3. **Code Coverage (`gcov`)**: Measures line coverage across `src/core/` and `src/platform/linux/` and prints summary statistics.
 4. **Sanitizers (ASan + UBSan)**: Builds with AddressSanitizer and UndefinedBehaviorSanitizer, asserting zero memory leaks or undefined behavior.
 5. **Static Analysis (Cppcheck)**: Runs deep static code analysis with `--enable=warning,style,performance,portability --error-exitcode=1`.
-6. **RP2040 Firmware Cross-Compilation**: Cross-compiles the embedded firmware using `arm-none-eabi-gcc` and Raspberry Pi Pico SDK v2.1.1 (with TinyUSB), and verifies binary UF2 header magic numbers.
+6. **RP2040 Firmware Cross-Compilation**: Cross-compiles the embedded firmware using `arm-none-eabi-gcc` and Raspberry Pi Pico SDK v2.2.0 (with TinyUSB), and verifies binary UF2 header magic numbers.
 
 ---
 

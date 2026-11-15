@@ -97,7 +97,7 @@ Or download it manually from the [GitHub Releases page](https://github.com/guett
 ## Production Firmware (`tff_rp2040.uf2`)
 
 Ten Flying Fingers on RP2040 is a 100% pure bare-metal C++ firmware:
-- **Zero Python Runtime**: Compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` 0.7.3.
+- **Zero Python Runtime**: Compiled C++ using Pico SDK 2.2.0, TinyUSB, and `Pico-PIO-USB` 0.7.3.
 - **Microsecond Latency**: Direct hardware interrupt and PIO state machine execution.
 - **Hardware Integration**:
   - Automatically enables 5V boost converter on **GPIO 18** (`board.USB_HOST_5V_POWER`).
@@ -198,7 +198,7 @@ Run the automated build script from the repository root:
 
 The script automatically:
 1. Detects `arm-none-eabi-gcc` and verifies compiler version.
-2. Checks `$PICO_SDK_PATH`. If unset, it automatically shallow-clones the Raspberry Pi Pico SDK (v2.1.1) and initializes the `lib/tinyusb` submodule.
+2. Checks `$PICO_SDK_PATH`. If unset, it automatically shallow-clones the Raspberry Pi Pico SDK (v2.2.0) and initializes the `lib/tinyusb` submodule.
 3. Configures CMake with `-DPICO_BUILD=ON` for the target board (`adafruit_feather_rp2040` by default).
 4. Compiles the firmware target `tff_rp2040`.
 5. Verifies the generated `build-rp2040/tff_rp2040.uf2` binary and reports file size and SHA-256 hash.
@@ -231,7 +231,7 @@ The resulting `tff_rp2040.uf2` is generated in `build-rp2040/`.
 ## CI & Automated Release Pipeline
 
 Every commit and pull request triggers automated firmware compilation in GitHub Actions (`.github/workflows/ci.yml`):
-- Pico SDK v2.1.1 and TinyUSB are cached in CI for rapid build times.
+- Pico SDK v2.2.0 and TinyUSB are cached in CI for rapid build times.
 - Cross-compilation runs under strict settings.
 - The workflow validates the structural integrity of the generated `.uf2` file by checking the UF2 magic headers (`0x0A324655` / `0x9E5D5157`).
 - GitHub release events (`.github/workflows/release.yml`) automatically package the `.uf2` and `.elf` files, compute SHA-256 checksums, and publish them to GitHub Releases.
