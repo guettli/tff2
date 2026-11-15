@@ -38,6 +38,14 @@ SUDO
 chmod 0440 /etc/sudoers.d/tff-hw
 visudo -cf /etc/sudoers.d/tff-hw >/dev/null
 
+echo "==> udev: /dev/hidg* for group input"
+# The kernel creates /dev/hidg0 again (mode 0600) whenever the gadget is re-attached.
+cat > /etc/udev/rules.d/70-tff-hidg.rules <<RULE
+KERNEL=="hidg[0-9]*", GROUP="input", MODE="0660"
+RULE
+udevadm control --reload
+udevadm trigger --subsystem-match=hidg 2>/dev/null || true
+
 echo "==> fake keyboard gadget at boot"
 cat > /etc/systemd/system/tff-fake-keyboard.service <<UNIT
 [Unit]
