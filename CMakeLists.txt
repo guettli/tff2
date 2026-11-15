@@ -49,7 +49,7 @@ if(PICO_BUILD)
     FetchContent_Declare(
         pico_pio_usb
         GIT_REPOSITORY https://github.com/sekigon-gonnoc/Pico-PIO-USB.git
-        GIT_TAG 0.7.2
+        GIT_TAG 0.7.3
         GIT_SHALLOW TRUE
     )
     FetchContent_MakeAvailable(pico_pio_usb)

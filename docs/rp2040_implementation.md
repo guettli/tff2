@@ -97,7 +97,7 @@ Or download it manually from the [GitHub Releases page](https://github.com/guett
 ## Production Firmware (`tff_rp2040.uf2`)
 
 Ten Flying Fingers on RP2040 is a 100% pure bare-metal C++ firmware:
-- **Zero Python Runtime**: Compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` 0.7.2.
+- **Zero Python Runtime**: Compiled C++ using Pico SDK 2.1.1, TinyUSB, and `Pico-PIO-USB` 0.7.3.
 - **Microsecond Latency**: Direct hardware interrupt and PIO state machine execution.
 - **Hardware Integration**:
   - Automatically enables 5V boost converter on **GPIO 18** (`board.USB_HOST_5V_POWER`).
