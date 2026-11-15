@@ -5,29 +5,31 @@ is not obvious from the code.
 
 ## RP2040 firmware: test on real hardware
 
-CI only cross-compiles the firmware. No emulator covers the PIO-USB host port, so changes to the
-Pico SDK, TinyUSB, Pico-PIO-USB or `src/platform/rp2040/` need the hardware rig described in
-[docs/hardware_testing.md](docs/hardware_testing.md).
+No emulator covers the PIO-USB host port, so firmware changes are tested on a real board: the
+**Hardware Test** workflow (`.github/workflows/hardware.yml`) builds the firmware on a self-hosted
+runner, flashes it, runs `test_tff_automated.py` (30 cases) and checks 3 cold starts. It runs on
+pushes to `main` and on same-repo PRs that touch firmware paths, never on PRs from forks. It is
+not part of CI: when the runner is offline the job only waits, CI and Auto Release go on.
 
-The rig is in the maintainer's LAN: `ssh root@upboard.fritz.box`.
+The runner is in the maintainer's LAN: `ssh root@upboard.fritz.box`
+([docs/hardware_testing.md](docs/hardware_testing.md) describes the rig).
 
 - Feather RP2040 USB Host: its USB-C port is on hub port `1-7.1` of the UpBoard, its USB-A host
   port gets the UpBoard's OTG gadget (`/dev/hidg0`, UDC `dwc3.1.auto`) as keyboard.
-- The UpBoard has `arm-none-eabi-gcc` and CMake. Building there is faster than a CI round trip
-  (about 4.5 minutes):
-  `PICO_SDK_PATH=<sdk> scripts/build_rp2040.sh <build-dir>`. Use your own work tree, for
-  example under `/root/`; leave `/home/tff2` alone.
-- After an UpBoard reboot the gadget is gone: run `setup_fake_keyboard.sh`.
+- Set up with `scripts/hw-runner/setup.sh <registration-token>`: user `gh-runner` (runner service in
+  `/opt/actions-runner`), label `tff-rp2040-hw`, the gadget as systemd unit
+  `tff-fake-keyboard.service`, and the root helper `/usr/local/sbin/tff-hw` (the only thing
+  `gh-runner` may run with sudo).
+- `sudo tff-hw flash <uf2>` flashes (1200-baud touch → `RPI-RP2`) and waits until the RP2040 shows
+  up as keyboard and the gadget is `configured`; `sudo tff-hw cold-start` power-cycles the board
+  with `uhubctl`; `sudo tff-hw status` prints the rig state and the kernel log.
+- The UpBoard has `arm-none-eabi-gcc` and CMake, so for debugging, building there is faster than a
+  CI round trip (about 4.5 minutes): `PICO_SDK_PATH=<sdk> scripts/build_rp2040.sh <build-dir>`.
+  Use your own work tree under `/root/`; leave `/home/tff2` and `/home/gh-runner` alone.
 
-Test steps:
-
-1. Flash: `scripts/reboot_rp2040_bootloader.py`, then copy the UF2 to the `RPI-RP2` drive
-   (`scripts/deploy_rp2040.sh` does both).
-2. Check `cat /sys/class/udc/dwc3.1.auto/state`. It must say `configured`. `addressed` means the
-   RP2040 did not finish enumerating the gadget, and the test suite will hang or fail with
-   `BrokenPipeError` on `/dev/hidg0`.
-3. Run `python3 test_tff_automated.py` (30 cases). Compare against the firmware of `main`.
-4. Cold start, to check that enumeration is reliable: `uhubctl -l 1-7 -p 1 -a cycle`.
+Gadget state (`cat /sys/class/udc/dwc3.1.auto/state`): `configured` is good. `addressed` means
+the RP2040 did not finish enumerating the gadget; the test suite then hangs or fails with
+`BrokenPipeError` on `/dev/hidg0`.
 
 When enumeration fails:
 
