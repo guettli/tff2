@@ -34,6 +34,7 @@ for k, v in KEYS.items():
     NAMES.setdefault(v, k)
 
 EV_SYN, EV_KEY = 0, 1
+SYN_DROPPED = 3
 UI_SET_EVBIT, UI_SET_KEYBIT = 0x40045564, 0x40045565
 UI_DEV_SETUP, UI_DEV_CREATE, UI_DEV_DESTROY = 0x405C5503, 0x5501, 0x5502
 EVIOCGRAB = 0x40044590
@@ -165,6 +166,8 @@ def run_case(tff, case, workdir):
                             _, _, typ, code, value = struct.unpack(EVFMT, data[i:i + EVSZ])
                             if typ == EV_KEY:
                                 events.append((code, value))
+                            elif typ == EV_SYN and code == SYN_DROPPED:
+                                events.append((None, None))  # the kernel dropped events
 
                 drain(0.1)
                 for step in case["steps"].split():
@@ -199,6 +202,9 @@ def run_case(tff, case, workdir):
     decoder = Decoder(*case.get("xkb", ("us", "")))
     trace = []
     for code, value in events:
+        if code is None:
+            trace.append("SYN_DROPPED")
+            continue
         decoder.key(code, value)
         trace.append(NAMES.get(code, str(code)) + {0: "/", 1: "_", 2: "*"}[value])
     return decoder.text, " ".join(trace), open(log_path).read()
