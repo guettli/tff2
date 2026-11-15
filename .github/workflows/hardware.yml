@@ -1,0 +1,95 @@
+name: Hardware Test
+
+# Flashes the RP2040 firmware onto a real Feather RP2040 USB Host and runs test_tff_automated.py
+# against it. The board hangs on an UpBoard in the maintainer's LAN, which is a self-hosted
+# runner (setup: scripts/hw-runner/setup.sh, details: AGENTS.md).
+#
+# This is a workflow of its own, not a job in CI: when the UpBoard is offline the job just waits
+# for a runner, and neither CI nor Auto Release are held up.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/core/**'
+      - 'src/platform/rp2040/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+      - 'pico_sdk_import.cmake'
+      - 'scripts/build_rp2040.sh'
+      - 'scripts/hw-runner/**'
+      - 'test_tff_automated.py'
+      - 'setup_fake_keyboard.sh'
+      - '.github/workflows/hardware.yml'
+  pull_request:
+    paths:
+      - 'src/core/**'
+      - 'src/platform/rp2040/**'
+      - 'include/**'
+      - 'CMakeLists.txt'
+      - 'pico_sdk_import.cmake'
+      - 'scripts/build_rp2040.sh'
+      - 'scripts/hw-runner/**'
+      - 'test_tff_automated.py'
+      - 'setup_fake_keyboard.sh'
+      - '.github/workflows/hardware.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One test rig: runs queue up instead of flashing the board under each other's feet.
+  group: hardware-rig
+  cancel-in-progress: false
+
+jobs:
+  rp2040:
+    name: RP2040 on real hardware (UpBoard)
+    # The runner is a machine in a private LAN: never run code from forks on it.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, tff-rp2040-hw]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Pico SDK (kept on the runner between runs)
+        id: sdk
+        run: |
+          version="$(sed -nE 's/^PICO_SDK_VERSION="([^"]+)"/\1/p' scripts/build_rp2040.sh)"
+          test -n "${version}"
+          sdk="${HOME}/pico-sdk-${version}"
+          if [ ! -f "${sdk}/lib/tinyusb/src/tusb.h" ]; then
+            rm -rf "${sdk}"
+            git clone --quiet --depth 1 --branch "${version}" https://github.com/raspberrypi/pico-sdk.git "${sdk}"
+            git -C "${sdk}" submodule update --quiet --init --depth 1 lib/tinyusb
+          fi
+          echo "path=${sdk}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build firmware
+        env:
+          PICO_SDK_PATH: ${{ steps.sdk.outputs.path }}
+          PICO_BOARD: adafruit_feather_rp2040
+        run: bash scripts/build_rp2040.sh build-rp2040
+
+      - name: Flash
+        run: sudo /usr/local/sbin/tff-hw flash build-rp2040/tff_rp2040.uf2
+
+      - name: Test suite (30 cases)
+        timeout-minutes: 10
+        run: python3 test_tff_automated.py
+
+      - name: Cold start enumerates the keyboard again
+        run: |
+          for n in 1 2 3; do
+            echo "cold start ${n}"
+            sudo /usr/local/sbin/tff-hw cold-start
+          done
+
+      - name: Rig state on failure
+        if: failure()
+        run: sudo /usr/local/sbin/tff-hw status

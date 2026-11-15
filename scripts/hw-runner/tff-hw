@@ -1,0 +1,103 @@
+#!/bin/bash
+# Root helper of the hardware CI runner (installed as /usr/local/sbin/tff-hw, allowed for the
+# runner user via sudo). It flashes the Feather RP2040 and makes sure the UpBoard's OTG gadget
+# (the fake keyboard on the RP2040's USB-A host port) is enumerated.
+#
+#   tff-hw flash <file.uf2>   reboot the RP2040 into BOOTSEL, flash, wait for keyboard + gadget
+#   tff-hw cold-start         cut the RP2040's power and check that it enumerates again
+#   tff-hw status             print the state of RP2040 and gadget
+set -euo pipefail
+
+HUB=1-7                  # UpBoard hub, the RP2040's USB-C hangs on port 1
+PORT=1
+UDC=dwc3.1.auto
+GADGET=/sys/kernel/config/usb_gadget/fake_keyboard
+ROLE=/sys/class/usb_role/intel_xhci_usb_sw-role-switch/role
+BOOTSEL=/dev/disk/by-label/RPI-RP2
+MNT=/run/tff-hw-rp2
+
+die() { echo "tff-hw: $*" >&2; exit 1; }
+gadget_state() { cat "/sys/class/udc/${UDC}/state" 2>/dev/null || echo missing; }
+keyboard() { ls /dev/input/by-id/*RP2040_Keyboard*-event-kbd 2>/dev/null | head -n1; }
+
+rp2040_tty() {
+    local t
+    for t in /sys/class/tty/ttyACM*; do
+        [ -e "$t" ] || continue
+        case "$(readlink -f "$t/device")" in */${HUB}.${PORT}:1.*) echo "/dev/${t##*/}"; return ;; esac
+    done
+}
+
+wait_for() {  # wait_for <seconds> <command...>
+    local end=$((SECONDS + $1)); shift
+    until "$@" >/dev/null 2>&1; do
+        [ "$SECONDS" -lt "$end" ] || return 1
+        sleep 0.25
+    done
+}
+
+gadget_configured() { [ "$(gadget_state)" = configured ]; }
+
+ensure_gadget() {
+    [ -e "$GADGET" ] || /usr/local/sbin/tff-setup-fake-keyboard >/dev/null
+    gadget_configured && return 0
+    wait_for 10 gadget_configured && return 0
+    # Re-attach the gadget; after a reboot or a replug it can hang in "addressed".
+    echo "gadget is '$(gadget_state)', re-attaching"
+    echo "" > "$GADGET/UDC" 2>/dev/null || true
+    echo none > "$ROLE"; sleep 2; echo device > "$ROLE"; sleep 2
+    echo "$UDC" > "$GADGET/UDC"
+    wait_for 20 gadget_configured || die "gadget not enumerated by the RP2040 (state: $(gadget_state))"
+}
+
+wait_for_firmware() {
+    wait_for 30 keyboard || die "RP2040 keyboard did not appear"
+    ensure_gadget
+    echo "RP2040 keyboard: $(keyboard), gadget: $(gadget_state)"
+}
+
+cmd_flash() {
+    local uf2
+    uf2="$(realpath -e "${1:-}")" || die "usage: tff-hw flash <file.uf2>"
+    [[ "$uf2" == *.uf2 && -f "$uf2" ]] || die "not a .uf2 file: $uf2"
+    [ -e /sys/kernel/config/usb_gadget ] || modprobe libcomposite
+    if [ ! -e "$BOOTSEL" ]; then
+        local tty
+        tty="$(rp2040_tty)"
+        [ -n "$tty" ] || die "RP2040 serial port not found (try: tff-hw cold-start)"
+        # 1200-baud touch: TFF (and CircuitPython) reboot into the UF2 bootloader.
+        python3 -c 'import serial, sys; serial.Serial(sys.argv[1], 1200).close()' "$tty" || true
+        wait_for 20 test -e "$BOOTSEL" || die "RP2040 did not enter BOOTSEL mode"
+    fi
+    mkdir -p "$MNT"
+    mount "$BOOTSEL" "$MNT"
+    cp "$uf2" "$MNT/"
+    sync
+    umount -l "$MNT" 2>/dev/null || true  # the RP2040 reboots and drops the drive on its own
+    wait_for 20 sh -c "! test -e $BOOTSEL"
+    wait_for_firmware
+}
+
+cmd_cold_start() {
+    uhubctl -l "$HUB" -p "$PORT" -a off >/dev/null
+    sleep 2
+    uhubctl -l "$HUB" -p "$PORT" -a on >/dev/null
+    wait_for_firmware
+}
+
+cmd_status() {
+    echo "keyboard: $(keyboard || true)"
+    echo "tty:      $(rp2040_tty || true)"
+    echo "bootsel:  $([ -e "$BOOTSEL" ] && echo yes || echo no)"
+    echo "gadget:   $(gadget_state)"
+    echo "--- kernel log"
+    dmesg | grep -vE 'audit' | tail -n 30
+}
+
+[ "$(id -u)" -eq 0 ] || die "run as root (sudo)"
+case "${1:-}" in
+    flash) cmd_flash "${2:-}" ;;
+    cold-start) cmd_cold_start ;;
+    status) cmd_status ;;
+    *) die "usage: tff-hw flash <file.uf2> | cold-start | status" ;;
+esac
