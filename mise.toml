@@ -2,6 +2,8 @@
     _.file = ".env"
 
 [tools]
+betterleaks = "1.10.1"
+prek = "0.5.11"
 agy = "latest"
 fd = "latest"
 
